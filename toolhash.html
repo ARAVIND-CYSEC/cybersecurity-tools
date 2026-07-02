@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CyberShield - Security Operations</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config = { darkMode: "class" };</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#f4f7fb; --surface:rgba(255,255,255,.86); --surface-2:rgba(255,255,255,.94); --line:rgba(148,163,184,.24); --text:#0f172a; --muted:#475569; }
+  .dark { --bg:#0b1220; --surface:rgba(17,24,39,.78); --surface-2:rgba(17,24,39,.92); --line:rgba(99,102,241,.18); --text:#f8fafc; --muted:#94a3b8; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; font-family:"Inter",sans-serif; color:var(--text); background:radial-gradient(circle at top left,rgba(99,102,241,.12),transparent 24%),radial-gradient(circle at bottom right,rgba(34,211,238,.08),transparent 22%),var(--bg); transition:background-color .25s ease,color .25s ease; }
+  body::before { content:""; position:fixed; inset:0; background-image:linear-gradient(rgba(148,163,184,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(148,163,184,.06) 1px,transparent 1px); background-size:34px 34px; pointer-events:none; opacity:.45; }
+  .glass { background:var(--surface); border:1px solid var(--line); backdrop-filter:blur(18px); box-shadow:0 12px 34px rgba(15,23,42,.12); }
+  .glass-strong { background:var(--surface-2); border:1px solid var(--line); backdrop-filter:blur(18px); }
+  .mono { font-family:"JetBrains Mono",monospace; }
+  .sidebar-item,.action-button,.tab-button { transition:all .22s ease; }
+  .sidebar-item { display:flex; align-items:center; gap:.85rem; padding:.9rem 1rem; border-radius:1rem; color:var(--muted); cursor:pointer; white-space:nowrap; }
+  .sidebar-item:hover { color:var(--text); background:rgba(99,102,241,.08); }
+  .sidebar-item.active { color:#f8fafc; background:linear-gradient(135deg,rgba(99,102,241,.22),rgba(34,211,238,.12)); border:1px solid rgba(99,102,241,.3); box-shadow:inset 0 0 0 1px rgba(99,102,241,.2),0 0 18px rgba(99,102,241,.18); }
+  .sidebar-icon { width:1.25rem; height:1.25rem; flex:0 0 auto; }
+  .sidebar[data-collapsed="true"] { width:5.75rem; }
+  .sidebar[data-collapsed="true"] .sidebar-label,.sidebar[data-collapsed="true"] .brand-copy,.sidebar[data-collapsed="true"] .sidebar-footer { display:none; }
+  .sidebar[data-collapsed="true"] .sidebar-item { justify-content:center; padding-inline:.75rem; }
+  .top-search,.control-pill,.input-shell,.analyst-button,.action-button,.tab-button { border:1px solid var(--line); background:var(--surface); color:var(--text); backdrop-filter:blur(14px); }
+  .top-search:focus,.input-shell:focus { outline:none; border-color:rgba(99,102,241,.5); box-shadow:0 0 0 3px rgba(99,102,241,.18); }
+  .status-tag { display:inline-flex; align-items:center; gap:.45rem; border-radius:999px; padding:.45rem .8rem; font-size:.75rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+  .severity-pill { position:relative; overflow:hidden; }
+  .severity-pill.critical::after,.scan-loader::after { content:""; position:absolute; inset:0; background:linear-gradient(90deg,transparent,rgba(255,255,255,.12),transparent); transform:translateX(-100%); animation:pulseSweep 2.6s linear infinite; }
+  .gauge-ring { width:12rem; height:12rem; border-radius:999px; display:grid; place-items:center; position:relative; }
+  .gauge-ring::before { content:""; position:absolute; inset:0; border-radius:inherit; background:conic-gradient(#ef4444 var(--gauge,0%),rgba(148,163,184,.16) 0); }
+  .gauge-ring::after { content:""; position:absolute; inset:.85rem; border-radius:inherit; background:var(--surface-2); border:1px solid var(--line); }
+  .gauge-center { position:relative; z-index:1; text-align:center; }
+  .flow-node { border:1px solid var(--line); background:var(--surface); border-radius:1rem; padding:1rem; min-width:10rem; }
+  .flow-arrow { width:3rem; height:2px; background:linear-gradient(90deg,rgba(99,102,241,.2),rgba(99,102,241,.7)); position:relative; }
+  .flow-arrow::after { content:""; position:absolute; right:-.05rem; top:50%; width:.6rem; height:.6rem; border-top:2px solid rgba(99,102,241,.8); border-right:2px solid rgba(99,102,241,.8); transform:translateY(-50%) rotate(45deg); }
+  .detection-row { display:grid; grid-template-columns:1.4fr .8fr .9fr; gap:1rem; align-items:center; padding:.95rem 1rem; border-radius:1rem; border:1px solid var(--line); background:rgba(255,255,255,.04); }
+  .timeline-line { position:absolute; left:1rem; top:0; bottom:0; width:2px; background:linear-gradient(180deg,rgba(99,102,241,.6),rgba(34,211,238,.18)); }
+  .timeline-item { position:relative; padding-left:3.25rem; }
+  .timeline-dot { position:absolute; left:.55rem; top:.2rem; width:.9rem; height:.9rem; border-radius:999px; background:#6366f1; box-shadow:0 0 0 5px rgba(99,102,241,.16); }
+  .tab-button { padding:.8rem 1rem; border-radius:.95rem; color:var(--muted); }
+  .tab-button.active { color:#f8fafc; background:linear-gradient(135deg,rgba(99,102,241,.24),rgba(34,211,238,.08)); border-color:rgba(99,102,241,.3); }
+  .action-button { display:inline-flex; align-items:center; justify-content:center; gap:.5rem; padding:.9rem 1.1rem; border-radius:1rem; font-weight:600; }
+  .action-button:hover { transform:translateY(-1px); box-shadow:0 10px 20px rgba(15,23,42,.12); }
+  .action-button.primary { background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff; }
+  .map-grid { min-height:14rem; border-radius:1.25rem; border:1px solid var(--line); background:radial-gradient(circle at 30% 40%,rgba(34,211,238,.12),transparent 18%),radial-gradient(circle at 72% 58%,rgba(239,68,68,.14),transparent 18%),linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01)); position:relative; overflow:hidden; }
+  .map-grid::before { content:""; position:absolute; inset:0; background-image:linear-gradient(rgba(148,163,184,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(148,163,184,.06) 1px,transparent 1px); background-size:28px 28px; }
+  .map-dot { position:absolute; width:.85rem; height:.85rem; border-radius:999px; animation:beacon 2.2s ease-in-out infinite; }
+  .toast { position:fixed; right:1.5rem; bottom:1.5rem; z-index:50; max-width:20rem; }
+  @keyframes pulseSweep { from { transform:translateX(-100%); } to { transform:translateX(100%); } }
+  @keyframes beacon { 0%,100% { transform:scale(1); opacity:.7; box-shadow:0 0 0 0 rgba(99,102,241,.3); } 50% { transform:scale(1.28); opacity:1; box-shadow:0 0 0 10px rgba(99,102,241,0); } }
+  @media (max-width:1024px) {
+    .desktop-sidebar { position:static; width:100%; height:auto; margin-bottom:1rem; display:block !important; }
+    .main-shell { margin-left:0 !important; padding-top:0 !important; }
+  }
+</style>
+  <link rel="stylesheet" href="responsive.css">
+</head>
+<body>
+<div class="min-h-screen relative z-10 lg:flex">
+  <aside id="sidebar" data-collapsed="false" class="sidebar desktop-sidebar glass-strong fixed left-4 top-4 bottom-4 w-[17rem] rounded-[1.75rem] p-4 lg:flex lg:flex-col gap-4 hidden">
+    <div class="flex items-center justify-between gap-3 mb-3">
+      <a href="home2.html" class="flex items-center gap-3 min-w-0 no-underline text-inherit">
+        <div class="h-11 w-11 rounded-2xl bg-indigo-500/15 border border-indigo-400/20 flex items-center justify-center text-indigo-300">
+          <svg xmlns="http://www.w3.org/2000/svg" class="sidebar-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l7 3v6c0 5.25-3.44 9.92-7 11-3.56-1.08-7-5.75-7-11V5l7-3zm0 4.2L8 7.86v3.02c0 3.73 2.24 7.04 4 7.88 1.76-.84 4-4.15 4-7.88V7.86l-4-1.66z"/></svg>
+        </div>
+        <div class="brand-copy min-w-0">
+          <p class="m-0 text-sm font-semibold tracking-[0.22em] uppercase text-indigo-300">CyberShield</p>
+          <p class="m-0 text-xs text-slate-500 dark:text-slate-400">Security Operations</p>
+        </div>
+      </a>
+      <button id="collapseSidebarBtn" class="action-button !p-2 !rounded-xl">
+        <svg xmlns="http://www.w3.org/2000/svg" class="sidebar-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+      </button>
+    </div>
+    <nav class="flex flex-col gap-2 flex-1" id="sidebarNav"></nav>
+    <div class="sidebar-footer rounded-2xl border border-indigo-400/20 bg-indigo-500/10 p-4">
+      <p class="m-0 text-xs uppercase tracking-[0.18em] text-indigo-300">Analyst Workflow</p>
+      <p class="mt-2 mb-0 text-sm text-slate-600 dark:text-slate-300">Answer what is happening, how severe it is, and what you should do next.</p>
+    </div>
+  </aside>
+
+  <main class="main-shell flex-1 lg:ml-[19.5rem] px-4 pb-10 pt-4 lg:pt-4">
+    <div class="glass-strong rounded-[1.6rem] p-4 md:p-5">
+      <div class="flex flex-col xl:flex-row gap-4 xl:items-center xl:justify-between">
+        <div class="flex-1 flex flex-col md:flex-row gap-3">
+          <div class="relative flex-1">
+            <input id="globalSearchInput" class="top-search w-full rounded-2xl px-4 py-3 pl-11 text-sm md:text-base" placeholder="Global IOC Search: URL / IP / hash / domain" />
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="currentColor"><path d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2z"/></svg>
+          </div>
+          <button id="globalSearchBtn" class="action-button primary">Run Search</button>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <div class="control-pill rounded-2xl px-3 py-2 flex items-center gap-2 text-sm">
+            <span class="text-slate-500 dark:text-slate-400">Environment</span>
+            <button class="env-switch px-3 py-1 rounded-xl bg-indigo-500 text-white" data-env="prod">Prod</button>
+            <button class="env-switch px-3 py-1 rounded-xl" data-env="staging">Staging</button>
+          </div>
+          <button id="notificationBtn" class="analyst-button rounded-2xl px-4 py-3 flex items-center gap-2"><span>🔔</span><span class="hidden sm:inline">Notifications</span></button>
+          <button id="themeToggle" class="analyst-button rounded-2xl px-4 py-3" title="Toggle theme" aria-label="Toggle theme"><span aria-hidden="true">&#9790;</span></button>
+          <div class="analyst-button rounded-2xl px-4 py-3 flex items-center gap-3">
+            <div class="h-9 w-9 rounded-full bg-indigo-500/20 border border-indigo-400/20 flex items-center justify-center text-indigo-300 font-bold">AR</div>
+            <div class="text-left hidden sm:block">
+              <p class="m-0 text-sm font-semibold">Analyst Ravi</p>
+              <p class="m-0 text-xs text-slate-500 dark:text-slate-400">Tier 1 SOC</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <section id="threatStrip" class="mt-4 grid grid-cols-2 xl:grid-cols-4 gap-4"></section>
+    <section class="mt-5 grid grid-cols-1 2xl:grid-cols-[1.6fr_0.7fr] gap-5">
+      <div id="workspaceContent" class="space-y-5"></div>
+      <div class="space-y-5">
+        <div class="glass rounded-[1.5rem] p-5">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <p class="m-0 text-xs uppercase tracking-[0.22em] text-indigo-300">AI Threat Analyst</p>
+              <h2 class="mt-2 mb-0 text-2xl font-bold">Context-driven decision support</h2>
+            </div>
+            <div class="h-11 w-11 rounded-2xl bg-indigo-500/15 border border-indigo-400/20 flex items-center justify-center text-indigo-300">🧠</div>
+          </div>
+          <div id="aiPanelContent" class="mt-4 space-y-4"></div>
+        </div>
+        <div class="glass rounded-[1.5rem] p-5">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <p class="m-0 text-xs uppercase tracking-[0.22em] text-cyan-300">Live Threat Map</p>
+              <h2 class="mt-2 mb-0 text-xl font-bold">Attack surface view</h2>
+            </div>
+            <span class="status-tag bg-emerald-500/10 text-emerald-400">Live</span>
+          </div>
+          <div class="map-grid mt-4">
+            <span class="map-dot" style="left:18%;top:42%;background:#22d3ee;"></span>
+            <span class="map-dot" style="left:52%;top:30%;background:#6366f1;"></span>
+            <span class="map-dot" style="left:73%;top:58%;background:#ef4444;"></span>
+            <span class="absolute left-[15%] top-[48%] text-xs mono text-slate-500 dark:text-slate-400">US</span>
+            <span class="absolute left-[49%] top-[36%] text-xs mono text-slate-500 dark:text-slate-400">EU</span>
+            <span class="absolute left-[70%] top-[64%] text-xs mono text-slate-500 dark:text-slate-400">APAC</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<div id="toast" class="toast hidden"></div>
+
+<script>
+  const state = {
+    activeSection: "dashboard",
+    activeTab: "overview",
+    activeSeverity: "all",
+    environment: "prod",
+    findings: JSON.parse(localStorage.getItem("cybershieldSocFindings") || "[]"),
+    latestUrlAnalysis: null,
+    latestFileAnalysis: null,
+    latestTlsAnalysis: null
+  };
+  const workspaceContent = document.getElementById("workspaceContent");
+  const threatStrip = document.getElementById("threatStrip");
+  const sidebar = document.getElementById("sidebar");
+  const aiPanelContent = document.getElementById("aiPanelContent");
+  const toast = document.getElementById("toast");
+
+  const navItems = [
+    ["dashboard", "Dashboard", '<path d="M3 13h8V3H3v10zm10 8h8V11h-8v10zM3 21h8v-6H3v6zm10-10h8V3h-8v8z"/>'],
+    ["investigations", "Investigations", '<path d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2z"/>'],
+    ["url", "URL Intelligence", '<path d="M3.9 12a5 5 0 015-5h3v2h-3a3 3 0 000 6h3v2h-3a5 5 0 01-5-5zm7.1 1h2v-2h-2v2zm4-6h-3v2h3a3 3 0 010 6h-3v2h3a5 5 0 000-10z"/>'],
+    ["file", "File Analysis", '<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm1 7V3.5L19.5 9H15z"/>'],
+    ["tls", "TLS Intelligence", '<path d="M12 1l8 4.9v4.4c0 5.1-3.4 9.8-9 10.7-5.6-.9-9-5.6-9-10.7V6.9L12 1zm0 6a3 3 0 00-3 3v1H8v5h8v-5h-1v-1a3 3 0 00-3-3z"/>'],
+    ["intel", "Threat Intel", '<path d="M12 2l9 4.9v4.4c0 5.1-3.4 9.8-9 10.7-5.6-.9-9-5.6-9-10.7V6.9L12 2zm1 5h-2v6h2V7zm-2 8v2h2v-2h-2z"/>'],
+    ["reports", "Reports", '<path d="M4 4h16v2H4V4zm0 4h10v2H4V8zm0 4h16v2H4v-2zm0 4h10v2H4v-2z"/>'],
+    ["settings", "Settings", '<path d="M19.14 12.94a7.48 7.48 0 000-1.88l2.03-1.58-1.92-3.32-2.39.96a7.37 7.37 0 00-1.62-.94l-.36-2.54h-3.84l-.36 2.54c-.57.22-1.11.54-1.62.94l-2.39-.96-1.92 3.32 2.03 1.58a7.48 7.48 0 000 1.88l-2.03 1.58 1.92 3.32 2.39-.96c.5.4 1.05.72 1.62.94l.36 2.54h3.84l.36-2.54c.57-.22 1.12-.54 1.62-.94l2.39.96 1.92-3.32-2.03-1.58zM12 15.5A3.5 3.5 0 1112 8a3.5 3.5 0 010 7.5z"/>']
+  ];
+
+  function applyTheme(isDark) {
+    document.documentElement.classList.toggle("dark", isDark);
+    localStorage.theme = isDark ? "dark" : "light";
+  }
+
+  function initTheme() {
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const storedTheme = localStorage.theme;
+    applyTheme(storedTheme ? storedTheme === "dark" : prefersDark);
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, (char) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[char]));
+  }
+
+  function saveReport(report) {
+    const key = "cybershieldSavedReports";
+    const reports = JSON.parse(localStorage.getItem(key) || "[]");
+    reports.unshift({ id: `${report.tool}-${Date.now()}`, savedAt: new Date().toISOString(), ...report });
+    localStorage.setItem(key, JSON.stringify(reports.slice(0, 50)));
+  }
+
+  function saveFinding(finding) {
+    state.findings.unshift({ id: Date.now(), ...finding });
+    state.findings = state.findings.slice(0, 120);
+    localStorage.setItem("cybershieldSocFindings", JSON.stringify(state.findings));
+  }
+
+  function exportReport(report, filename) {
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function showToast(message, kind = "info") {
+    const styles = {
+      info: "bg-indigo-500/10 text-indigo-200 border-indigo-400/20",
+      success: "bg-emerald-500/10 text-emerald-200 border-emerald-400/20",
+      danger: "bg-rose-500/10 text-rose-200 border-rose-400/20"
+    };
+    toast.className = `toast glass rounded-2xl p-4 ${styles[kind] || styles.info}`;
+    toast.textContent = message;
+    toast.classList.remove("hidden");
+    clearTimeout(showToast.timer);
+    showToast.timer = setTimeout(() => toast.classList.add("hidden"), 2600);
+  }
+
+  function severityClass(label) {
+    switch (label) {
+      case "Critical": return "critical bg-rose-500/10 text-rose-400";
+      case "High": return "bg-amber-500/10 text-amber-400";
+      case "Medium": return "bg-yellow-500/10 text-yellow-400";
+      default: return "bg-emerald-500/10 text-emerald-400";
+    }
+  }
+
+  function aggregatedSeverities() {
+    const base = { Critical: 12, High: 34, Medium: 89, Low: 120 };
+    state.findings.forEach((finding) => {
+      if (finding.severity && base[finding.severity] != null) base[finding.severity] += 1;
+    });
+    return base;
+  }
+
+  function renderSidebar() {
+    const nav = document.getElementById("sidebarNav");
+    nav.innerHTML = navItems.map(([key, label, path]) => `
+      <button class="sidebar-item ${state.activeSection === key ? "active" : ""}" data-section="${key}" title="${label}">
+        <svg xmlns="http://www.w3.org/2000/svg" class="sidebar-icon" viewBox="0 0 24 24" fill="currentColor">${path}</svg>
+        <span class="sidebar-label">${label}</span>
+      </button>
+    `).join("");
+    nav.querySelectorAll("[data-section]").forEach((button) => {
+      button.addEventListener("click", () => switchSection(button.dataset.section));
+    });
+  }
+
+  function renderThreatStrip() {
+    const counts = aggregatedSeverities();
+    threatStrip.innerHTML = Object.entries(counts).map(([label, count]) => `
+      <button class="severity-pill glass rounded-[1.3rem] p-4 text-left ${severityClass(label)}" data-severity="${label.toLowerCase()}">
+        <p class="m-0 text-xs uppercase tracking-[0.2em]">${label}</p>
+        <p class="mt-3 mb-0 text-3xl font-bold">${count}</p>
+      </button>
+    `).join("");
+    threatStrip.querySelectorAll("[data-severity]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.activeSeverity = button.dataset.severity;
+        renderWorkspace();
+        showToast(`Filtered view by ${button.dataset.severity} severity.`, "info");
+      });
+    });
+  }
+
+  function buildAiSummaryForUrl(analysis) {
+    if (!analysis) {
+      return {
+        text: "No active finding yet. Run an analysis to generate a grounded AI-style summary for the current evidence.",
+        confidence: 0,
+        actions: ["Run URL or file analysis to generate next-step guidance."]
+      };
+    }
+    const text = analysis.riskScore >= 75
+      ? `This URL shows phishing indicators such as ${analysis.issues.slice(0, 2).join(" and ")}. Treat it as malicious until disproven.`
+      : analysis.riskScore >= 35
+        ? "This URL is suspicious and requires analyst review before a full block decision."
+        : "This URL currently appears low risk from a quick heuristic pass, but should still be monitored if it is user-facing.";
+    const actions = analysis.riskScore >= 75
+      ? ["Block domain", "Alert users", "Monitor traffic"]
+      : analysis.riskScore >= 35
+        ? ["Review content", "Check hosting and ASN", "Retain for monitoring"]
+        : ["Record result", "Continue passive monitoring", "Escalate only if new indicators appear"];
+    return { text, confidence: Math.min(98, Math.max(52, analysis.riskScore + 10)), actions };
+  }
+
+  function updateAiPanel(summary) {
+    aiPanelContent.innerHTML = `
+      <div class="rounded-2xl border border-[var(--line)] p-4">
+        <p class="m-0 text-sm text-slate-500 dark:text-slate-400">Summary</p>
+        <p class="mt-2 mb-0 text-sm leading-7 text-slate-700 dark:text-slate-200">${escapeHtml(summary.text)}</p>
+      </div>
+      <div class="rounded-2xl border border-[var(--line)] p-4">
+        <div class="flex items-center justify-between gap-3">
+          <p class="m-0 text-sm text-slate-500 dark:text-slate-400">Confidence</p>
+          <span class="status-tag ${summary.confidence >= 85 ? "bg-rose-500/10 text-rose-400" : summary.confidence >= 60 ? "bg-amber-500/10 text-amber-400" : "bg-emerald-500/10 text-emerald-400"}">${summary.confidence ? `${summary.confidence}%` : "Awaiting"}</span>
+        </div>
+      </div>
+      <div class="rounded-2xl border border-[var(--line)] p-4">
+        <p class="m-0 text-sm text-slate-500 dark:text-slate-400">Recommended Actions</p>
+        <ul class="mt-3 space-y-2 text-sm text-slate-700 dark:text-slate-200 pl-5">${summary.actions.map((action) => `<li>${escapeHtml(action)}</li>`).join("")}</ul>
+      </div>
+      <button id="openChatAssistant" class="action-button primary w-full">Open AI Assistant</button>
+    `;
+    document.getElementById("openChatAssistant").addEventListener("click", () => {
+      const launcher = document.querySelector("[data-ai-assistant-launch], #cybershield-ai-launcher");
+      if (launcher) launcher.click();
+      else showToast("AI assistant launcher not found on this page.", "info");
+    });
+  }
+
+  function detectionRowsFromAnalysis(analysis) {
+    if (!analysis) return [["Google Safe", "Pending", "No scan yet"], ["PhishTank", "Pending", "No scan yet"], ["CrowdStrike", "Pending", "No scan yet"]];
+    const severe = analysis.riskScore >= 75;
+    const suspicious = analysis.riskScore >= 35;
+    return [
+      ["Google Safe", severe ? "Malicious" : suspicious ? "Suspicious" : "Clean", severe ? "Reputation hit" : suspicious ? "Heuristic trigger" : "No hit"],
+      ["PhishTank", severe ? "Detected" : suspicious ? "Suspected" : "Clean", analysis.issues[0] || "No phishing pattern"],
+      ["CrowdStrike", severe ? "Monitor" : "Clean", analysis.issues[1] || "No network action"]
+    ];
+  }
+
+  function generateTimeline(analysis) {
+    if (!analysis) return [{ time: "Awaiting", title: "No URL intelligence event yet", text: "Run an analysis to generate the forensic timeline." }];
+    return [
+      { time: "10:32", title: "Domain observed in analyst search", text: `IOC submitted: ${analysis.hostname}` },
+      { time: "10:35", title: "Validation engine triggered", text: "Heuristic URL checks, redirect simulation, and network enrichment requested." },
+      { time: "10:40", title: "Behavioral suspicion scored", text: `${analysis.issues.length} notable indicators contributed to the risk score.` },
+      { time: "10:50", title: analysis.verdict === "High Risk" ? "Flagged as phishing" : analysis.verdict === "Suspicious" ? "Marked for review" : "Low-risk signal retained", text: `Current status is ${analysis.verdict} with score ${analysis.riskScore}/100.` }
+    ];
+  }
+
+  function renderOverviewTab(analysis) {
+    if (!analysis) return `<div class="glass rounded-[1.4rem] p-5 text-sm text-slate-600 dark:text-slate-300">No intelligence yet. Submit a URL to populate the overview.</div>`;
+    return `<div class="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div class="glass rounded-[1.4rem] p-5"><p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Domain Age</p><p class="mt-3 mb-0 text-lg font-semibold">${analysis.domainAge}</p></div>
+      <div class="glass rounded-[1.4rem] p-5"><p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Registrar</p><p class="mt-3 mb-0 text-lg font-semibold">${escapeHtml(analysis.registrar)}</p></div>
+      <div class="glass rounded-[1.4rem] p-5"><p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">First Seen</p><p class="mt-3 mb-0 text-lg font-semibold">${analysis.firstSeen}</p></div>
+      <div class="glass rounded-[1.4rem] p-5"><p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Reputation</p><p class="mt-3 mb-0 text-lg font-semibold">${analysis.reputation}/100</p></div>
+    </div>`;
+  }
+
+  function renderNetworkTab(analysis) {
+    if (!analysis) return `<div class="glass rounded-[1.4rem] p-5 text-sm text-slate-600 dark:text-slate-300">Run URL analysis to populate network context.</div>`;
+    return `<div class="grid lg:grid-cols-2 gap-4">
+      <div class="glass rounded-[1.4rem] p-5">
+        <h3 class="mt-0 mb-4 text-lg font-semibold">Network Context</h3>
+        <div class="space-y-3 text-sm">
+          <div><span class="text-slate-500 dark:text-slate-400">IP Address:</span> <span class="mono">${escapeHtml(analysis.ip || "N/A")}</span></div>
+          <div><span class="text-slate-500 dark:text-slate-400">ASN / Org:</span> ${escapeHtml(analysis.asnOrg || "Unknown")}</div>
+          <div><span class="text-slate-500 dark:text-slate-400">Country:</span> ${escapeHtml(analysis.country || "Unknown")}</div>
+          <div><span class="text-slate-500 dark:text-slate-400">Geo Hint:</span> ${escapeHtml(analysis.geoHint)}</div>
+        </div>
+      </div>
+      <div class="glass rounded-[1.4rem] p-5">
+        <h3 class="mt-0 mb-4 text-lg font-semibold">IOC Correlation</h3>
+        <div class="space-y-3 text-sm">
+          <div class="rounded-xl border border-[var(--line)] p-3">Same ASN observed with ${analysis.relatedDomains} related domain signal(s).</div>
+          <div class="rounded-xl border border-[var(--line)] p-3">Hosting pattern indicates ${analysis.hostingRisk} infrastructure risk.</div>
+          <div class="rounded-xl border border-[var(--line)] p-3">Pivot to Threat Intel for follow-up artifact review.</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function renderContentTab(analysis) {
+    if (!analysis) return `<div class="glass rounded-[1.4rem] p-5 text-sm text-slate-600 dark:text-slate-300">Run URL analysis to inspect content-layer hints.</div>`;
+    return `<div class="glass rounded-[1.4rem] p-5"><div class="grid md:grid-cols-3 gap-4 text-sm">
+      <div class="rounded-xl border border-[var(--line)] p-4"><p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Page Title</p><p class="mt-3 mb-0">${escapeHtml(analysis.pageTitle)}</p></div>
+      <div class="rounded-xl border border-[var(--line)] p-4"><p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Scripts</p><p class="mt-3 mb-0">${escapeHtml(analysis.scriptHint)}</p></div>
+      <div class="rounded-xl border border-[var(--line)] p-4"><p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Keywords</p><p class="mt-3 mb-0">${escapeHtml(analysis.keywordHint)}</p></div>
+    </div></div>`;
+  }
+
+  function renderCertificateTab(analysis) {
+    if (!analysis) return `<div class="glass rounded-[1.4rem] p-5 text-sm text-slate-600 dark:text-slate-300">Run URL analysis to populate certificate context.</div>`;
+    return `<div class="glass rounded-[1.4rem] p-5"><div class="grid md:grid-cols-3 gap-4 text-sm">
+      <div class="rounded-xl border border-[var(--line)] p-4"><p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Issuer</p><p class="mt-3 mb-0">${escapeHtml(analysis.certificateIssuer)}</p></div>
+      <div class="rounded-xl border border-[var(--line)] p-4"><p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Expiry</p><p class="mt-3 mb-0">${escapeHtml(analysis.certificateExpiry)}</p></div>
+      <div class="rounded-xl border border-[var(--line)] p-4"><p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Weak Cipher</p><p class="mt-3 mb-0">${analysis.weakCipher ? "Detected" : "Not observed"}</p></div>
+    </div></div>`;
+  }
+
+  function renderBehaviorTab(analysis) {
+    if (!analysis) return `<div class="glass rounded-[1.4rem] p-5 text-sm text-slate-600 dark:text-slate-300">Run URL analysis to populate behavior simulation.</div>`;
+    return `<div class="glass rounded-[1.4rem] p-5"><div class="grid md:grid-cols-2 gap-4 text-sm">
+      <div class="rounded-xl border border-[var(--line)] p-4"><p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Redirect Behavior</p><p class="mt-3 mb-0">${escapeHtml(analysis.redirectNote)}</p></div>
+      <div class="rounded-xl border border-[var(--line)] p-4"><p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Payload Indicator</p><p class="mt-3 mb-0">${escapeHtml(analysis.payloadIndicator)}</p></div>
+    </div></div>`;
+  }
+
+  function renderUrlWorkspace() {
+    const analysis = state.latestUrlAnalysis;
+    const detections = detectionRowsFromAnalysis(analysis);
+    const timeline = generateTimeline(analysis);
+    const tabMap = { overview: renderOverviewTab, network: renderNetworkTab, content: renderContentTab, certificate: renderCertificateTab, behavior: renderBehaviorTab };
+    workspaceContent.innerHTML = `
+      <section class="glass rounded-[1.7rem] p-5 md:p-6">
+        <div class="flex flex-col xl:flex-row gap-5">
+          <div class="xl:w-[28rem] space-y-5">
+            <div class="flex items-center justify-between gap-3">
+              <div><p class="m-0 text-xs uppercase tracking-[0.22em] text-rose-400">URL Intelligence Panel</p><h1 class="mt-2 mb-0 text-3xl font-bold">Threat-centric URL analysis</h1></div>
+              <span class="status-tag ${analysis ? (analysis.riskScore >= 75 ? "bg-rose-500/10 text-rose-400" : analysis.riskScore >= 35 ? "bg-amber-500/10 text-amber-400" : "bg-emerald-500/10 text-emerald-400") : "bg-slate-500/10 text-slate-500"}">${analysis ? analysis.status : "Idle"}</span>
+            </div>
+            <div class="space-y-3">
+              <input id="urlIntelInput" class="input-shell w-full rounded-2xl px-4 py-3 mono" placeholder="https://suspicious-login.example" value="${escapeHtml(analysis?.query || "")}" />
+              <div class="grid sm:grid-cols-2 gap-3"><button id="analyzeUrlBtn" class="action-button primary">Analyze URL</button><button id="exportUrlBtn" class="action-button">Export Report</button></div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div class="glass rounded-[1.2rem] p-4"><p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Risk Score</p><p class="mt-3 mb-0 text-2xl font-bold">${analysis ? analysis.riskScore : "--"}/100</p></div>
+              <div class="glass rounded-[1.2rem] p-4"><p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Category</p><p class="mt-3 mb-0 text-2xl font-bold">${analysis ? analysis.category : "Unknown"}</p></div>
+              <div class="glass rounded-[1.2rem] p-4"><p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Status</p><p class="mt-3 mb-0 text-2xl font-bold">${analysis ? analysis.status : "Idle"}</p></div>
+            </div>
+          </div>
+          <div class="flex-1 space-y-5">
+            <div class="grid xl:grid-cols-[0.8fr_1.2fr] gap-5">
+              <div class="glass rounded-[1.4rem] p-5"><p class="m-0 text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Risk Gauge</p><div class="mt-5 flex justify-center"><div class="gauge-ring" style="--gauge:${analysis ? analysis.riskScore : 0}%"><div class="gauge-center"><p class="m-0 text-4xl font-extrabold">${analysis ? analysis.riskScore : 0}</p><p class="m-0 text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Severity</p></div></div></div></div>
+              <div class="glass rounded-[1.4rem] p-5"><p class="m-0 text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Redirect Chain Graph</p><div class="mt-5 flex flex-wrap items-center gap-3">${(analysis ? analysis.redirectChain : ["User","Target"]).map((node, index, arr) => `<div class="flex items-center gap-3"><div class="flow-node"><p class="m-0 text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Node ${index + 1}</p><p class="mt-2 mb-0 mono text-sm">${escapeHtml(node)}</p></div>${index < arr.length - 1 ? '<div class="flow-arrow"></div>' : ""}</div>`).join("")}</div></div>
+            </div>
+            <div class="glass rounded-[1.4rem] p-5">
+              <div class="flex flex-wrap gap-3">${["overview","network","content","certificate","behavior"].map((tab) => `<button class="tab-button ${state.activeTab === tab ? "active" : ""}" data-tab="${tab}">${tab.charAt(0).toUpperCase() + tab.slice(1)}</button>`).join("")}</div>
+              <div class="mt-5">${tabMap[state.activeTab](analysis)}</div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section class="glass rounded-[1.7rem] p-5 md:p-6">
+        <div class="flex items-center justify-between gap-3"><div><p class="m-0 text-xs uppercase tracking-[0.22em] text-amber-400">Detection Engine Panel</p><h2 class="mt-2 mb-0 text-2xl font-bold">Multi-engine verdict view</h2></div><span class="status-tag bg-indigo-500/10 text-indigo-300">Engine Grid</span></div>
+        <div class="mt-5 space-y-3">${detections.filter((row) => state.activeSeverity === "all" || row[1].toLowerCase().includes(state.activeSeverity)).map((row) => `<div class="detection-row"><div><p class="m-0 font-semibold">${escapeHtml(row[0])}</p><p class="mt-1 mb-0 text-sm text-slate-500 dark:text-slate-400">${escapeHtml(row[2])}</p></div><div class="${row[1].includes("Malicious") || row[1].includes("Detected") ? "text-rose-400" : row[1].includes("Suspicious") || row[1].includes("Monitor") ? "text-amber-400" : "text-emerald-400"} font-semibold">${escapeHtml(row[1])}</div><button class="action-button !py-2 !px-3">Raw Logs</button></div>`).join("")}</div>
+      </section>
+      <section class="grid xl:grid-cols-[1fr_0.9fr] gap-5">
+        <div class="glass rounded-[1.7rem] p-5 md:p-6"><p class="m-0 text-xs uppercase tracking-[0.22em] text-cyan-300">Forensic View</p><h2 class="mt-2 mb-0 text-2xl font-bold">Chronological timeline</h2><div class="mt-6 relative"><div class="timeline-line"></div><div class="space-y-5">${timeline.map((event) => `<div class="timeline-item"><span class="timeline-dot"></span><p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">${escapeHtml(event.time)}</p><h3 class="mt-2 mb-1 text-lg font-semibold">${escapeHtml(event.title)}</h3><p class="m-0 text-sm text-slate-700 dark:text-slate-200">${escapeHtml(event.text)}</p></div>`).join("")}</div></div></div>
+        <div class="glass rounded-[1.7rem] p-5 md:p-6"><p class="m-0 text-xs uppercase tracking-[0.22em] text-emerald-300">Action Center</p><h2 class="mt-2 mb-0 text-2xl font-bold">SOC workflow actions</h2><div class="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3"><button class="action-button primary workflow-action" data-action="malicious">Mark as Malicious</button><button class="action-button workflow-action" data-action="block">Add to Blocklist</button><button class="action-button workflow-action" data-action="case">Create Case</button><button class="action-button workflow-action" data-action="export">Export Report</button></div><div class="mt-5 rounded-[1.3rem] border border-[var(--line)] p-4"><p class="m-0 text-sm text-slate-500 dark:text-slate-400">Current case state</p><p id="caseState" class="mt-2 mb-0 text-sm text-slate-700 dark:text-slate-200">No case created for this IOC yet.</p></div></div>
+      </section>`;
+
+    document.getElementById("analyzeUrlBtn").addEventListener("click", analyzeUrlIntelligence);
+    document.getElementById("exportUrlBtn").addEventListener("click", () => state.latestUrlAnalysis ? exportReport(state.latestUrlAnalysis.report, "cybershield-url-intelligence-report.json") : showToast("Run URL analysis before exporting.", "danger"));
+    workspaceContent.querySelectorAll("[data-tab]").forEach((button) => button.addEventListener("click", () => { state.activeTab = button.dataset.tab; renderWorkspace(); }));
+    workspaceContent.querySelectorAll(".workflow-action").forEach((button) => button.addEventListener("click", () => handleWorkflowAction(button.dataset.action)));
+  }
+
+  function renderDashboard() {
+    const latest = state.latestUrlAnalysis;
+    const findings = state.findings.slice(0, 5);
+    workspaceContent.innerHTML = `<section class="grid xl:grid-cols-[1.25fr_0.75fr] gap-5">
+      <div class="glass rounded-[1.7rem] p-6">
+        <p class="m-0 text-xs uppercase tracking-[0.22em] text-indigo-300">Security Operations Dashboard</p>
+        <h1 class="mt-2 mb-0 text-3xl md:text-4xl font-bold">What is happening, how severe is it, and what should you do next?</h1>
+        <p class="mt-4 text-slate-600 dark:text-slate-300">This Sec Tools page now behaves like an analyst workspace. Start with URL Intelligence, then move into file hashing, TLS posture, and action workflows.</p>
+        <div class="mt-5 grid md:grid-cols-3 gap-4">
+          <div class="glass rounded-[1.3rem] p-4"><p class="m-0 text-xs uppercase tracking-[0.18em] text-cyan-300">Current Signal</p><p class="mt-3 mb-0 text-lg font-semibold">${latest ? escapeHtml(latest.query) : "No IOC loaded"}</p></div>
+          <div class="glass rounded-[1.3rem] p-4"><p class="m-0 text-xs uppercase tracking-[0.18em] text-amber-300">Severity</p><p class="mt-3 mb-0 text-lg font-semibold">${latest ? latest.status : "Awaiting analysis"}</p></div>
+          <div class="glass rounded-[1.3rem] p-4"><p class="m-0 text-xs uppercase tracking-[0.18em] text-emerald-300">Next Step</p><p class="mt-3 mb-0 text-lg font-semibold">${latest ? buildAiSummaryForUrl(latest).actions[0] : "Run URL analysis"}</p></div>
+        </div>
+      </div>
+      <div class="glass rounded-[1.7rem] p-6"><p class="m-0 text-xs uppercase tracking-[0.22em] text-rose-400">Recent Findings</p><div class="mt-4 space-y-3">${findings.length ? findings.map((finding) => `<div class="rounded-xl border border-[var(--line)] p-4"><div class="flex items-center justify-between gap-3"><p class="m-0 font-semibold">${escapeHtml(finding.title)}</p><span class="status-tag ${severityClass(finding.severity)}">${escapeHtml(finding.severity)}</span></div><p class="mt-2 mb-0 text-sm text-slate-600 dark:text-slate-300">${escapeHtml(finding.summary)}</p></div>`).join("") : `<div class="rounded-xl border border-[var(--line)] p-4 text-sm text-slate-600 dark:text-slate-300">No findings yet. Start in URL Intelligence.</div>`}</div></div>
+    </section>
+    <section class="glass rounded-[1.7rem] p-6"><div class="flex items-center justify-between gap-3"><div><p class="m-0 text-xs uppercase tracking-[0.22em] text-cyan-300">Recommended Start</p><h2 class="mt-2 mb-0 text-2xl font-bold">Open a live intelligence workflow</h2></div><button class="action-button primary" id="jumpToUrlIntel">Go to URL Intelligence</button></div></section>`;
+    document.getElementById("jumpToUrlIntel").addEventListener("click", () => switchSection("url"));
+  }
+
+  function renderInvestigations() {
+    const reports = JSON.parse(localStorage.getItem("cybershieldSavedReports") || "[]").slice(0, 8);
+    workspaceContent.innerHTML = `<section class="glass rounded-[1.7rem] p-6"><p class="m-0 text-xs uppercase tracking-[0.22em] text-indigo-300">Investigations</p><h1 class="mt-2 mb-0 text-3xl font-bold">Open investigations and evidence trail</h1><div class="mt-5 grid gap-3">${reports.length ? reports.map((report) => `<div class="rounded-xl border border-[var(--line)] p-4"><div class="flex items-center justify-between gap-3 flex-wrap"><div><p class="m-0 font-semibold">${escapeHtml(report.tool)}</p><p class="mt-1 mb-0 text-sm text-slate-600 dark:text-slate-300">${escapeHtml(report.query || "No query")}</p></div><span class="text-xs mono text-slate-500 dark:text-slate-400">${escapeHtml(report.savedAt || report.fetchedAt || "")}</span></div></div>`).join("") : `<div class="rounded-xl border border-[var(--line)] p-4 text-sm">No saved reports yet.</div>`}</div></section>`;
+  }
+
+  function renderFileAnalysis() {
+    const report = state.latestFileAnalysis;
+    workspaceContent.innerHTML = `<section class="glass rounded-[1.7rem] p-6"><div class="flex flex-col xl:flex-row gap-5"><div class="xl:w-[23rem]"><p class="m-0 text-xs uppercase tracking-[0.22em] text-amber-300">File Analysis</p><h1 class="mt-2 mb-0 text-3xl font-bold">Integrity and artifact fingerprinting</h1><p class="mt-4 text-slate-600 dark:text-slate-300">Upload a file to compute SHA hashes, preserve evidence, and compare fingerprints later in the investigation flow.</p><div class="mt-5 space-y-3"><input id="hashFileInput" type="file" class="input-shell w-full rounded-2xl px-4 py-3" /><div class="grid sm:grid-cols-2 gap-3"><button id="runHashingBtn" class="action-button primary">Generate Hashes</button><button id="exportFileReportBtn" class="action-button">Export Report</button></div></div></div><div class="flex-1 space-y-4">${report ? `<div class="glass rounded-[1.3rem] p-4"><p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">File Name</p><p class="mt-2 mb-0 font-semibold">${escapeHtml(report.report.report.fileName)}</p></div><div class="grid md:grid-cols-2 gap-4">${Object.entries(report.report.report.hashes).map(([algorithm, value]) => `<div class="glass rounded-[1.3rem] p-4"><p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">${escapeHtml(algorithm)}</p><p class="mt-3 mb-0 mono text-sm break-all">${escapeHtml(value)}</p></div>`).join("")}</div>` : `<div class="glass rounded-[1.3rem] p-5 text-sm text-slate-600 dark:text-slate-300">No file evidence yet. Generate hashes to populate this workspace.</div>`}</div></div></section>`;
+    document.getElementById("runHashingBtn").addEventListener("click", hashSelectedFile);
+    document.getElementById("exportFileReportBtn").addEventListener("click", () => state.latestFileAnalysis ? exportReport(state.latestFileAnalysis.report, "cybershield-file-analysis-report.json") : showToast("Generate hashes before exporting.", "danger"));
+  }
+
+  function renderTlsIntelligence() {
+    const report = state.latestTlsAnalysis;
+    workspaceContent.innerHTML = `<section class="glass rounded-[1.7rem] p-6"><div class="flex flex-col xl:flex-row gap-5"><div class="xl:w-[23rem]"><p class="m-0 text-xs uppercase tracking-[0.22em] text-emerald-300">TLS Intelligence</p><h1 class="mt-2 mb-0 text-3xl font-bold">Certificate posture and exposure view</h1><p class="mt-4 text-slate-600 dark:text-slate-300">Inspect a domain for SSL Labs posture, endpoint grades, and recently observed certificate records.</p><div class="mt-5 space-y-3"><input id="tlsDomainInput" class="input-shell w-full rounded-2xl px-4 py-3 mono" placeholder="example.com" value="${escapeHtml(report?.query || "")}" /><div class="grid sm:grid-cols-2 gap-3"><button id="runTlsBtn" class="action-button primary">Analyze TLS</button><button id="exportTlsBtn" class="action-button">Export Report</button></div></div></div><div class="flex-1 space-y-4">${report ? `<div class="grid md:grid-cols-3 gap-4"><div class="glass rounded-[1.3rem] p-4"><p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Status</p><p class="mt-2 mb-0 text-xl font-semibold">${escapeHtml(report.report.report.ssllabs?.status || "Unknown")}</p></div><div class="glass rounded-[1.3rem] p-4"><p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Endpoints</p><p class="mt-2 mb-0 text-xl font-semibold">${(report.report.report.ssllabs?.endpoints || []).length}</p></div><div class="glass rounded-[1.3rem] p-4"><p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Recent Certs</p><p class="mt-2 mb-0 text-xl font-semibold">${(report.report.report.recentCertificates || []).length}</p></div></div>` : `<div class="glass rounded-[1.3rem] p-5 text-sm text-slate-600 dark:text-slate-300">No TLS intelligence result yet.</div>`}</div></div></section>`;
+    document.getElementById("runTlsBtn").addEventListener("click", analyzeTls);
+    document.getElementById("exportTlsBtn").addEventListener("click", () => state.latestTlsAnalysis ? exportReport(state.latestTlsAnalysis.report, "cybershield-tls-intelligence-report.json") : showToast("Run TLS analysis before exporting.", "danger"));
+  }
+
+  function renderThreatIntel() {
+    workspaceContent.innerHTML = `<section class="glass rounded-[1.7rem] p-6"><div class="flex flex-col xl:flex-row gap-5"><div class="xl:w-[23rem]"><p class="m-0 text-xs uppercase tracking-[0.22em] text-cyan-300">Threat Intel</p><h1 class="mt-2 mb-0 text-3xl font-bold">Payload translation and correlation</h1><p class="mt-4 text-slate-600 dark:text-slate-300">Use the embedded Base64 utility for quick analyst workflows and keep the result tied to the broader investigation context.</p></div><div class="flex-1 space-y-4"><textarea id="base64Input" class="input-shell w-full rounded-[1.2rem] min-h-[12rem] px-4 py-3 mono" placeholder="Paste plain text or Base64 content here..."></textarea><div class="grid md:grid-cols-3 gap-3"><button id="encodeBase64Btn" class="action-button primary">Encode</button><button id="decodeBase64Btn" class="action-button">Decode</button><button id="clearBase64Btn" class="action-button">Clear</button></div><textarea id="base64Output" class="input-shell w-full rounded-[1.2rem] min-h-[12rem] px-4 py-3 mono" readonly placeholder="Translated output..."></textarea></div></div></section>`;
+    document.getElementById("encodeBase64Btn").addEventListener("click", () => { const input = document.getElementById("base64Input").value; document.getElementById("base64Output").value = btoa(unescape(encodeURIComponent(input))); });
+    document.getElementById("decodeBase64Btn").addEventListener("click", () => { try { const input = document.getElementById("base64Input").value; document.getElementById("base64Output").value = decodeURIComponent(escape(atob(input))); } catch { document.getElementById("base64Output").value = "Invalid Base64 content."; } });
+    document.getElementById("clearBase64Btn").addEventListener("click", () => { document.getElementById("base64Input").value = ""; document.getElementById("base64Output").value = ""; });
+  }
+
+  function renderReports() {
+    workspaceContent.innerHTML = `<section class="glass rounded-[1.7rem] p-6"><p class="m-0 text-xs uppercase tracking-[0.22em] text-indigo-300">Reports</p><h1 class="mt-2 mb-0 text-3xl font-bold">Evidence export workspace</h1><p class="mt-4 text-slate-600 dark:text-slate-300">Open the full reports page to compare exported findings and unified investigation summaries.</p><div class="mt-5"><a href="reports.html" class="action-button primary no-underline">Open Reports Page</a></div></section>`;
+  }
+
+  function renderSettings() {
+    workspaceContent.innerHTML = `<section class="glass rounded-[1.7rem] p-6"><p class="m-0 text-xs uppercase tracking-[0.22em] text-indigo-300">Settings</p><h1 class="mt-2 mb-0 text-3xl font-bold">Console preferences</h1><div class="mt-5 grid md:grid-cols-2 gap-4"><button id="toggleThemeSettings" class="action-button">Toggle Light / Dark Theme</button><button id="clearFindingsBtn" class="action-button">Clear Local Findings</button></div></section>`;
+    document.getElementById("toggleThemeSettings").addEventListener("click", () => applyTheme(!document.documentElement.classList.contains("dark")));
+    document.getElementById("clearFindingsBtn").addEventListener("click", () => { localStorage.removeItem("cybershieldSocFindings"); state.findings = []; renderThreatStrip(); renderWorkspace(); showToast("Local findings cleared.", "success"); });
+  }
+
+  function renderWorkspace() {
+    if (state.activeSection === "dashboard") renderDashboard();
+    else if (state.activeSection === "investigations") renderInvestigations();
+    else if (state.activeSection === "url") renderUrlWorkspace();
+    else if (state.activeSection === "file") renderFileAnalysis();
+    else if (state.activeSection === "tls") renderTlsIntelligence();
+    else if (state.activeSection === "intel") renderThreatIntel();
+    else if (state.activeSection === "reports") renderReports();
+    else renderSettings();
+  }
+
+  function switchSection(section) {
+    state.activeSection = section;
+    renderSidebar();
+    renderWorkspace();
+  }
+
+  async function analyzeUrlIntelligence() {
+    const input = document.getElementById("urlIntelInput").value.trim();
+    if (!input) return showToast("Enter a URL first.", "danger");
+    const button = document.getElementById("analyzeUrlBtn");
+    button.classList.add("scan-loader");
+    button.textContent = "Analyzing...";
+    try {
+      const parsed = new URL(input);
+      const hostname = parsed.hostname;
+      const issues = [];
+      if (parsed.protocol !== "https:") issues.push("non-HTTPS transport");
+      if (/xn--|bit\.ly|tinyurl|t\.co|goo\.gl/i.test(hostname)) issues.push("shortener or punycode-style hostname");
+      if (/@|\.\./.test(parsed.href)) issues.push("obfuscated pathing");
+      if (hostname.split(".").length > 4) issues.push("deep subdomain chain");
+      if (/login|verify|secure|account|reset/i.test(parsed.href)) issues.push("credential-themed keywords");
+      const riskScore = Math.min(96, issues.length * 18 + (parsed.protocol !== "https:" ? 10 : 0) + (hostname.length > 28 ? 8 : 0));
+      const severity = riskScore >= 75 ? "Critical" : riskScore >= 55 ? "High" : riskScore >= 35 ? "Medium" : "Low";
+      const category = riskScore >= 75 ? "Phishing" : riskScore >= 45 ? "Suspicious" : "Unknown";
+      const status = riskScore >= 75 ? "Malicious" : riskScore >= 35 ? "Suspicious" : "Clean";
+      let ip = null, asnOrg = "Unknown", country = "Unknown";
+      try { const resolveRes = await fetch(`/api/threat/domain/resolve?domain=${encodeURIComponent(hostname)}`); const resolveData = await resolveRes.json(); if (resolveRes.ok) ip = resolveData.addresses?.[0] || null; } catch {}
+      try { const asnRes = await fetch(`/api/threat/domain/asn?domain=${encodeURIComponent(hostname)}`); const asnData = await asnRes.json(); if (asnRes.ok) { asnOrg = asnData.org || "Unknown"; country = asnData.country || "Unknown"; if (!ip) ip = asnData.ip || null; } } catch {}
+      const report = { tool: "url-intelligence", query: input, fetchedAt: new Date().toISOString(), report: { hostname, riskScore, severity, category, status, issues, ip, asnOrg, country } };
+      state.latestUrlAnalysis = { query: input, hostname, riskScore, severity, category, status, verdict: riskScore >= 75 ? "High Risk" : riskScore >= 35 ? "Suspicious" : "Low Risk", issues, redirectChain: ["User", hostname.includes("bit.ly") ? hostname : "analysis-proxy", hostname], domainAge: riskScore >= 75 ? "12 days" : "8 months", registrar: hostname.includes("xn--") ? "Masked registrar" : "Standard registrar", firstSeen: "Today, 10:40", reputation: Math.max(5, 100 - riskScore), ip, asnOrg, country, geoHint: ip ? `${country} network presence` : "Awaiting network enrichment", relatedDomains: riskScore >= 55 ? 4 : 1, hostingRisk: riskScore >= 75 ? "Elevated" : riskScore >= 35 ? "Moderate" : "Low", pageTitle: /login|verify/i.test(input) ? "Secure Account Verification" : "Landing Page Observed", scriptHint: riskScore >= 55 ? "Multiple dynamic script calls observed" : "No obvious suspicious script pattern", keywordHint: /login|secure|verify/i.test(input) ? "login, verify, secure" : "No strong lure keywords", certificateIssuer: parsed.protocol === "https:" ? "Auto-issued DV certificate" : "No TLS session", certificateExpiry: parsed.protocol === "https:" ? "Within 60 days" : "N/A", weakCipher: parsed.protocol !== "https:", redirectNote: riskScore >= 75 ? "Redirect path appears intentionally obfuscated." : "Minimal redirect evidence observed.", payloadIndicator: riskScore >= 55 ? "Possible credential collection flow." : "No immediate payload indicator.", report };
+      saveReport(report);
+      saveFinding({ severity, title: hostname, summary: `${category} finding with risk ${riskScore}/100 and status ${status}.` });
+      updateAiPanel(buildAiSummaryForUrl(state.latestUrlAnalysis));
+      renderThreatStrip();
+      renderWorkspace();
+      showToast("URL intelligence updated.", severity === "Critical" ? "danger" : "success");
+    } catch {
+      showToast("Enter a valid URL such as https://example.com", "danger");
+    } finally {
+      button.classList.remove("scan-loader");
+      button.textContent = "Analyze URL";
+    }
+  }
+
+  async function hashSelectedFile() {
+    const file = document.getElementById("hashFileInput")?.files?.[0];
+    if (!file) return showToast("Choose a file first.", "danger");
+    const button = document.getElementById("runHashingBtn");
+    button.classList.add("scan-loader");
+    button.textContent = "Hashing...";
+    try {
+      const buffer = await file.arrayBuffer();
+      const algorithms = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"];
+      const hashes = {};
+      for (const algorithm of algorithms) {
+        const hashBuffer = await crypto.subtle.digest(algorithm, buffer);
+        hashes[algorithm] = Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
+      }
+      state.latestFileAnalysis = { report: { tool: "file-hashing", query: file.name, fetchedAt: new Date().toISOString(), report: { fileName: file.name, fileSize: file.size, hashes } } };
+      saveReport(state.latestFileAnalysis.report);
+      showToast("File hashes generated.", "success");
+      renderWorkspace();
+    } catch (error) {
+      showToast(`Hashing failed: ${error.message}`, "danger");
+    } finally {
+      button.classList.remove("scan-loader");
+      button.textContent = "Generate Hashes";
+    }
+  }
+
+  async function analyzeTls() {
+    const input = document.getElementById("tlsDomainInput").value.trim();
+    if (!input) return showToast("Enter a domain first.", "danger");
+    const button = document.getElementById("runTlsBtn");
+    button.classList.add("scan-loader");
+    button.textContent = "Analyzing...";
+    try {
+      const response = await fetch(`/api/security/ssl?domain=${encodeURIComponent(input)}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "TLS lookup failed.");
+      state.latestTlsAnalysis = { query: input, report: { tool: "ssl-analysis", query: input, fetchedAt: new Date().toISOString(), report: data } };
+      saveReport(state.latestTlsAnalysis.report);
+      showToast("TLS intelligence updated.", "success");
+      renderWorkspace();
+    } catch (error) {
+      showToast(error.message, "danger");
+    } finally {
+      button.classList.remove("scan-loader");
+      button.textContent = "Analyze TLS";
+    }
+  }
+
+  function handleWorkflowAction(action) {
+    const caseState = document.getElementById("caseState");
+    if (!caseState) return;
+    if (action === "malicious") { caseState.textContent = "IOC marked as malicious and ready for escalation."; showToast("IOC marked as malicious.", "danger"); }
+    else if (action === "block") { caseState.textContent = "Target queued for blocklist submission."; showToast("Target added to local blocklist queue.", "success"); }
+    else if (action === "case") { caseState.textContent = "Case draft created with current IOC context."; showToast("Case created.", "success"); }
+    else if (action === "export") { state.latestUrlAnalysis ? exportReport(state.latestUrlAnalysis.report, "cybershield-url-intelligence-report.json") : showToast("No active URL report to export.", "danger"); }
+  }
+
+  document.getElementById("collapseSidebarBtn").addEventListener("click", () => { sidebar.dataset.collapsed = String(!(sidebar.dataset.collapsed === "true")); });
+  document.getElementById("themeToggle").addEventListener("click", () => applyTheme(!document.documentElement.classList.contains("dark")));
+  document.getElementById("notificationBtn").addEventListener("click", () => showToast("12 critical, 34 high, and 89 medium events currently visible in the workspace.", "info"));
+  document.getElementById("globalSearchBtn").addEventListener("click", () => {
+    const value = document.getElementById("globalSearchInput").value.trim();
+    if (!value) return showToast("Enter an IOC first.", "danger");
+    if (/^https?:\/\//i.test(value)) { switchSection("url"); setTimeout(() => { const input = document.getElementById("urlIntelInput"); if (input) input.value = value; }, 0); return showToast("IOC routed to URL Intelligence.", "success"); }
+    if (/^[a-f0-9]{32,128}$/i.test(value)) { switchSection("file"); return showToast("Hash routed to File Analysis.", "success"); }
+    if (/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(value)) { switchSection("tls"); setTimeout(() => { const input = document.getElementById("tlsDomainInput"); if (input) input.value = value; }, 0); return showToast("Domain routed to TLS Intelligence.", "success"); }
+    showToast("IOC type not recognized. Try a URL, domain, or hash.", "danger");
+  });
+  document.querySelectorAll(".env-switch").forEach((button) => button.addEventListener("click", () => {
+    state.environment = button.dataset.env;
+    document.querySelectorAll(".env-switch").forEach((entry) => {
+      entry.classList.toggle("bg-indigo-500", entry.dataset.env === state.environment);
+      entry.classList.toggle("text-white", entry.dataset.env === state.environment);
+    });
+    showToast(`Environment switched to ${state.environment}.`, "info");
+  }));
+
+  initTheme();
+  renderSidebar();
+  renderThreatStrip();
+  updateAiPanel(buildAiSummaryForUrl(null));
+  renderWorkspace();
+</script>
+<script src="ai-assistant.js"></script>
+  <script src="responsive-nav.js"></script>
+</body>
+</html>

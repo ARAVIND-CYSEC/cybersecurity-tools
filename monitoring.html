@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CyberShield - Monitoring</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' };</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg:#f3f7fb; --surface:rgba(255,255,255,.82); --surface2:rgba(255,255,255,.92); --line:rgba(148,163,184,.22); --text:#0f172a; --muted:#475569; }
+    .dark { --bg:#0b1220; --surface:rgba(17,24,39,.78); --surface2:rgba(15,23,42,.92); --line:rgba(99,102,241,.16); --text:#f8fafc; --muted:#94a3b8; }
+    body { margin:0; font-family:"Inter",sans-serif; background:radial-gradient(circle at 14% 12%,rgba(99,102,241,.16),transparent 22%),radial-gradient(circle at 84% 20%,rgba(34,211,238,.1),transparent 18%),var(--bg); color:var(--text); }
+    body::before { content:""; position:fixed; inset:0; pointer-events:none; background-image:linear-gradient(rgba(148,163,184,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(148,163,184,.05) 1px,transparent 1px); background-size:36px 36px; opacity:.44; }
+    .glass,.glass-strong { background:var(--surface); border:1px solid var(--line); backdrop-filter:blur(18px); }
+    .glass-strong { background:var(--surface2); }
+    .nav-link { color:var(--muted); text-decoration:none; padding:.55rem .9rem; border-radius:999px; transition:all .2s ease; }
+    .nav-link:hover,.nav-link.active { color:var(--text); background:rgba(99,102,241,.1); }
+    .section-label { font-size:.74rem; font-weight:700; letter-spacing:.24em; text-transform:uppercase; color:#a5b4fc; }
+    .soft-btn { border:1px solid var(--line); border-radius:.95rem; padding:.8rem 1rem; font-weight:600; background:var(--surface); color:var(--text); }
+    .badge { display:inline-flex; align-items:center; gap:.4rem; padding:.35rem .65rem; border-radius:999px; font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+    .badge.info { color:#22d3ee; background:rgba(34,211,238,.12); }
+    .badge.safe { color:#10b981; background:rgba(16,185,129,.12); }
+    .badge.warn { color:#f59e0b; background:rgba(245,158,11,.12); }
+    .badge.danger { color:#ef4444; background:rgba(239,68,68,.12); }
+    .watch-card { display:grid; gap:1rem; }
+    .watch-meta { display:grid; gap:.4rem; font-size:.92rem; color:var(--muted); }
+    .watch-changes { display:grid; gap:.5rem; }
+    .watch-change { padding:.7rem .8rem; border-radius:.9rem; border:1px solid var(--line); background:rgba(99,102,241,.06); font-size:.85rem; }
+  </style>
+  <link rel="stylesheet" href="responsive.css?v=20260429b">
+</head>
+<body>
+  <div class="max-w-[1480px] mx-auto px-4 py-6 relative z-10">
+    <nav class="glass-strong rounded-[1.4rem] px-5 py-4 flex items-center justify-between gap-4 sticky top-4 z-40">
+      <a href="home2.html" class="inline-flex items-center gap-3 no-underline text-inherit">
+        <div class="h-10 w-10 rounded-2xl bg-indigo-500/15 border border-indigo-400/20 flex items-center justify-center text-indigo-300">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l8 4.5v5.2c0 5.3-3.5 10.1-8 11.3-4.5-1.2-8-6-8-11.3V6.5L12 2z"/></svg>
+        </div>
+        <div><p class="m-0 text-sm font-semibold tracking-[0.2em] uppercase text-indigo-300">CyberShield</p><p class="m-0 text-xs text-slate-500 dark:text-slate-400">Monitoring</p></div>
+      </a>
+      <div class="flex items-center gap-1">
+        <a class="nav-link" href="home2.html">Home</a>
+        <a class="nav-link" href="analysis.html">Analysis</a>
+        <a class="nav-link" href="tools-lab.html">Tools</a>
+        <a class="nav-link" href="threat-intel.html">Threat Intel</a>
+        <a class="nav-link" href="cases.html">Cases</a>
+        <a class="nav-link active" href="monitoring.html">Monitoring</a>
+        <a class="nav-link" href="reports.html">Reports</a>
+      </div>
+      <button id="themeToggle" class="soft-btn text-sm" title="Toggle theme" aria-label="Toggle theme"><span aria-hidden="true">&#9790;</span></button>
+    </nav>
+
+    <main class="pt-6 space-y-6">
+      <section class="glass rounded-[1.8rem] p-6">
+        <p class="section-label m-0">Watchlists</p>
+        <h1 class="mt-4 mb-0 text-3xl md:text-4xl font-bold">Track domains, IPs, and evidence targets over time.</h1>
+        <p class="mt-4 mb-0 text-slate-600 dark:text-slate-300 max-w-3xl">This is the monitoring handoff layer for the MVP. It stores tracked indicators now, and it is ready for scheduled change-detection jobs next.</p>
+      </section>
+      <section class="glass rounded-[1.5rem] p-5">
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <p class="section-label m-0">Active Watch Targets</p>
+            <p class="mt-2 mb-0 text-sm text-slate-500 dark:text-slate-400">Indicators promoted from cases or live analysis.</p>
+          </div>
+          <div class="flex items-center gap-3 flex-wrap">
+            <button id="checkAllBtn" class="soft-btn text-sm">Check All</button>
+            <button id="refreshWatchBtn" class="soft-btn text-sm">Refresh</button>
+          </div>
+        </div>
+        <div id="watchList" class="mt-5 grid lg:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    function applyTheme(isDark) { document.documentElement.classList.toggle("dark", isDark); localStorage.theme = isDark ? "dark" : "light"; }
+    function escapeHtml(value) { return String(value ?? "").replace(/[&<>\"']/g, (char) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[char])); }
+    async function requestJson(url, options = {}) {
+      const response = await fetch(url, options);
+      const text = await response.text();
+      const data = text ? JSON.parse(text) : null;
+      if (!response.ok) throw new Error(data?.error || "Request failed.");
+      return data;
+    }
+    function badgeClass(level) {
+      const value = String(level || "").toLowerCase();
+      if (value.includes("high") || value.includes("malicious")) return "danger";
+      if (value.includes("medium") || value.includes("warn")) return "warn";
+      if (value.includes("clean") || value.includes("low") || value.includes("safe")) return "safe";
+      return "info";
+    }
+    async function checkWatch(id) {
+      await requestJson(`/api/watchlists/${encodeURIComponent(id)}/check`, { method: "POST" });
+      await loadWatchlist();
+    }
+    async function checkAll() {
+      const button = document.getElementById("checkAllBtn");
+      button.disabled = true;
+      button.textContent = "Checking...";
+      try {
+        await requestJson("/api/watchlists/check-all", { method: "POST" });
+        await loadWatchlist();
+      } finally {
+        button.disabled = false;
+        button.textContent = "Check All";
+      }
+    }
+    async function loadWatchlist() {
+      const data = await requestJson("/api/watchlists");
+      const root = document.getElementById("watchList");
+      if (!data.items?.length) {
+        root.innerHTML = `<div class="text-sm text-slate-500 dark:text-slate-400">No watch targets yet. Add an indicator from the analysis page.</div>`;
+        return;
+      }
+      root.innerHTML = data.items.map((item) => `
+        <div class="glass p-4 rounded-[1.2rem] watch-card">
+          <div class="flex items-center justify-between gap-3">
+            <p class="m-0 text-lg font-semibold break-all">${escapeHtml(item.indicator)}</p>
+            <span class="badge info">${escapeHtml(item.indicatorType || "unknown")}</span>
+          </div>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <span class="badge ${badgeClass(item.status || "active")}">${escapeHtml(item.status || "active")}</span>
+            <span class="badge ${badgeClass(item.alertLevel || item.latestStatus || "watching")}">${escapeHtml(item.latestStatus || "watching")}</span>
+          </div>
+          <div class="watch-meta">
+            <div>Created: ${escapeHtml(item.createdAt || "")}</div>
+            <div>Updated: ${escapeHtml(item.updatedAt || "")}</div>
+            <div>Last Checked: ${escapeHtml(item.lastCheckedAt || "Never")}</div>
+            <div>Scope: ${escapeHtml((item.scope || []).join(" | ") || "default")}</div>
+          </div>
+          ${item.lastSnapshot ? `
+            <div class="watch-meta">
+              ${item.lastSnapshot.summary?.ips ? `<div>IPs: ${escapeHtml((item.lastSnapshot.summary.ips || []).join(" | ") || "None")}</div>` : ``}
+              ${item.lastSnapshot.summary?.registrar ? `<div>Registrar: ${escapeHtml(item.lastSnapshot.summary.registrar)}</div>` : ``}
+              ${item.lastSnapshot.summary?.host ? `<div>Host: ${escapeHtml(item.lastSnapshot.summary.host)}</div>` : ``}
+              ${item.lastSnapshot.summary?.finalUrl ? `<div>Final URL: ${escapeHtml(item.lastSnapshot.summary.finalUrl)}</div>` : ``}
+              ${item.lastSnapshot.intel?.topThreat ? `<div>Top Threat: ${escapeHtml(item.lastSnapshot.intel.topThreat)}</div>` : `<div>No active abuse.ch hit in latest check.</div>`}
+            </div>
+          ` : `<div class="text-sm text-slate-500 dark:text-slate-400">No snapshot yet. Run a monitoring check.</div>`}
+          <div class="watch-changes">
+            ${(item.lastChanges || []).length ? item.lastChanges.map((change) => `<div class="watch-change">${escapeHtml(change)}</div>`).join("") : `<div class="watch-change">No changes detected yet.</div>`}
+          </div>
+          <div class="flex flex-wrap gap-3">
+            <button class="soft-btn text-sm" data-check-watch="${escapeHtml(item.id)}">Check Now</button>
+            ${item.caseId ? `<a href="cases.html?case=${encodeURIComponent(item.caseId)}" class="soft-btn no-underline text-sm inline-flex">Open Related Case</a>` : ``}
+          </div>
+        </div>
+      `).join("");
+      root.querySelectorAll("[data-check-watch]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const original = button.textContent;
+          button.disabled = true;
+          button.textContent = "Checking...";
+          try {
+            await checkWatch(button.dataset.checkWatch);
+          } finally {
+            button.disabled = false;
+            button.textContent = original;
+          }
+        });
+      });
+    }
+    document.getElementById("refreshWatchBtn").addEventListener("click", loadWatchlist);
+    document.getElementById("checkAllBtn").addEventListener("click", checkAll);
+    document.getElementById("themeToggle").addEventListener("click", () => applyTheme(!document.documentElement.classList.contains("dark")));
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    applyTheme(localStorage.theme ? localStorage.theme === "dark" : prefersDark);
+    loadWatchlist();
+  </script>
+  <script src="ai-assistant.js"></script>
+  <script src="responsive-nav.js?v=20260429b"></script>
+</body>
+</html>

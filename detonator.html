@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CyberShield - Detonation Lab</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' };</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg:#f3f7fb; --surface:rgba(255,255,255,.86); --surface2:rgba(255,255,255,.94); --line:rgba(148,163,184,.22); --text:#0f172a; --muted:#475569; }
+    .dark { --bg:#0b1220; --surface:rgba(17,24,39,.78); --surface2:rgba(15,23,42,.92); --line:rgba(99,102,241,.16); --text:#f8fafc; --muted:#94a3b8; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Inter",sans-serif; background:radial-gradient(circle at 14% 12%,rgba(99,102,241,.16),transparent 22%),radial-gradient(circle at 84% 20%,rgba(34,211,238,.1),transparent 18%),var(--bg); color:var(--text); }
+    body::before { content:""; position:fixed; inset:0; pointer-events:none; background-image:linear-gradient(rgba(148,163,184,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(148,163,184,.05) 1px,transparent 1px); background-size:36px 36px; opacity:.44; }
+    .glass { background:var(--surface); border:1px solid var(--line); backdrop-filter:blur(18px); box-shadow:0 18px 40px rgba(2,6,23,.16); }
+    .glass-strong { background:var(--surface2); border:1px solid var(--line); backdrop-filter:blur(16px); }
+    .nav-link { color:var(--muted); text-decoration:none; padding:.55rem .9rem; border-radius:999px; transition:all .2s ease; }
+    .nav-link:hover,.nav-link.active { color:var(--text); background:rgba(99,102,241,.1); }
+    .section-label { font-size:.74rem; font-weight:700; letter-spacing:.24em; text-transform:uppercase; color:#a5b4fc; }
+    .mono { font-family:"JetBrains Mono",monospace; }
+    .primary-btn { border:0; border-radius:.95rem; padding:.9rem 1.1rem; font-weight:700; background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff; box-shadow:0 14px 28px rgba(99,102,241,.18); }
+    .soft-btn { border:1px solid var(--line); border-radius:.95rem; padding:.85rem 1rem; font-weight:600; background:var(--surface); color:var(--text); }
+    .tool-input, select { width:100%; border-radius:1rem; border:1px solid rgba(99,102,241,.18); background:rgba(255,255,255,.82); color:#0f172a; padding:.95rem 1rem; outline:none; transition:all .2s ease; }
+    .dark .tool-input, .dark select { background:rgba(15,23,42,.84); color:#f8fafc; }
+    .tool-input:focus, select:focus { box-shadow:0 0 0 3px rgba(99,102,241,.18); border-color:rgba(99,102,241,.45); }
+    .badge { display:inline-flex; align-items:center; gap:.4rem; padding:.35rem .65rem; border-radius:999px; font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+    .badge.safe { color:#10b981; background:rgba(16,185,129,.12); }
+    .badge.warn { color:#f59e0b; background:rgba(245,158,11,.12); }
+    .badge.danger { color:#ef4444; background:rgba(239,68,68,.12); }
+    .badge.info { color:#22d3ee; background:rgba(34,211,238,.12); }
+    .tab-btn { padding:.7rem .95rem; border-radius:.9rem; border:1px solid var(--line); background:var(--surface); color:var(--muted); transition:all .2s ease; }
+    .tab-btn.active { color:#fff; background:linear-gradient(135deg,rgba(99,102,241,.28),rgba(34,211,238,.08)); border-color:rgba(99,102,241,.3); }
+    .metric-card, .intel-section { border:1px solid var(--line); border-radius:1.1rem; background:var(--surface); padding:1rem; }
+    .intel-row { display:flex; justify-content:space-between; gap:1rem; padding:.75rem .9rem; border-radius:.9rem; background:rgba(99,102,241,.06); border:1px solid rgba(99,102,241,.08); }
+    .intel-key { color:var(--muted); font-size:.82rem; text-transform:uppercase; letter-spacing:.08em; }
+    .intel-value { font-weight:600; text-align:right; word-break:break-word; }
+    .list-box { display:grid; gap:.75rem; }
+    .list-item { padding:.75rem .9rem; border-radius:.9rem; border:1px solid rgba(99,102,241,.08); background:rgba(99,102,241,.05); }
+    .screenshot-shell { position:relative; overflow:hidden; border-radius:1.2rem; border:1px solid var(--line); background:rgba(15,23,42,.18); min-height:280px; display:flex; align-items:center; justify-content:center; }
+    .screenshot-shell img { width:100%; height:auto; display:block; }
+    .spinner { width:18px; height:18px; border-radius:999px; border:2px solid rgba(99,102,241,.22); border-top-color:#6366f1; animation:spin .8s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+  </style>
+  <link rel="stylesheet" href="responsive.css?v=20260429b">
+</head>
+<body>
+  <div class="max-w-[1480px] mx-auto px-4 py-6 relative z-10">
+    <nav class="glass-strong rounded-[1.4rem] px-5 py-4 flex items-center justify-between gap-4 sticky top-4 z-40">
+      <a href="home2.html" class="inline-flex items-center gap-3 no-underline text-inherit">
+        <div class="h-10 w-10 rounded-2xl bg-indigo-500/15 border border-indigo-400/20 flex items-center justify-center text-indigo-300">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l8 4.5v5.2c0 5.3-3.5 10.1-8 11.3-4.5-1.2-8-6-8-11.3V6.5L12 2z"/></svg>
+        </div>
+        <div>
+          <p class="m-0 text-sm font-semibold tracking-[0.2em] uppercase text-indigo-300">CyberShield</p>
+          <p class="m-0 text-xs text-slate-500 dark:text-slate-400">Detonation Lab</p>
+        </div>
+      </a>
+      <div class="flex items-center gap-1">
+        <a class="nav-link" href="home2.html">Home</a>
+        <a class="nav-link" href="analysis.html">Analysis</a>
+        <a class="nav-link" href="tools-lab.html">Tools</a>
+        <a class="nav-link" href="threat-intel.html">Threat Intel</a>
+        <a class="nav-link" href="urlscan.html">URLScan</a>
+        <a class="nav-link" href="cases.html">Cases</a>
+        <a class="nav-link" href="monitoring.html">Monitoring</a>
+        <a class="nav-link" href="reports.html">Reports</a>
+      </div>
+      <button id="themeToggle" class="soft-btn text-sm" title="Toggle theme" aria-label="Toggle theme"><span aria-hidden="true">&#9790;</span></button>
+    </nav>
+    <main class="pt-6 space-y-6">
+      <section class="glass rounded-[1.8rem] p-6 md:p-7">
+        <div class="grid lg:grid-cols-[1fr_auto] gap-4 items-start">
+          <div>
+            <p class="section-label m-0">Safe Execution Microservice</p>
+            <h1 class="mt-3 text-3xl md:text-5xl font-bold leading-tight">Open suspicious URLs inside an isolated browser and inspect what really happens.</h1>
+            <p class="mt-4 max-w-3xl text-slate-600 dark:text-slate-300">This tool sends a target URL to the standalone detonation microservice, waits for real execution, and then returns a structured report with redirects, screenshot evidence, rendered DOM signals, request activity, and risk scoring.</p>
+          </div>
+          <div class="grid gap-3 w-full lg:w-[26rem]">
+            <select id="waitUntilSelect">
+              <option value="networkidle">Wait until network idle</option>
+              <option value="load">Wait until load event</option>
+              <option value="domcontentloaded">Wait until DOM ready</option>
+            </select>
+            <input id="timeoutInput" class="tool-input mono" type="number" min="5" max="60" value="15" placeholder="15" />
+          </div>
+        </div>
+        <div class="mt-6 grid lg:grid-cols-[1fr_auto_auto] gap-3">
+          <input id="detonatorInput" class="tool-input mono" placeholder="https://example.com/login" />
+          <button id="runDetonatorBtn" class="primary-btn">Run Detonation</button>
+          <button id="exportDetonationBtn" class="soft-btn">Export JSON</button>
+        </div>
+        <div class="mt-4 flex flex-wrap gap-3 items-center">
+          <span id="detonatorStatusBadge" class="badge info">idle</span>
+          <span id="detonatorHealthBadge" class="badge warn">service unknown</span>
+        </div>
+      </section>
+      <section id="detonatorLoading" class="glass rounded-[1.4rem] p-5 hidden">
+        <div class="flex items-center gap-3">
+          <span class="spinner"></span>
+          <div>
+            <div class="font-semibold">Detonation in progress</div>
+            <div class="text-sm text-slate-500 dark:text-slate-400">The isolated runner is loading the page, recording network behavior, and collecting artifacts.</div>
+          </div>
+        </div>
+      </section>
+      <section id="detonatorError" class="glass rounded-[1.4rem] p-5 hidden"></section>
+      <section id="detonatorResult" class="space-y-6 hidden">
+        <div class="grid xl:grid-cols-[1.1fr_.9fr] gap-6">
+          <div class="glass rounded-[1.6rem] p-5 space-y-4">
+            <p class="section-label m-0">Execution Summary</p>
+            <div id="overviewMetrics" class="grid md:grid-cols-2 xl:grid-cols-4 gap-4"></div>
+            <div id="statusRibbon" class="flex flex-wrap gap-2"></div>
+            <div id="overviewRows" class="grid gap-3"></div>
+          </div>
+          <div class="glass rounded-[1.6rem] p-5">
+            <p class="section-label m-0">Threat Snapshot</p>
+            <div id="screenshotShell" class="mt-4 screenshot-shell text-sm text-slate-500 dark:text-slate-400">No screenshot yet.</div>
+          </div>
+        </div>
+        <section id="tabButtons" class="flex flex-wrap gap-3"></section>
+        <section id="tabContent" class="space-y-6"></section>
+      </section>
+    </main>
+  </div>
+  <script>
+    const state = { report: null, activeTab: "summary" };
+    const tabs = ["summary", "redirects", "requests", "page", "raw"];
+    function applyTheme(isDark) { document.documentElement.classList.toggle("dark", isDark); localStorage.theme = isDark ? "dark" : "light"; }
+    function escapeHtml(value) { return String(value ?? "").replace(/[&<>\"']/g, (char) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[char])); }
+    function formatErrorPayload(value) {
+      if (!value) return "";
+      if (typeof value === "string") return value;
+      if (typeof value === "object") {
+        return value.detail || value.error || JSON.stringify(value, null, 2);
+      }
+      return String(value);
+    }
+    async function requestJson(url, options = {}) {
+      const response = await fetch(url, options);
+      const text = await response.text();
+      let data = null;
+      try { data = text ? JSON.parse(text) : null; } catch { throw new Error(text || "Unexpected response."); }
+      if (!response.ok) {
+        const primary = data?.error || formatErrorPayload(data?.details) || "Request failed.";
+        const hint = data?.hint ? ` ${data.hint}` : "";
+        throw new Error(`${primary}${hint}`.trim());
+      }
+      return data;
+    }
+    function metricCard(label, value) {
+      return `<div class="metric-card"><p class="section-label m-0">${escapeHtml(label)}</p><p class="mt-3 text-lg font-semibold break-all">${escapeHtml(value ?? "N/A")}</p></div>`;
+    }
+    function listSection(title, values, formatter = (value) => escapeHtml(String(value ?? "N/A"))) {
+      return `<div class="intel-section"><p class="section-label m-0">${escapeHtml(title)}</p><div class="list-box mt-4">${values.length ? values.map((value) => `<div class="list-item">${formatter(value)}</div>`).join("") : `<div class="text-sm text-slate-500 dark:text-slate-400">No entries returned.</div>`}</div></div>`;
+    }
+    function setBadge(element, label, tone) {
+      element.textContent = label;
+      element.className = `badge ${tone}`;
+    }
+    async function checkHealth() {
+      const badge = document.getElementById("detonatorHealthBadge");
+      try {
+        const data = await requestJson("/api/detonator/health");
+        setBadge(badge, data?.ok ? "service online" : "service unknown", data?.ok ? "safe" : "warn");
+      } catch {
+        setBadge(badge, "service offline", "danger");
+        const errorBox = document.getElementById("detonatorError");
+        errorBox.innerHTML = `
+          <p class="text-red-500 font-semibold">Detonator microservice is offline</p>
+          <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">Run the standalone Python service first, then refresh this page. The CyberShield web tool proxies every detonation through that isolated runner.</p>
+          <pre class="mono whitespace-pre-wrap text-xs mt-4 p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-900/70 border border-slate-200/60 dark:border-slate-800">cd detonator_service
+python -m venv .venv
+.venv\\Scripts\\Activate.ps1
+pip install -r requirements.txt
+playwright install
+uvicorn app:app --host 0.0.0.0 --port 8010 --reload</pre>
+        `;
+        errorBox.classList.remove("hidden");
+      }
+    }
+    function renderOverview(report) {
+      document.getElementById("overviewMetrics").innerHTML = [
+        metricCard("Risk Score", `${report.risk?.score ?? 0}/100`),
+        metricCard("Band", report.risk?.band || "unknown"),
+        metricCard("Final URL", report.summary?.final_url || report.http?.final_url || report.input),
+        metricCard("Threat Hits", report.summary?.threat_hits ?? 0)
+      ].join("");
+      document.getElementById("statusRibbon").innerHTML = `
+        <span class="badge ${report.risk?.band === "high" ? "danger" : report.risk?.band === "medium" ? "warn" : "safe"}">Risk ${escapeHtml((report.risk?.band || "unknown").toUpperCase())}</span>
+        <span class="badge info">${escapeHtml(report.host || "unknown host")}</span>
+        <span class="badge warn">${escapeHtml(`${report.summary?.redirect_hops || 0} redirects`)}</span>
+        <span class="badge ${report.summary?.phishing_indicators?.length ? "danger" : "safe"}">${report.summary?.phishing_indicators?.length ? "phishing indicators" : "no phishing markers"}</span>
+      `;
+      document.getElementById("overviewRows").innerHTML = `
+        <div class="intel-section">
+          <p class="section-label m-0">Detonation Context</p>
+          <div class="list-box mt-4">
+            <div class="intel-row"><span class="intel-key">Input</span><span class="intel-value mono">${escapeHtml(report.input)}</span></div>
+            <div class="intel-row"><span class="intel-key">Primary IPs</span><span class="intel-value">${escapeHtml((report.pre_resolution?.ips || []).join(", ") || "N/A")}</span></div>
+            <div class="intel-row"><span class="intel-key">Final IPs</span><span class="intel-value">${escapeHtml((report.summary?.final_ips || []).join(", ") || "N/A")}</span></div>
+            <div class="intel-row"><span class="intel-key">Fetched At</span><span class="intel-value">${escapeHtml(report.fetched_at || "N/A")}</span></div>
+          </div>
+        </div>
+        <div class="intel-section">
+          <p class="section-label m-0">Risk Explanation</p>
+          <div class="list-box mt-4">
+            ${(report.risk?.reasons || []).length ? report.risk.reasons.map((reason) => `<div class="list-item">${escapeHtml(reason)}</div>`).join("") : `<div class="list-item">No high-confidence risky behavior was reconstructed from the current detonation.</div>`}
+          </div>
+        </div>
+      `;
+      const screenshotShell = document.getElementById("screenshotShell");
+      const shot = report.detonation?.page?.screenshot_path;
+      if (shot) {
+        screenshotShell.innerHTML = `<img src="/${encodeURI(shot.replace(/\\/g, "/"))}" alt="Detonation screenshot" />`;
+      } else {
+        screenshotShell.textContent = "No screenshot returned.";
+      }
+    }
+    function renderTabs() {
+      const root = document.getElementById("tabButtons");
+      root.innerHTML = tabs.map((tab) => `<button class="tab-btn ${state.activeTab === tab ? "active" : ""}" data-tab="${tab}">${tab.charAt(0).toUpperCase() + tab.slice(1)}</button>`).join("");
+      root.querySelectorAll("[data-tab]").forEach((button) => button.addEventListener("click", () => {
+        state.activeTab = button.dataset.tab;
+        renderTabs();
+        renderTabContent();
+      }));
+    }
+    function renderTabContent() {
+      const root = document.getElementById("tabContent");
+      const report = state.report;
+      if (!report) { root.innerHTML = ""; return; }
+      if (state.activeTab === "summary") {
+        root.innerHTML = `
+          <div class="grid xl:grid-cols-2 gap-6">
+            ${listSection("HTTP Probe", [
+              `Final URL: ${report.http?.final_url || "N/A"}`,
+              `Status: ${report.http?.status ?? "N/A"}`,
+              `Content-Type: ${report.http?.content_type || "N/A"}`,
+              `Server: ${report.http?.server || "N/A"}`
+            ])}
+            ${listSection("Threat Intelligence", (report.threat_intel || []).map((hit) => `${hit.ioc} | ${hit.threat_type} | ${hit.malware || "No family"} | confidence ${hit.confidence}`))}
+          </div>
+        `;
+        return;
+      }
+      if (state.activeTab === "redirects") {
+        root.innerHTML = listSection("Redirect Chain", report.http?.redirect_chain || [], (item) => `
+          <div class="space-y-2">
+            <div class="mono text-sm break-all">${escapeHtml(item.url || "Unknown URL")}</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">Status ${escapeHtml(item.status ?? "N/A")} | Location ${escapeHtml(item.location || "none")} | IP ${escapeHtml(item.ip || "N/A")}</div>
+          </div>
+        `);
+        return;
+      }
+      if (state.activeTab === "requests") {
+        root.innerHTML = listSection("Network Requests", report.detonation?.network?.requests || [], (item) => `
+          <div class="space-y-2">
+            <div class="mono text-sm break-all">${escapeHtml(item.url || "Unknown URL")}</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">Method ${escapeHtml(item.method || "GET")} | Type ${escapeHtml(item.resource_type || "unknown")}</div>
+          </div>
+        `);
+        return;
+      }
+      if (state.activeTab === "page") {
+        root.innerHTML = `
+          <div class="grid xl:grid-cols-2 gap-6">
+            <div class="intel-section">
+              <p class="section-label m-0">Rendered Page</p>
+              <div class="list-box mt-4">
+                <div class="intel-row"><span class="intel-key">Title</span><span class="intel-value">${escapeHtml(report.detonation?.page?.title || "N/A")}</span></div>
+                <div class="intel-row"><span class="intel-key">Final URL</span><span class="intel-value mono">${escapeHtml(report.detonation?.page?.final_url || "N/A")}</span></div>
+                <div class="intel-row"><span class="intel-key">DOM Artifact</span><span class="intel-value mono">${escapeHtml(report.detonation?.page?.dom_path || "N/A")}</span></div>
+              </div>
+            </div>
+            ${listSection("Phishing Indicators", report.detonation?.page?.phishing_indicators || [])}
+          </div>
+        `;
+        return;
+      }
+      root.innerHTML = `<div class="intel-section"><p class="section-label m-0">Raw JSON</p><pre class="mono whitespace-pre-wrap text-xs mt-4">${escapeHtml(JSON.stringify(report, null, 2))}</pre></div>`;
+    }
+    async function runDetonation() {
+      const url = document.getElementById("detonatorInput").value.trim();
+      const timeout = Number(document.getElementById("timeoutInput").value || 15);
+      const waitUntil = document.getElementById("waitUntilSelect").value;
+      const loading = document.getElementById("detonatorLoading");
+      const errorBox = document.getElementById("detonatorError");
+      const resultBox = document.getElementById("detonatorResult");
+      const statusBadge = document.getElementById("detonatorStatusBadge");
+      if (!url) { setBadge(statusBadge, "enter url", "warn"); return; }
+      errorBox.classList.add("hidden");
+      resultBox.classList.add("hidden");
+      loading.classList.remove("hidden");
+      setBadge(statusBadge, "detonating", "warn");
+      try {
+        const data = await requestJson("/api/detonator/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url, timeout, waitUntil })
+        });
+        state.report = data;
+        state.activeTab = "summary";
+        renderOverview(data);
+        renderTabs();
+        renderTabContent();
+        resultBox.classList.remove("hidden");
+        setBadge(statusBadge, data.cache?.hit ? "cache hit" : "complete", data.risk?.band === "high" ? "danger" : data.risk?.band === "medium" ? "warn" : "safe");
+      } catch (error) {
+        errorBox.innerHTML = `<p class="text-red-500 font-semibold">Detonation request failed</p><p class="mt-2 text-sm text-slate-500 dark:text-slate-400">${escapeHtml(error.message)}</p>`;
+        errorBox.classList.remove("hidden");
+        setBadge(statusBadge, "failed", "danger");
+      } finally {
+        loading.classList.add("hidden");
+      }
+    }
+    function exportJson() {
+      if (!state.report) return;
+      const blob = new Blob([JSON.stringify(state.report, null, 2)], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "cybershield-detonation-report.json";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+    document.getElementById("runDetonatorBtn").addEventListener("click", runDetonation);
+    document.getElementById("exportDetonationBtn").addEventListener("click", exportJson);
+    document.getElementById("themeToggle").addEventListener("click", () => applyTheme(!document.documentElement.classList.contains("dark")));
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    applyTheme(localStorage.theme ? localStorage.theme === "dark" : prefersDark);
+    checkHealth();
+  </script>
+  <script src="ai-assistant.js"></script>
+  <script src="responsive-nav.js?v=20260429b"></script>
+</body>
+</html>

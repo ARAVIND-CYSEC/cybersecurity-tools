@@ -1,0 +1,483 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Security Threat Analysis</title>
+
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config = { darkMode: 'class' };</script>
+
+<style>
+body { transition: 0.5s; }
+html.dark body { transition: 0.5s; }
+.nav-btn { padding: 0.35rem 0.9rem; font-size:0.875rem; font-weight:500; border-radius:6px; color:var(--tw-text-gray-800); background:transparent; transition: all 0.3s ease;}
+.nav-btn:hover { background-color: rgba(59,130,246,0.1); transform: translateY(-1px);}
+.dark .nav-btn:hover { background-color: rgba(99,102,241,0.15); }
+.tool-btn { padding:0.5rem 1rem; font-size:0.875rem; font-weight:500; border-radius:0.5rem; border:1px solid #4f46e5; color:#4f46e5; background:transparent; transition: all 0.3s ease;}
+.tool-btn:hover { background-color:#4f46e5; color:#fff;}
+.dark .tool-btn { border-color:#818cf8; color:#818cf8;}
+.dark .tool-btn:hover { background-color:#818cf8; color:#fff;}
+.spinner { display:inline-block; width:1rem; height:1rem; border:2px solid rgba(255,255,255,0.3); border-top-color:#fff; border-radius:50%; animation:spin 0.6s linear infinite; margin-left:0.5rem;}
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+</style>
+  <link rel="stylesheet" href="responsive.css">
+</head>
+<body class="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-500">
+
+<nav class="fixed top-0 left-0 right-0 backdrop-blur-md bg-white/90 dark:bg-gray-900/90 shadow-md z-50 flex justify-between items-center px-6 py-3 border-b border-gray-200 dark:border-gray-700">
+    <!-- Brand -->
+    <a href="home2.html" class="font-bold text-lg text-gray-900 dark:text-gray-100 relative inline-flex items-center gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 text-indigo-600 dark:text-indigo-400" aria-hidden="true">
+        <path d="M12 2l7 3v6c0 5.25-3.44 9.92-7 11-3.56-1.08-7-5.75-7-11V5l7-3zm0 4.2L8 7.86v3.02c0 3.73 2.24 7.04 4 7.88 1.76-.84 4-4.15 4-7.88V7.86l-4-1.66zm-.75 2.3h1.5v2.75h2.75v1.5h-2.75v2.75h-1.5v-2.75H8.5v-1.5h2.75V8.5z"/>
+      </svg>
+      <span>CyberShield</span>
+      <span class="absolute -top-1 -right-3 w-6 h-6 bg-indigo-500 opacity-20 rounded-full blur-xl animate-pulse dark:bg-indigo-400"></span>
+    </a>
+
+    <!-- Links & Theme -->
+    <div class="flex items-center gap-3">
+       <button onclick="window.location.href='home2.html'" class="nav-btn">Home</button>
+      <button onclick="window.location.href='toolhash.html'" class="nav-btn">Sec Tools</button>
+      <button onclick="window.location.href='tool2.html'" class="nav-btn">Threats</button>
+      <button onclick="window.location.href='tool.html'" class="nav-btn">OSINT</button>
+      <button onclick="window.location.href='reports.html'" class="nav-btn">Reports</button>
+    
+      <button id="themeToggle" class="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+        <svg id="iconMoon" xmlns="http://www.w3.org/2000/svg" fill="none"
+          viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+          class="w-5 h-5 block dark:hidden">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+        </svg>
+        <svg id="iconSun" xmlns="http://www.w3.org/2000/svg" fill="none"
+          viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+          class="w-5 h-5 hidden dark:block">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M12 3v1m0 16v1m8.66-9h-1M4.34 12h-1m15.364
+             5.364l-.707-.707M6.343 6.343l-.707-.707m12.728
+             12.728l-.707-.707M6.343 17.657l-.707-.707M12
+             7a5 5 0 100 10 5 5 0 000-10z" />
+        </svg>
+      </button>
+    </div>
+  </nav>
+  <style>
+body { transition: 0.5s; }
+html.dark body { transition: 0.5s; }
+
+/* Navbar Buttons */
+.nav-btn {
+  padding: 0.35rem 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: 6px;
+  color: #1f2937; /* gray-800 for light */
+  background: transparent;
+  transition: all 0.3s ease;
+}
+.nav-btn:hover { 
+  background-color: rgba(59,130,246,0.1); 
+  transform: translateY(-1px);
+}
+.dark .nav-btn {
+  color: #f9fafb; /* white-50 for dark */
+}
+.dark .nav-btn:hover {
+  background-color: rgba(99,102,241,0.15);
+}
+
+/* Brand Text */
+nav span.font-bold {
+  color: #1f2937; /* gray-800 in light */
+}
+.dark nav span.font-bold {
+  color: #f9fafb; /* white in dark */
+}
+
+/* Tool Buttons */
+.tool-btn {
+  padding:0.5rem 1rem; 
+  font-size:0.875rem; 
+  font-weight:500; 
+  border-radius:0.5rem; 
+  border:1px solid #4f46e5; 
+  color:#4f46e5; 
+  background:transparent; 
+  transition: all 0.3s ease;
+}
+.tool-btn:hover { background-color:#4f46e5; color:#fff;}
+.dark .tool-btn { border-color:#818cf8; color:#818cf8;}
+.dark .tool-btn:hover { background-color:#818cf8; color:#fff;}
+</style>
+
+
+<main class="flex-grow flex flex-col items-center px-4 py-28 max-w-7xl mx-auto">
+  <h1 class="text-4xl sm:text-5xl font-extrabold mb-6 text-center text-indigo-600 dark:text-indigo-400 max-w-4xl">Security Threat Analysis</h1>
+  <p class="max-w-4xl mb-10 text-center text-gray-700 dark:text-gray-300 text-lg">
+    Comprehensive threat analysis to detect vulnerabilities, malicious activity, and potential cyber risks.<br>
+    Stay informed with insights to safeguard networks, software, and critical systems.
+  </p>
+
+  <div id="threatTools" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl w-full mb-12">
+    <button class="tool-btn" data-tool="vuln">Vulnerability Analysis</button>
+    <button class="tool-btn" data-tool="ip">IP Threat Check</button>
+    <button class="tool-btn" data-tool="domain">Domain Tools</button>
+    <button class="tool-btn" data-tool="email">Email Header Analysis</button>
+  </div>
+
+  <section id="threatContent" class="w-full max-w-4xl p-8 bg-gray-100 dark:bg-gray-800 rounded-lg shadow-lg hover:shadow-2xl transition-shadow duration-300">
+    <p class="text-center text-gray-700 dark:text-gray-200">Select a tool above to view detailed threat analysis results.</p>
+  </section>
+</main>
+
+<script>
+// Theme toggle
+const themeToggle = document.getElementById("themeToggle");
+const iconMoon = document.getElementById("iconMoon");
+const iconSun = document.getElementById("iconSun");
+function applyTheme(isDark){
+  document.documentElement.classList.toggle("dark", isDark);
+  iconMoon.classList.toggle("hidden", isDark);
+  iconSun.classList.toggle("hidden", !isDark);
+  localStorage.theme = isDark ? "dark" : "light";
+}
+function initTheme(){
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const storedTheme = localStorage.theme;
+  applyTheme(storedTheme === "dark" || (!storedTheme && prefersDark));
+}
+themeToggle.addEventListener("click", ()=> applyTheme(!document.documentElement.classList.contains("dark")));
+initTheme();
+
+// Tool switching
+const threatButtons = document.querySelectorAll(".tool-btn");
+const threatContent = document.getElementById("threatContent");
+const threatReportState = {
+  vuln: null,
+  ip: null,
+  domain: null,
+  email: null
+};
+
+function downloadThreatReport(filename, payload){
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function saveLocalThreatReport(report){
+  const key = "cybershieldSavedReports";
+  const reports = JSON.parse(localStorage.getItem(key) || "[]");
+  reports.unshift({
+    id: `${report.tool}-${Date.now()}`,
+    savedAt: new Date().toISOString(),
+    ...report
+  });
+  localStorage.setItem(key, JSON.stringify(reports.slice(0, 50)));
+}
+
+function exportThreatReport(tool){
+  const report = threatReportState[tool];
+  if(!report){
+    alert("Run this lookup first so there is report data to export.");
+    return;
+  }
+  downloadThreatReport(`cybershield-${tool}-report.json`, report);
+}
+
+threatButtons.forEach(btn => {
+  btn.addEventListener("click", () => {
+    threatButtons.forEach(b => b.classList.remove("bg-indigo-600","text-white"));
+    btn.classList.add("bg-indigo-600","text-white");
+    const tool = btn.dataset.tool;
+
+    if(tool === "vuln"){
+      threatContent.innerHTML = `
+        <h2 class="text-xl font-bold mb-2 text-indigo-500 dark:text-indigo-400 text-center">Software Vulnerability Analysis</h2>
+        <div class="flex flex-col gap-2">
+          <input id="softwareInput" type="text" placeholder="Enter software name" class="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" />
+          <div class="flex gap-2 flex-wrap">
+            <button onclick="searchVulnerabilities()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition">Search Vulnerabilities</button>
+            <button onclick="exportThreatReport('vuln')" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg transition">Export Report</button>
+          </div>
+        </div>
+        <div id="results" class="mt-4 text-sm text-gray-800 dark:text-gray-200 max-h-64 overflow-auto"></div>
+      `;
+    }
+    else if(tool === "ip"){
+      threatContent.innerHTML = `
+        <h2 class="text-xl font-bold mb-2 text-indigo-500 dark:text-indigo-400 text-center">IP Threat Check</h2>
+        <input id="ipInput" type="text" placeholder="Enter IP Address" class="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 mb-2"/>
+        <div class="flex gap-2">
+          <button id="ipBtn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg w-full transition">Check IP</button>
+          <button onclick="exportThreatReport('ip')" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg transition">Export</button>
+        </div>
+        <div id="ipResult" class="mt-4 text-xs bg-gray-200 dark:bg-gray-700 p-3 rounded-lg max-h-64 overflow-auto text-gray-900 dark:text-gray-100"></div>
+      `;
+      document.getElementById('ipBtn').addEventListener('click', lookupIP);
+    }
+    else if(tool === "domain"){
+      threatContent.innerHTML = `
+        <h2 class="text-xl font-bold mb-2 text-indigo-500 dark:text-indigo-400 text-center">Domain Tools</h2>
+
+        <input id="domainInput" type="text" placeholder="Enter domain (example.com)" class="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 mb-2"/>
+
+        <div class="flex gap-2 mb-2">
+          <button onclick="lookupDomainIP()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg w-1/2 transition">Lookup IP</button>
+          <button onclick="lookupDomainASN()" class="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg w-1/2 transition">ASN Details</button>
+        </div>
+        <button onclick="exportThreatReport('domain')" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg transition mb-2">Export Report</button>
+
+        <pre id="domainResult" class="mt-4 text-xs bg-gray-200 dark:bg-gray-700 p-3 rounded-lg max-h-64 overflow-auto text-gray-900 dark:text-gray-100"></pre>
+      `;
+    }
+    else if(tool === "email"){
+      threatContent.innerHTML = `
+        <h2 class="text-xl font-bold mb-2 text-indigo-500 dark:text-indigo-400 text-center">Email Header Analyzer</h2>
+        <textarea id="emailHeaderInput" rows="10" class="w-full border rounded-lg p-3 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder="Paste raw email headers here..."></textarea>
+        <div class="mt-3 flex gap-2 flex-wrap">
+          <button onclick="analyzeEmailHeaderUI()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm">Analyze</button>
+          <button onclick="exportThreatReport('email')" class="bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded-md text-sm">Export Report</button>
+        </div>
+        <div id="emailHeaderOutput" class="mt-4 p-4 border rounded-lg bg-gray-50 dark:bg-gray-900 text-sm overflow-auto text-gray-900 dark:text-gray-100"></div>
+      `;
+    }
+  });
+});
+
+// Vulnerability Search
+async function searchVulnerabilities() {
+  const input = document.getElementById("softwareInput").value.trim();
+  const resultsDiv = document.getElementById("results");
+  if(!input){ resultsDiv.innerHTML = 'Enter software name.'; return; }
+  resultsDiv.innerHTML = `Searching CVEs for: ${input}...`;
+  try {
+    const response = await fetch(`/api/cves?keyword=${encodeURIComponent(input)}`);
+    const data = await response.json();
+    const vulns = data.items || [];
+    if(vulns.length===0){ resultsDiv.innerHTML='No known vulnerabilities.'; return; }
+    threatReportState.vuln = {
+      tool: "vulnerability-analysis",
+      query: input,
+      fetchedAt: new Date().toISOString(),
+      report: vulns
+    };
+    saveLocalThreatReport(threatReportState.vuln);
+    resultsDiv.innerHTML = `Found ${vulns.length} vulnerabilities:<br>`;
+    vulns.forEach(item=>{
+      const cveID=item.id;
+      const desc=item.description || 'No description';
+      resultsDiv.innerHTML += `<b>${cveID}</b>: ${desc}<br>`;
+    });
+  } catch(e){ resultsDiv.innerHTML="Error fetching CVEs."; }
+}
+
+// Email Header Analyzer
+function analyzeEmailHeaderUI(){
+  const headerText = document.getElementById("emailHeaderInput").value;
+    threatReportState.email = {
+      tool: "email-header-analysis",
+      query: "raw-email-header",
+      fetchedAt: new Date().toISOString(),
+      input: headerText
+    };
+    const rendered = analyzeEmailHeader(headerText);
+    threatReportState.email.report = rendered;
+    saveLocalThreatReport(threatReportState.email);
+    document.getElementById("emailHeaderOutput").innerHTML = rendered;
+}
+function analyzeEmailHeader(headerText){
+  if(!headerText || headerText.trim()==="") return "No header provided.";
+  const lines = headerText.split(/\r?\n/);
+  let output="<ul>";
+  const maliciousPatterns = [/x-spam-flag:\s*yes/i,/x-phishdetected/i,/received-spf:\s*fail/i,/authentication-results:.*fail/i,/from:.*@(.*\.ru|.*\.cn|.*\.tk)/i];
+  let isMalicious=false;
+  lines.forEach(line=>{
+    const lower=line.toLowerCase();
+    if(lower.startsWith("from:")) output+=`<li>From: ${line.substring(5).trim()}</li>`;
+    else if(lower.startsWith("to:")) output+=`<li>To: ${line.substring(3).trim()}</li>`;
+    else if(lower.startsWith("subject:")) output+=`<li>Subject: ${line.substring(8).trim()}</li>`;
+    else if(lower.startsWith("received:")) output+=`<li>Received: ${line.substring(9).trim()}</li>`;
+    maliciousPatterns.forEach(p=>{
+      if(p.test(line)) isMalicious=true;
+    });
+  });
+  output+="</ul>";
+  output += isMalicious ? "<p style='color:red'>âŒ Malicious indicators detected!</p>" : "<p style='color:green'>âœ… No malicious indicators detected.</p>";
+  return output;
+}
+
+// IP Threat Check
+async function lookupIP() {
+  const input = document.getElementById('ipInput').value.trim();
+  if (!input) { alert('Please enter an IP address.'); return; }
+
+  const resultDiv = document.getElementById('ipResult');
+  resultDiv.innerHTML = 'Fetching data...';
+
+  try {
+    const response = await fetch(`/api/threat/ip/${encodeURIComponent(input)}`);
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Unable to fetch IP data');
+    }
+    threatReportState.ip = {
+      tool: "ip-threat-check",
+      query: input,
+      fetchedAt: new Date().toISOString(),
+      report: data
+    };
+    saveLocalThreatReport(threatReportState.ip);
+
+    const html = `
+      <p><strong>ASN / Org:</strong> ${data.org || 'N/A'}</p>
+      <p><strong>Hostname:</strong> ${data.hostname || 'N/A'}</p>
+      <p><strong>City:</strong> ${data.city || 'N/A'}</p>
+      <p><strong>Region:</strong> ${data.region || 'N/A'}</p>
+      <p><strong>Country:</strong> ${data.country || 'N/A'}</p>
+      <p><strong>Postal:</strong> ${data.postal || 'N/A'}</p>
+      <p><strong>Timezone:</strong> ${data.timezone || 'N/A'}</p>
+      <p><strong>IP:</strong> ${data.ip || 'N/A'}</p>
+    `;
+    resultDiv.innerHTML = html;
+  } catch (err) {
+    resultDiv.innerHTML = `<p class="text-red-600">Error fetching data: ${err.message}</p>`;
+  }
+}
+
+// Domain to IP
+async function lookupDomainIP(){
+  const domain=document.getElementById("domainInput").value.trim();
+  const output=document.getElementById("domainResult");
+  if(!domain){ output.textContent="Enter a domain"; return; }
+  output.textContent="Looking up...";
+  try{
+    const resp = await fetch(`/api/threat/domain/resolve?domain=${encodeURIComponent(domain)}`);
+    const data = await resp.json();
+    threatReportState.domain = {
+      tool: "domain-lookup-ip",
+      query: domain,
+      fetchedAt: new Date().toISOString(),
+      report: data
+    };
+    saveLocalThreatReport(threatReportState.domain);
+    if(data.addresses?.length) output.textContent = data.addresses.join("\n");
+    else output.textContent="No IP found";
+  } catch(e){ output.textContent="Error: "+e.message; }
+}
+
+// Domain ASN
+async function lookupDomainASN() {
+  const domain = document.getElementById("domainInput").value.trim();
+  const output = document.getElementById("domainResult");
+  if(!domain){ output.textContent = "Enter a domain"; return; }
+  output.textContent = "Resolving domain and fetching ASN info...";
+
+  try{
+    const resp = await fetch(`/api/threat/domain/asn?domain=${encodeURIComponent(domain)}`);
+    const ipData = await resp.json();
+    if(!resp.ok){
+      output.textContent = ipData.error || "Unable to fetch ASN data";
+      return;
+    }
+    threatReportState.domain = {
+      tool: "domain-asn-details",
+      query: domain,
+      fetchedAt: new Date().toISOString(),
+      report: ipData
+    };
+    saveLocalThreatReport(threatReportState.domain);
+
+    output.innerHTML = `
+      <p><strong>Domain:</strong> ${domain}</p>
+      <p><strong>Resolved IP:</strong> ${ipData.ip || 'N/A'}</p>
+      <div class="mt-3 p-4 bg-indigo-100 dark:bg-indigo-800 rounded-lg shadow">
+        <p><strong>ASN / Org:</strong> ${ipData.org || 'N/A'}</p>
+        <p><strong>Hostname:</strong> ${ipData.hostname || 'N/A'}</p>
+        <p><strong>City:</strong> ${ipData.city || 'N/A'}</p>
+        <p><strong>Region:</strong> ${ipData.region || 'N/A'}</p>
+        <p><strong>Country:</strong> ${ipData.country || 'N/A'}</p>
+        <p><strong>Timezone:</strong> ${ipData.timezone || 'N/A'}</p>
+      </div>
+    `;
+  } catch(e){
+    output.textContent = "Error: "+e.message;
+  }
+}
+</script>
+<!-- Security Tips Section -->
+<section class="w-full max-w-7xl mx-auto px-4 py-12 relative flex flex-col items-center">
+  <!-- Background rectangle bar behind heading -->
+  <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3/4 h-16 bg-gray-200 dark:bg-gray-700 rounded-lg opacity-40 z-0"></div>
+
+  <h2 class="relative text-4xl sm:text-5xl font-extrabold mb-12 text-center text-indigo-600 dark:text-indigo-400 z-10">
+    Cybersecurity Tips
+  </h2>
+  
+  <div id="tipsContainer" class="grid grid-cols-1 sm:grid-cols-3 gap-6 relative z-10">
+    <!-- Cards injected dynamically -->
+  </div>
+</section>
+
+
+<script>
+// Tips array
+const tips = [
+  { text: "Use Multi-Factor Authentication (MFA) for all accounts." },
+  { text: "Keep your software and OS updated regularly." },
+  { text: "Do not click suspicious links or attachments." },
+  { text: "Use strong, unique passwords for every account." },
+  { text: "Back up important data securely and regularly." },
+  { text: "Verify email senders before replying or downloading files." },
+  { text: "Monitor accounts and devices for unusual activity." }
+];
+
+const container = document.getElementById('tipsContainer');
+const cardCount = 3;
+let activeIndex = 0;
+
+// Create 3 cards with minimal gray glow
+for (let i = 0; i < cardCount; i++) {
+  const card = document.createElement('div');
+  card.className = `
+    p-6 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700
+    shadow-md dark:shadow-gray-900 transition-all duration-500 flex items-center gap-4
+    hover:shadow-lg hover:shadow-gray-300/40 dark:hover:shadow-indigo-500/30
+    ring-1 ring-gray-200 dark:ring-gray-700
+  `;
+  container.appendChild(card);
+}
+
+// Function to update cards
+function updateCards() {
+  const cards = container.children;
+  for (let i = 0; i < cards.length; i++) {
+    const tipIndex = (activeIndex + i) % tips.length;
+    const tip = tips[tipIndex];
+    cards[i].innerHTML = `
+      <p class="text-gray-900 dark:text-gray-100 font-medium text-lg">${tip.text}</p>
+    `;
+  }
+  activeIndex = (activeIndex + 1) % tips.length;
+}
+
+// Initial display
+updateCards();
+
+// Rotate cards every 5 seconds
+setInterval(updateCards, 5000);
+</script>
+<script src="ai-assistant.js"></script>
+
+
+  <script src="responsive-nav.js"></script>
+</body>
+</html>

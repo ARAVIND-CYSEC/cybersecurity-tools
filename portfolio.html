@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b0f14" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Your Name – Portfolio</title>
+  <meta name="description" content="Sleek, accessible, mobile-first portfolio with glassmorphism, dark mode, and smooth animations." />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            base: {
+              light: '#f7f8fa',
+              dark: '#0b0f14'
+            },
+            accent: '#7c3aed',
+            glow: '#22d3ee'
+          },
+          boxShadow: {
+            neu: '10px 10px 30px rgba(0,0,0,0.25), -10px -10px 30px rgba(255,255,255,0.07)',
+          },
+          keyframes: {
+            fadeUp: { '0%': {opacity: 0, transform: 'translateY(12px)'}, '100%': {opacity: 1, transform: 'translateY(0)'}},
+          },
+          animation: {
+            fadeUp: 'fadeUp 700ms ease both',
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Favicon (optional) -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>⚡️</text></svg>">
+
+  <style>
+    /* Glassmorphism helper */
+    .glass { background: rgba(255,255,255,0.06); backdrop-filter: blur(10px); }
+    .glass-dark { background: rgba(0,0,0,0.25); backdrop-filter: blur(10px); }
+    /* Focus ring for a11y */
+    :focus-visible { outline: 2px solid #22d3ee; outline-offset: 3px; }
+    /* Respect reduced motion */
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+  </style>
+</head>
+<body class="bg-base-light text-neutral-900 dark:bg-base-dark dark:text-neutral-100 antialiased selection:bg-accent/20">
+  <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 bg-black text-white dark:bg-white dark:text-black px-3 py-2 rounded-md">Skip to content</a>
+
+  <!-- ===== Header / Nav ===== -->
+  <header class="sticky top-0 z-40 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-black/40 border-b border-white/10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <a href="#" class="font-semibold tracking-tight">Your Name</a>
+      <nav aria-label="Primary" class="hidden sm:flex items-center gap-6 text-sm">
+        <a class="hover:text-accent" href="#projects">Projects</a>
+        <a class="hover:text-accent" href="#about">About</a>
+        <a class="hover:text-accent" href="#contact">Contact</a>
+        <a class="inline-flex items-center gap-2 hover:text-accent" href="https://github.com/yourhandle" target="_blank" rel="noreferrer" aria-label="GitHub">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2.02c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.74.08-.74 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49.99.11-.78.42-1.3.76-1.6-2.66-.3-5.47-1.33-5.47-5.9 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.51.12-3.14 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.66 1.63.24 2.84.12 3.14.77.84 1.23 1.91 1.23 3.22 0 4.58-2.81 5.59-5.49 5.89.43.37.81 1.1.81 2.23v3.31c0 .32.22.7.83.58A12 12 0 0 0 12 .5Z"/></svg>
+          <span class="hidden lg:inline">GitHub</span>
+        </a>
+        <a class="inline-flex items-center gap-2 hover:text-accent" href="https://linkedin.com/in/yourhandle" target="_blank" rel="noreferrer" aria-label="LinkedIn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4.98 3.5C4.98 4.88 3.86 6 2.5 6S0 4.88 0 3.5 1.12 1 2.5 1s2.48 1.12 2.48 2.5zM.5 8h4V24h-4V8zm7.5 0h3.8v2.2h.05c.53-1 1.84-2.2 3.8-2.2 4.06 0 4.8 2.67 4.8 6.14V24h-4v-7.1c0-1.7-.03-3.88-2.36-3.88-2.36 0-2.72 1.84-2.72 3.74V24h-4V8z"/></svg>
+          <span class="hidden lg:inline">LinkedIn</span>
+        </a>
+        <button id="themeToggle" class="px-3 py-1 rounded-lg border border-white/10 hover:bg-white/10">Toggle</button>
+      </nav>
+      <button id="menuBtn" class="sm:hidden px-3 py-2 rounded-lg border border-white/10">Menu</button>
+    </div>
+    <div id="mobileNav" class="sm:hidden hidden px-4 pb-4 space-y-2">
+      <a class="block p-2 rounded-lg hover:bg-white/10" href="#projects">Projects</a>
+      <a class="block p-2 rounded-lg hover:bg-white/10" href="#about">About</a>
+      <a class="block p-2 rounded-lg hover:bg-white/10" href="#contact">Contact</a>
+      <div class="flex items-center gap-4 p-2">
+        <a class="underline" href="https://github.com/yourhandle" target="_blank" rel="noreferrer">GitHub</a>
+        <a class="underline" href="https://linkedin.com/in/yourhandle" target="_blank" rel="noreferrer">LinkedIn</a>
+        <button id="themeToggleM" class="ml-auto px-3 py-1 rounded-lg border border-white/10 hover:bg-white/10">Toggle</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- ===== Hero ===== -->
+    <section id="hero" class="relative overflow-hidden">
+      <div class="absolute inset-0 -z-10">
+        <div class="w-[80vw] h-[80vw] md:w-[40vw] md:h-[40vw] rounded-full blur-3xl opacity-40 bg-gradient-to-br from-accent/30 via-glow/20 to-transparent absolute -top-20 -left-20"></div>
+        <div class="w-[60vw] h-[60vw] md:w-[30vw] md:h-[30vw] rounded-full blur-3xl opacity-30 bg-gradient-to-br from-glow/40 via-accent/10 to-transparent absolute -bottom-20 -right-10"></div>
+      </div>
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-28">
+        <h1 class="text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-tight animate-fadeUp">
+          Building delightful, performant web experiences.
+        </h1>
+        <p class="mt-4 text-base sm:text-lg md:text-xl text-neutral-600 dark:text-neutral-300 max-w-2xl animate-fadeUp" style="animation-delay:120ms">
+          I’m <span class="font-semibold">Your Name</span>, a frontend-focused developer who cares about
+          accessibility, craft, and shipping quickly without breaking quality.
+        </p>
+        <div class="mt-8 flex flex-wrap gap-3 animate-fadeUp" style="animation-delay:220ms">
+          <a href="#projects" class="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-accent text-white hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-glow">View Projects</a>
+          <a href="#contact" class="inline-flex items-center gap-2 px-5 py-3 rounded-2xl border border-white/10 hover:bg-white/10">Contact Me</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Projects Grid ===== -->
+    <section id="projects" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
+      <header class="mb-8">
+        <h2 class="text-2xl sm:text-3xl font-semibold tracking-tight">Selected Projects</h2>
+        <p class="mt-2 text-neutral-600 dark:text-neutral-400">Hover to preview. Every card includes clear problem → solution → impact. Use the buttons to view code and demos.</p>
+      </header>
+
+      <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        
+        <!-- ===== CyberShield Tools (YOUR CURRENT PROJECT) ===== -->
+        <article class="group rounded-2xl p-4 glass dark:glass-dark border border-white/10 shadow-neu transition will-change-transform hover:-translate-y-1" tabindex="0" aria-labelledby="cs-title">
+          <div class="relative overflow-hidden rounded-xl aspect-[16/10] bg-neutral-800/30">
+            <img loading="lazy" src="https://images.unsplash.com/photo-1558494949-ef010cbdcc31?q=80&w=1200&auto=format&fit=crop" alt="CyberShield Tools dashboard preview" class="w-full h-full object-cover transition duration-500 group-hover:scale-105" />
+            <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition"></div>
+            <a href="https://your-live-demo-url.example" class="absolute bottom-2 right-2 text-xs px-3 py-1 rounded-full bg-white/90 text-black dark:bg-white/10 dark:text-white border border-white/20 backdrop-blur hover:underline">Live Demo</a>
+          </div>
+          <h3 id="cs-title" class="mt-4 text-lg font-semibold">CyberShield Tools – Multi‑Tool Security Web Suite</h3>
+          <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">A web-based toolbox that streamlines everyday security checks for developers and students. Includes URL risk scan, IP reputation lookup, hash verifier, headers/security.txt inspector, and breach check aggregator with clean, mobile‑first UI.</p>
+          <ul class="mt-3 text-sm list-disc list-inside space-y-1 text-neutral-700 dark:text-neutral-300">
+            <li><span class="font-medium">Problem:</span> Common security tasks are scattered across sites and CLI tools.</li>
+            <li><span class="font-medium">Solution:</span> One responsive web app with clear results, a11y labels, copy‑to‑clipboard, and export to JSON/CSV.</li>
+            <li><span class="font-medium">Role:</span> Solo builder – design, frontend, API integrations, QA.</li>
+          </ul>
+          <div class="mt-3 flex flex-wrap gap-2 text-xs">
+            <span class="px-2 py-1 rounded-full bg-white/10 border border-white/10">HTML</span>
+            <span class="px-2 py-1 rounded-full bg-white/10 border border-white/10">Tailwind</span>
+            <span class="px-2 py-1 rounded-full bg-white/10 border border-white/10">JavaScript</span>
+            <span class="px-2 py-1 rounded-full bg-white/10 border border-white/10">REST APIs</span>
+          </div>
+          <div class="mt-4 grid grid-cols-3 gap-3 text-center text-xs">
+            <div class="rounded-xl border border-white/10 p-3">
+              <div class="text-base font-semibold">~92%</div>
+              <div class="opacity-80">Known‑phish flag rate*</div>
+            </div>
+            <div class="rounded-xl border border-white/10 p-3">
+              <div class="text-base font-semibold"><100ms</div>
+              <div class="opacity-80">UI response</div>
+            </div>
+            <div class="rounded-xl border border-white/10 p-3">
+              <div class="text-base font-semibold">9 tools</div>
+              <div class="opacity-80">in one UI</div>
+            </div>
+          </div>
+          <details class="mt-4 rounded-xl border border-white/10 p-4 open:bg-white/5">
+            <summary class="cursor-pointer font-medium">Details & Features</summary>
+            <ul class="mt-3 text-sm list-disc list-inside space-y-1 text-neutral-700 dark:text-neutral-300">
+              <li>URL scanner (checks redirects, suspicious patterns, mixed content).</li>
+              <li>IP/domain reputation (uses public reputation APIs; pluggable).</li>
+              <li>HTTP headers & <code>security.txt</code> inspector with suggestions.</li>
+              <li>Hash tools (MD5/SHA‑256 generate/verify; file checksum compare).</li>
+              <li>Breach check aggregator (integrate an API of your choice or CSV data).</li>
+              <li>Keyboard navigation, focus rings, reduced‑motion support.</li>
+              <li>Offline cache for recent results; copy/export buttons.</li>
+            </ul>
+          </details>
+          <div class="mt-4 flex flex-wrap gap-3">
+            <a href="https://github.com/yourhandle/cybershield-tools" target="_blank" rel="noreferrer" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 hover:bg-white/10">GitHub</a>
+            <a href="https://your-live-demo-url.example" target="_blank" rel="noreferrer" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-white hover:opacity-90">Live Demo</a>
+            <a href="#" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 hover:bg-white/10">Read Case Study</a>
+          </div>
+          <p class="mt-2 text-[11px] opacity-70">* From internal test set of known malicious URLs; replace with your measured metric.</p>
+        </article>
+
+        <!-- ===== Project: Realtime UI System ===== -->
+        <article class="group rounded-2xl p-4 glass dark:glass-dark border border-white/10 shadow-neu transition hover:-translate-y-1" tabindex="0">
+          <div class="relative overflow-hidden rounded-xl aspect-[16/10] bg-neutral-800/30">
+            <img loading="lazy" src="https://images.unsplash.com/photo-1515879218367-8466d910aaa4?q=80&w=1200&auto=format&fit=crop" alt="UI system preview" class="w-full h-full object-cover transition duration-500 group-hover:scale-105" />
+          </div>
+          <h3 class="mt-4 text-lg font-semibold">Design System & Component Library</h3>
+          <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">Tokenized theming, accessible components, and docs site. Cut build time and improved consistency.</p>
+          <div class="mt-3 flex flex-wrap gap-2 text-xs">
+            <span class="px-2 py-1 rounded-full bg-white/10 border border-white/10">Design Tokens</span>
+            <span class="px-2 py-1 rounded-full bg-white/10 border border-white/10">ARIA</span>
+            <span class="px-2 py-1 rounded-full bg-white/10 border border-white/10">Docs</span>
+          </div>
+          <details class="mt-3 rounded-xl border border-white/10 p-4 open:bg-white/5">
+            <summary class="cursor-pointer font-medium">Details</summary>
+            <p class="mt-2 text-sm">Built a small library with button, input, modal, toast, and tabs; added dark mode tokens and usage examples with copy‑paste snippets.</p>
+          </details>
+          <div class="mt-3 flex gap-3">
+            <a href="#" class="px-4 py-2 rounded-xl border border-white/10 hover:bg-white/10">GitHub</a>
+            <a href="#" class="px-4 py-2 rounded-xl bg-accent text-white hover:opacity-90">Live Demo</a>
+          </div>
+        </article>
+
+        <!-- ===== Project: API Integrations ===== -->
+        <article class="group rounded-2xl p-4 glass dark:glass-dark border border-white/10 shadow-neu transition hover:-translate-y-1" tabindex="0">
+          <div class="relative overflow-hidden rounded-xl aspect-[16/10] bg-neutral-800/30">
+            <img loading="lazy" src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=1200&auto=format&fit=crop" alt="API project preview" class="w-full h-full object-cover transition duration-500 group-hover:scale-105" />
+          </div>
+          <h3 class="mt-4 text-lg font-semibold">Real‑World API Integrations</h3>
+          <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">Clean fetch wrappers with retries and caching. Documented examples and tests.</p>
+          <div class="mt-3 flex flex-wrap gap-2 text-xs">
+            <span class="px-2 py-1 rounded-full bg-white/10 border border-white/10">REST</span>
+            <span class="px-2 py-1 rounded-full bg-white/10 border border-white/10">Caching</span>
+            <span class="px-2 py-1 rounded-full bg-white/10 border border-white/10">Testing</span>
+          </div>
+          <details class="mt-3 rounded-xl border border-white/10 p-4 open:bg-white/5">
+            <summary class="cursor-pointer font-medium">Details</summary>
+            <p class="mt-2 text-sm">Includes a tiny utility that normalizes API responses, exposes typed helpers, and provides error boundaries in the UI.</p>
+          </details>
+          <div class="mt-3 flex gap-3">
+            <a href="#" class="px-4 py-2 rounded-xl border border-white/10 hover:bg-white/10">GitHub</a>
+            <a href="#" class="px-4 py-2 rounded-xl bg-accent text-white hover:opacity-90">Live Demo</a>
+          </div>
+        </article>
+
+        <!-- ===== Project: Realtime Dashboard ===== -->
+        <article class="group rounded-2xl p-4 glass dark:glass-dark border border-white/10 shadow-neu transition hover:-translate-y-1" tabindex="0">
+          <div class="relative overflow-hidden rounded-xl aspect-[16/10] bg-neutral-800/30">
+            <img loading="lazy" src="https://images.unsplash.com/photo-1498050108023-c5249f4df085?q=80&w=1200&auto=format&fit=crop" alt="Realtime dashboard preview" class="w-full h-full object-cover transition duration-500 group-hover:scale-105" />
+          </div>
+          <h3 class="mt-4 text-lg font-semibold">Realtime Metrics Dashboard</h3>
+          <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">Websocket‑driven charts with progressive enhancement and accessibility annotations.</p>
+          <div class="mt-3 flex flex-wrap gap-2 text-xs">
+            <span class="px-2 py-1 rounded-full bg-white/10 border border-white/10">WebSockets</span>
+            <span class="px-2 py-1 rounded-full bg-white/10 border border-white/10">Charts</span>
+          </div>
+          <div class="mt-3 flex gap-3">
+            <a href="#" class="px-4 py-2 rounded-xl border border-white/10 hover:bg-white/10">GitHub</a>
+            <a href="#" class="px-4 py-2 rounded-xl bg-accent text-white hover:opacity-90">Live Demo</a>
+          </div>
+        </article>
+
+        <!-- ===== Project: Design Experiments ===== -->
+        <article class="group rounded-2xl p-4 glass dark:glass-dark border border-white/10 shadow-neu transition hover:-translate-y-1" tabindex="0">
+          <div class="relative overflow-hidden rounded-xl aspect-[16/10] bg-neutral-800/30">
+            <img loading="lazy" src="https://images.unsplash.com/photo-1545239351-1141bd82e8a6?q=80&w=1200&auto=format&fit=crop" alt="Design experiments preview" class="w-full h-full object-cover transition duration-500 group-hover:scale-105" />
+          </div>
+          <h3 class="mt-4 text-lg font-semibold">Design & Motion Experiments</h3>
+          <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">Micro‑interactions, canvas doodles, and playful generative art pieces.</p>
+          <div class="mt-3 flex flex-wrap gap-2 text-xs">
+            <span class="px-2 py-1 rounded-full bg-white/10 border border-white/10">Motion</span>
+            <span class="px-2 py-1 rounded-full bg-white/10 border border-white/10">Canvas</span>
+          </div>
+          <div class="mt-3 flex gap-3">
+            <a href="#" class="px-4 py-2 rounded-xl border border-white/10 hover:bg-white/10">GitHub</a>
+            <a href="#" class="px-4 py-2 rounded-xl bg-accent text-white hover:opacity-90">Live Demo</a>
+          </div>
+        </article>
+
+        <!-- ===== Project: Case Study Placeholder ===== -->
+        <article class="group rounded-2xl p-4 glass dark:glass-dark border border-white/10 shadow-neu transition hover:-translate-y-1" tabindex="0">
+          <div class="relative overflow-hidden rounded-xl aspect-[16/10] bg-neutral-800/30">
+            <img loading="lazy" src="https://images.unsplash.com/photo-1519389950473-47ba0277781c?q=80&w=1200&auto=format&fit=crop" alt="Case study preview" class="w-full h-full object-cover transition duration-500 group-hover:scale-105" />
+          </div>
+          <h3 class="mt-4 text-lg font-semibold">Case Study – From Idea to Launch</h3>
+          <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">Walkthrough of my process: discovery → wireframes → build → measure → iterate.</p>
+          <div class="mt-3 flex flex-wrap gap-2 text-xs">
+            <span class="px-2 py-1 rounded-full bg-white/10 border border-white/10">Process</span>
+            <span class="px-2 py-1 rounded-full bg-white/10 border border-white/10">UX</span>
+          </div>
+          <div class="mt-3 flex gap-3">
+            <a href="#" class="px-4 py-2 rounded-xl border border-white/10 hover:bg-white/10">Read</a>
+            <a href="#" class="px-4 py-2 rounded-xl bg-accent text-white hover:opacity-90">Slides</a>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ===== About (Minimal) ===== -->
+    <section id="about" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
+      <header class="mb-6">
+        <h2 class="text-2xl sm:text-3xl font-semibold tracking-tight">About</h2>
+      </header>
+      <div class="grid md:grid-cols-3 gap-8 items-start">
+        <p class="md:col-span-2 text-neutral-700 dark:text-neutral-300 leading-relaxed">
+          I build fast, accessible web apps with a focus on craft and clarity. I love working across
+          design systems, performance budgets, and DX tooling to create delightful products.
+        </p>
+        <ul class="space-y-2 text-sm">
+          <li><span class="font-medium">Location:</span> Hyderabad, India</li>
+          <li><span class="font-medium">Stack:</span> HTML, CSS, JavaScript, React, Tailwind</li>
+          <li><span class="font-medium">Open to:</span> Frontend / Full‑stack roles</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ===== Contact (Sticky) ===== -->
+    <section id="contact" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
+      <header class="mb-6 flex items-end justify-between gap-4">
+        <div>
+          <h2 class="text-2xl sm:text-3xl font-semibold tracking-tight">Contact</h2>
+          <p class="text-neutral-600 dark:text-neutral-400">Let’s build something together.</p>
+        </div>
+        <div aria-hidden="true" class="hidden md:block text-xs opacity-70">Press <kbd class="px-1 py-0.5 border border-white/20 rounded">/</kbd> to open quick nav</div>
+      </header>
+
+      <div class="grid md:grid-cols-2 gap-8">
+        <!-- Info / Social -->
+        <div class="space-y-4 self-start md:sticky md:top-24">
+          <div class="glass dark:glass-dark rounded-2xl p-5 border border-white/10">
+            <h3 class="font-semibold mb-1">Find me</h3>
+            <ul class="text-sm space-y-2">
+              <li><a class="underline underline-offset-4 hover:text-accent" href="mailto:you@example.com">you@example.com</a></li>
+              <li><a class="underline underline-offset-4 hover:text-accent" href="https://github.com/yourhandle" target="_blank" rel="noreferrer">github.com/yourhandle</a></li>
+              <li><a class="underline underline-offset-4 hover:text-accent" href="https://linkedin.com/in/yourhandle" target="_blank" rel="noreferrer">linkedin.com/in/yourhandle</a></li>
+            </ul>
+          </div>
+          <div class="glass dark:glass-dark rounded-2xl p-5 border border-white/10 text-sm">
+            <h3 class="font-semibold mb-1">Availability</h3>
+            <p>Open to full‑time & remote opportunities.</p>
+          </div>
+        </div>
+
+        <!-- Form -->
+        <form class="glass dark:glass-dark rounded-2xl border border-white/10 p-6 space-y-4" aria-labelledby="contactFormTitle" onsubmit="return handleSubmit(event)">
+          <h3 id="contactFormTitle" class="font-semibold text-lg">Send a message</h3>
+          <div>
+            <label for="name" class="block text-sm mb-1">Name</label>
+            <input id="name" name="name" type="text" required autocomplete="name" class="w-full rounded-xl border border-white/10 bg-white/70 dark:bg-white/5 px-3 py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-glow" />
+          </div>
+          <div>
+            <label for="email" class="block text-sm mb-1">Email</label>
+            <input id="email" name="email" type="email" required autocomplete="email" class="w-full rounded-xl border border-white/10 bg-white/70 dark:bg-white/5 px-3 py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-glow" />
+          </div>
+          <div>
+            <label for="message" class="block text-sm mb-1">Message</label>
+            <textarea id="message" name="message" rows="5" required class="w-full rounded-xl border border-white/10 bg-white/70 dark:bg-white/5 px-3 py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-glow"></textarea>
+          </div>
+          <div class="flex items-center gap-3">
+            <button type="submit" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent text-white hover:opacity-90 focus-visible:ring-2 focus-visible:ring-glow">Send</button>
+            <p id="formStatus" class="text-sm"></p>
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-t border-white/10 py-8 text-center text-sm text-neutral-500">
+    © <span id="year"></span> Your Name · Built with HTML, Tailwind & vanilla JS
+  </footer>
+
+  <!-- ===== Scripts ===== -->
+  <script>
+    // Year
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    // Persisted Dark Mode Toggle
+    const applyTheme = (mode) => {
+      const root = document.documentElement;
+      if (mode === 'dark') { root.classList.add('dark'); localStorage.setItem('theme', 'dark'); }
+      else { root.classList.remove('dark'); localStorage.setItem('theme', 'light'); }
+    };
+    const saved = localStorage.getItem('theme');
+    applyTheme(saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      applyTheme(document.documentElement.classList.contains('dark') ? 'light' : 'dark');
+    });
+    document.getElementById('themeToggleM').addEventListener('click', () => {
+      applyTheme(document.documentElement.classList.contains('dark') ? 'light' : 'dark');
+    });
+
+    // Mobile nav
+    const menuBtn = document.getElementById('menuBtn');
+    const mobileNav = document.getElementById('mobileNav');
+    menuBtn.addEventListener('click', () => mobileNav.classList.toggle('hidden'));
+
+    // IntersectionObserver fade-up on view
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) entry.target.classList.add('animate-fadeUp');
+      });
+    }, { threshold: 0.2 });
+    document.querySelectorAll('#projects article, #about, #contact form').forEach(el => observer.observe(el));
+
+    // Quick nav "/" to focus search-like jump (accessibility nicety)
+    window.addEventListener('keydown', (e) => {
+      if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        document.querySelector('a[href="#projects"]').focus();
+      }
+    });
+
+    // Simple contact form handler (no backend) – replace with your endpoint or Formspree/Netlify
+    function handleSubmit(e) {
+      e.preventDefault();
+      const form = e.target;
+      const data = new FormData(form);
+      const name = data.get('name');
+      const email = data.get('email');
+      const message = data.get('message');
+
+      // Basic validation
+      const status = document.getElementById('formStatus');
+      if (!name || !email || !message) {
+        status.textContent = 'Please fill all fields.';
+        status.className = 'text-red-500';
+        return false;
+      }
+
+      // Demo: open mail client (replace with fetch to your API)
+      const subject = encodeURIComponent('Portfolio Contact');
+      const body = encodeURIComponent(`From: ${name} <${email}>\n\n${message}`);
+      window.location.href = `mailto:you@example.com?subject=${subject}&body=${body}`;
+      status.textContent = 'Opening your mail app…';
+      status.className = 'text-neutral-400';
+      form.reset();
+      return false;
+    }
+    window.handleSubmit = handleSubmit;
+  </script>
+</body>
+</html>

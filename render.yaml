@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: cybershield
+    runtime: node
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: IPINFO_TOKEN
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-5-mini
+      - key: URLSCAN_API_KEY
+        sync: false
+      - key: ABUSECH_API_KEY
+        sync: false
+      - key: SHODAN_API_KEY
+        sync: false
+      - key: AI_PROVIDER
+        value: groq

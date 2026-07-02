@@ -1,0 +1,360 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CyberShield - Classic Security Tools</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config = { darkMode: 'class' };</script>
+<style>
+  body { transition: 0.5s; }
+  .nav-btn {
+    padding: 0.35rem 0.9rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: 6px;
+    color: #1f2937;
+    background: transparent;
+    transition: all 0.3s ease;
+  }
+  .nav-btn:hover {
+    background-color: rgba(59,130,246,0.1);
+    transform: translateY(-1px);
+  }
+  .dark .nav-btn { color: #fff; }
+  .dark .nav-btn:hover { background-color: rgba(99,102,241,0.15); }
+  .tool-btn {
+    padding: 0.75rem 1rem;
+    border-radius: 0.9rem;
+    border: 1px solid #818cf8;
+    color: #6366f1;
+    background: transparent;
+    transition: all 0.25s ease;
+    font-weight: 600;
+  }
+  .tool-btn:hover,
+  .tool-btn.active {
+    background: linear-gradient(135deg, #4f46e5, #6366f1);
+    color: white;
+    box-shadow: 0 14px 24px rgba(79,70,229,0.18);
+  }
+  .dark .tool-btn {
+    color: #a5b4fc;
+    border-color: #6366f1;
+  }
+</style>
+  <link rel="stylesheet" href="responsive.css">
+</head>
+<body class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-500">
+
+<nav class="fixed top-0 left-0 right-0 backdrop-blur-md bg-white/90 dark:bg-gray-900/90 shadow-md z-50 flex justify-between items-center px-6 py-3 border-b border-gray-200 dark:border-gray-700">
+  <a href="home2.html" class="font-bold text-lg text-gray-900 dark:text-gray-100 relative inline-flex items-center gap-2">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 text-indigo-600 dark:text-indigo-400" aria-hidden="true">
+      <path d="M12 2l7 3v6c0 5.25-3.44 9.92-7 11-3.56-1.08-7-5.75-7-11V5l7-3zm0 4.2L8 7.86v3.02c0 3.73 2.24 7.04 4 7.88 1.76-.84 4-4.15 4-7.88V7.86l-4-1.66zm-.75 2.3h1.5v2.75h2.75v1.5h-2.75v2.75h-1.5v-2.75H8.5v-1.5h2.75V8.5z"/>
+    </svg>
+    <span>CyberShield</span>
+  </a>
+  <div class="flex items-center gap-3">
+    <button onclick="window.location.href='home2.html'" class="nav-btn">Home</button>
+    <button onclick="window.location.href='toolhash.html'" class="nav-btn">Sec Tools</button>
+    <button onclick="window.location.href='toolhash-classic.html'" class="nav-btn">Classic Sec</button>
+    <button onclick="window.location.href='tool2.html'" class="nav-btn">Threats</button>
+    <button onclick="window.location.href='tool.html'" class="nav-btn">OSINT</button>
+    <button onclick="window.location.href='tool1.html'" class="nav-btn">CVE</button>
+    <button onclick="window.location.href='reports.html'" class="nav-btn">Reports</button>
+    <button id="themeToggle" class="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+      <svg id="iconMoon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" class="w-5 h-5 block dark:hidden">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+      </svg>
+      <svg id="iconSun" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" class="w-5 h-5 hidden dark:block">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m8.66-9h-1M4.34 12h-1m15.364 5.364l-.707-.707M6.343 6.343l-.707-.707m12.728 12.728l-.707-.707M6.343 17.657l-.707-.707M12 7a5 5 0 100 10 5 5 0 000-10z" />
+      </svg>
+    </button>
+  </div>
+</nav>
+
+<main class="max-w-7xl mx-auto px-4 pt-28 pb-12">
+  <section class="text-center max-w-4xl mx-auto">
+    <h1 class="text-5xl sm:text-6xl font-extrabold text-indigo-600 dark:text-indigo-400">Cybersecurity Tools Suite</h1>
+    <p class="mt-6 text-lg text-gray-700 dark:text-gray-300">
+      Essential browser-based tools: Safe Link Checker, Base64 Encoder/Decoder, File Hashing, and real SSL/TLS Analyzer.
+    </p>
+  </section>
+
+  <section class="mt-10 flex flex-wrap justify-center gap-4">
+    <button class="tool-btn active" data-tool="safeLink">Safe Link Checker</button>
+    <button class="tool-btn" data-tool="base64">Base64 Encoder/Decoder</button>
+    <button class="tool-btn" data-tool="hashing">File Hashing</button>
+    <button class="tool-btn" data-tool="ssl">SSL/TLS Analyzer</button>
+  </section>
+
+  <section id="toolContent" class="mt-12 w-full max-w-5xl mx-auto p-8 bg-gray-100 dark:bg-gray-800 rounded-2xl shadow-lg">
+  </section>
+</main>
+
+<script>
+  const toolContent = document.getElementById("toolContent");
+  const toolButtons = document.querySelectorAll(".tool-btn");
+  const secReportState = { safeLink: null, hashing: null, ssl: null };
+
+  function applyTheme(isDark) {
+    document.documentElement.classList.toggle("dark", isDark);
+    document.getElementById("iconMoon").classList.toggle("hidden", isDark);
+    document.getElementById("iconSun").classList.toggle("hidden", !isDark);
+    localStorage.theme = isDark ? "dark" : "light";
+  }
+
+  function initTheme() {
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const storedTheme = localStorage.theme;
+    applyTheme(storedTheme === "dark" || (!storedTheme && prefersDark));
+  }
+
+  function saveSecurityReport(report) {
+    const key = "cybershieldSavedReports";
+    const reports = JSON.parse(localStorage.getItem(key) || "[]");
+    reports.unshift({ id: `${report.tool}-${Date.now()}`, savedAt: new Date().toISOString(), ...report });
+    localStorage.setItem(key, JSON.stringify(reports.slice(0, 50)));
+  }
+
+  function exportSecurityReport(tool) {
+    const report = secReportState[tool];
+    if (!report) {
+      alert("Run the tool first so there is report data to export.");
+      return;
+    }
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `cybershield-${tool}-classic-report.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, (char) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    }[char]));
+  }
+
+  function setActiveTool(name) {
+    toolButtons.forEach((button) => button.classList.toggle("active", button.dataset.tool === name));
+  }
+
+  function renderTool(tool) {
+    setActiveTool(tool);
+
+    if (tool === "safeLink") {
+      toolContent.innerHTML = `
+        <h2 class="text-3xl font-bold text-center text-indigo-600 dark:text-indigo-400 mb-6">Safe Link Checker</h2>
+        <div class="space-y-4">
+          <input id="safeLinkInput" class="w-full p-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700" placeholder="Enter URL e.g. https://example.com/login" />
+          <div class="flex gap-3 flex-wrap">
+            <button onclick="checkSafeLink()" class="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl">Analyze Link</button>
+            <button onclick="exportSecurityReport('safeLink')" class="px-5 py-3 bg-gray-200 dark:bg-gray-700 rounded-xl">Export Report</button>
+          </div>
+          <div id="safeLinkResult" class="rounded-xl bg-white dark:bg-gray-900 p-5 shadow-sm">Awaiting URL analysis.</div>
+        </div>`;
+      return;
+    }
+
+    if (tool === "base64") {
+      toolContent.innerHTML = `
+        <h2 class="text-3xl font-bold text-center text-indigo-600 dark:text-indigo-400 mb-6">Base64 Encoder / Decoder</h2>
+        <div class="space-y-4">
+          <textarea id="base64Input" class="w-full min-h-[220px] p-4 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700" placeholder="Enter text..."></textarea>
+          <div class="grid sm:grid-cols-3 gap-3">
+            <button onclick="encodeBase64()" class="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl">Encode</button>
+            <button onclick="decodeBase64()" class="px-5 py-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl">Decode</button>
+            <button onclick="clearBase64()" class="px-5 py-3 bg-gray-200 dark:bg-gray-700 rounded-xl">Clear</button>
+          </div>
+          <textarea id="base64Output" class="w-full min-h-[220px] p-4 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700" placeholder="Output..." readonly></textarea>
+        </div>`;
+      return;
+    }
+
+    if (tool === "hashing") {
+      toolContent.innerHTML = `
+        <h2 class="text-3xl font-bold text-center text-indigo-600 dark:text-indigo-400 mb-6">File Hashing</h2>
+        <div class="space-y-4">
+          <input id="hashFileInput" type="file" class="w-full p-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700" />
+          <div class="flex gap-3 flex-wrap">
+            <button onclick="hashSelectedFile()" class="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl">Generate Hashes</button>
+            <button onclick="exportSecurityReport('hashing')" class="px-5 py-3 bg-gray-200 dark:bg-gray-700 rounded-xl">Export Report</button>
+          </div>
+          <div id="hashResult" class="rounded-xl bg-white dark:bg-gray-900 p-5 shadow-sm">Select a file to compute SHA hashes.</div>
+        </div>`;
+      return;
+    }
+
+    if (tool === "ssl") {
+      toolContent.innerHTML = `
+        <h2 class="text-3xl font-bold text-center text-indigo-600 dark:text-indigo-400 mb-6">SSL/TLS Analyzer</h2>
+        <div class="space-y-4">
+          <input id="sslDomainInput" class="w-full p-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700" placeholder="Enter domain e.g. example.com" />
+          <div class="flex gap-3 flex-wrap">
+            <button onclick="analyzeSSL()" class="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl">Analyze SSL/TLS</button>
+            <button onclick="exportSecurityReport('ssl')" class="px-5 py-3 bg-gray-200 dark:bg-gray-700 rounded-xl">Export Report</button>
+          </div>
+          <div id="sslResult" class="rounded-xl bg-white dark:bg-gray-900 p-5 shadow-sm">Awaiting SSL/TLS analysis.</div>
+        </div>`;
+    }
+  }
+
+  function checkSafeLink() {
+    const input = document.getElementById("safeLinkInput").value.trim();
+    const result = document.getElementById("safeLinkResult");
+    if (!input) {
+      result.innerHTML = '<p class="text-red-500">Enter a URL to analyze.</p>';
+      return;
+    }
+    try {
+      const parsed = new URL(input);
+      const issues = [];
+      if (parsed.protocol !== "https:") issues.push("Target does not use HTTPS.");
+      if (/@|\.\./.test(parsed.href)) issues.push("URL contains suspicious characters or traversal-like patterns.");
+      if (/xn--|bit\.ly|tinyurl|t\.co|goo\.gl/i.test(parsed.hostname)) issues.push("Hostname resembles punycode or a URL shortener.");
+      if (parsed.hostname.split(".").length > 4) issues.push("Hostname uses deep subdomain chaining.");
+      const riskScore = Math.min(issues.length * 25, 100);
+      const verdict = riskScore >= 75 ? "High Risk" : riskScore >= 25 ? "Suspicious" : "Low Risk";
+      secReportState.safeLink = {
+        tool: "safe-link",
+        query: input,
+        fetchedAt: new Date().toISOString(),
+        report: { verdict, riskScore, hostname: parsed.hostname, protocol: parsed.protocol, issues }
+      };
+      saveSecurityReport(secReportState.safeLink);
+      result.innerHTML = `
+        <div class="grid sm:grid-cols-3 gap-4">
+          <div class="rounded-xl bg-gray-50 dark:bg-gray-800 p-4"><p class="text-sm text-gray-500 dark:text-gray-400">Verdict</p><p class="mt-2 text-xl font-bold">${verdict}</p></div>
+          <div class="rounded-xl bg-gray-50 dark:bg-gray-800 p-4"><p class="text-sm text-gray-500 dark:text-gray-400">Risk Score</p><p class="mt-2 text-xl font-bold">${riskScore}/100</p></div>
+          <div class="rounded-xl bg-gray-50 dark:bg-gray-800 p-4"><p class="text-sm text-gray-500 dark:text-gray-400">Hostname</p><p class="mt-2 font-semibold break-all">${escapeHtml(parsed.hostname)}</p></div>
+        </div>
+        <div class="mt-4 rounded-xl bg-gray-50 dark:bg-gray-800 p-4">
+          <p class="text-sm font-semibold mb-2">Observed Issues</p>
+          <ul class="space-y-2 text-sm">${issues.length ? issues.map((issue) => `<li>- ${escapeHtml(issue)}</li>`).join("") : "<li>- No obvious high-signal issues detected by this quick heuristic check.</li>"}</ul>
+        </div>`;
+    } catch {
+      result.innerHTML = '<p class="text-red-500">Enter a valid URL such as https://example.com.</p>';
+    }
+  }
+
+  function encodeBase64() {
+    const input = document.getElementById("base64Input").value;
+    document.getElementById("base64Output").value = btoa(unescape(encodeURIComponent(input)));
+  }
+
+  function decodeBase64() {
+    try {
+      const input = document.getElementById("base64Input").value;
+      document.getElementById("base64Output").value = decodeURIComponent(escape(atob(input)));
+    } catch {
+      document.getElementById("base64Output").value = "Invalid Base64 content.";
+    }
+  }
+
+  function clearBase64() {
+    document.getElementById("base64Input").value = "";
+    document.getElementById("base64Output").value = "";
+  }
+
+  async function digestHex(buffer, algorithm) {
+    const hashBuffer = await crypto.subtle.digest(algorithm, buffer);
+    return Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  async function hashSelectedFile() {
+    const file = document.getElementById("hashFileInput").files[0];
+    const result = document.getElementById("hashResult");
+    if (!file) {
+      result.innerHTML = '<p class="text-red-500">Choose a file first.</p>';
+      return;
+    }
+    result.innerHTML = '<p>Hashing file...</p>';
+    try {
+      const buffer = await file.arrayBuffer();
+      const algorithms = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"];
+      const hashes = {};
+      for (const algorithm of algorithms) {
+        hashes[algorithm] = await digestHex(buffer, algorithm);
+      }
+      secReportState.hashing = {
+        tool: "file-hashing",
+        query: file.name,
+        fetchedAt: new Date().toISOString(),
+        report: { fileName: file.name, fileSize: file.size, hashes }
+      };
+      saveSecurityReport(secReportState.hashing);
+      result.innerHTML = `
+        <div class="rounded-xl bg-gray-50 dark:bg-gray-800 p-4 mb-4">
+          <p class="text-sm text-gray-500 dark:text-gray-400">File</p>
+          <p class="mt-2 text-lg font-semibold break-all">${escapeHtml(file.name)}</p>
+          <p class="mt-1 text-sm">Size: ${file.size.toLocaleString()} bytes</p>
+        </div>
+        <div class="space-y-3">
+          ${algorithms.map((algorithm) => `<div class="rounded-xl bg-gray-50 dark:bg-gray-800 p-4"><p class="text-sm font-semibold">${algorithm}</p><p class="mt-2 mono text-sm break-all">${hashes[algorithm]}</p></div>`).join("")}
+        </div>`;
+    } catch (error) {
+      result.innerHTML = `<p class="text-red-500">Hashing failed: ${escapeHtml(error.message)}</p>`;
+    }
+  }
+
+  async function analyzeSSL() {
+    const domain = document.getElementById("sslDomainInput").value.trim();
+    const result = document.getElementById("sslResult");
+    if (!domain) {
+      result.innerHTML = '<p class="text-red-500">Enter a domain first.</p>';
+      return;
+    }
+    result.innerHTML = '<p>Analyzing SSL/TLS posture...</p>';
+    try {
+      const response = await fetch(`/api/security/ssl?domain=${encodeURIComponent(domain)}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "SSL lookup failed.");
+      secReportState.ssl = {
+        tool: "ssl-analysis",
+        query: domain,
+        fetchedAt: new Date().toISOString(),
+        report: data
+      };
+      saveSecurityReport(secReportState.ssl);
+      const endpoints = (data.ssllabs?.endpoints || []).slice(0, 5);
+      const certs = (data.recentCertificates || []).slice(0, 5);
+      result.innerHTML = `
+        <div class="grid md:grid-cols-3 gap-4">
+          <div class="rounded-xl bg-gray-50 dark:bg-gray-800 p-4"><p class="text-sm text-gray-500 dark:text-gray-400">Domain</p><p class="mt-2 font-semibold">${escapeHtml(domain)}</p></div>
+          <div class="rounded-xl bg-gray-50 dark:bg-gray-800 p-4"><p class="text-sm text-gray-500 dark:text-gray-400">Status</p><p class="mt-2 font-semibold">${escapeHtml(data.ssllabs?.status || "Unknown")}</p></div>
+          <div class="rounded-xl bg-gray-50 dark:bg-gray-800 p-4"><p class="text-sm text-gray-500 dark:text-gray-400">Endpoints</p><p class="mt-2 font-semibold">${endpoints.length}</p></div>
+        </div>
+        <div class="mt-4 grid lg:grid-cols-2 gap-4">
+          <div class="rounded-xl bg-gray-50 dark:bg-gray-800 p-4">
+            <p class="font-semibold mb-3">SSL Labs Endpoints</p>
+            <div class="space-y-3 text-sm">${endpoints.length ? endpoints.map((endpoint) => `<div class="rounded-lg bg-white dark:bg-gray-900 p-3"><p>IP: ${escapeHtml(endpoint.ipAddress || "N/A")}</p><p>Grade: ${escapeHtml(endpoint.grade || "N/A")}</p><p>Status: ${escapeHtml(endpoint.statusMessage || "N/A")}</p></div>`).join("") : "<p>No endpoint data returned.</p>"}</div>
+          </div>
+          <div class="rounded-xl bg-gray-50 dark:bg-gray-800 p-4">
+            <p class="font-semibold mb-3">Recent Certificates</p>
+            <div class="space-y-3 text-sm">${certs.length ? certs.map((cert) => `<div class="rounded-lg bg-white dark:bg-gray-900 p-3"><p>Issuer: ${escapeHtml(cert.issuer_name || "N/A")}</p><p>Common Name: ${escapeHtml(cert.common_name || "N/A")}</p><p>Logged: ${escapeHtml(cert.entry_timestamp || "N/A")}</p></div>`).join("") : "<p>No recent certificate data returned.</p>"}</div>
+          </div>
+        </div>`;
+    } catch (error) {
+      result.innerHTML = `<p class="text-red-500">SSL lookup failed: ${escapeHtml(error.message)}</p>`;
+    }
+  }
+
+  toolButtons.forEach((button) => button.addEventListener("click", () => renderTool(button.dataset.tool)));
+  document.getElementById("themeToggle").addEventListener("click", () => applyTheme(!document.documentElement.classList.contains("dark")));
+
+  initTheme();
+  renderTool("safeLink");
+</script>
+<script src="ai-assistant.js"></script>
+  <script src="responsive-nav.js"></script>
+</body>
+</html>

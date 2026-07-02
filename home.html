@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CyberShield - Home</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class'
+    }
+  </script>
+
+  <!-- AOS Animation -->
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet" />
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+
+  <!-- Lottie Player -->
+  <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+
+  <style>
+    .toggle-theme-btn {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 1000;
+    }
+
+    /* Marquee container with no background or border */
+    #marquee-container {
+      height: 180px;
+      margin-top: 1.5rem;
+      overflow: visible;
+      position: relative;
+      padding-left: 16px;
+    }
+
+    #marquee-content {
+      display: flex;
+      gap: 32px;
+      animation: marqueeScroll 25s linear infinite;
+      padding: 16px 0;
+      will-change: transform;
+    }
+
+    #marquee-container:hover #marquee-content {
+      animation-play-state: paused;
+      cursor: grab;
+    }
+
+    .card {
+      min-width: 260px;
+      height: 150px;
+      flex-shrink: 0;
+      border-radius: 1rem;
+      padding: 1.5rem;
+      cursor: pointer;
+      transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      user-select: none;
+      text-decoration: none;
+
+      /* Light theme */
+      background: #f0f4ff;
+      color: #1e40af;
+      box-shadow: 0 4px 8px rgb(30 64 175 / 0.15);
+    }
+
+    .dark .card {
+      /* Dark theme */
+      background: linear-gradient(145deg, #0c1a36, #000811);
+      color: #e0e7ff;
+      box-shadow: 0 8px 20px rgb(0 0 0 / 0.7);
+    }
+
+    .card:hover {
+      transform: scale(1.12);
+      /* Light theme hover */
+      background: #dbeafe;
+      box-shadow: 0 8px 24px rgb(30 64 175 / 0.3);
+      z-index: 10;
+    }
+
+    .dark .card:hover {
+      /* Dark theme hover */
+      background: linear-gradient(145deg, #131e3a, #000c1a);
+      box-shadow: 0 6px 30px rgba(37, 99, 235, 0.8);
+    }
+
+    .card h3 {
+      font-weight: 700;
+      font-size: 1.5rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .card p {
+      font-size: 0.9rem;
+      opacity: 0.8;
+    }
+
+    #marveen-card h2 {
+      font-size: 2rem;
+      font-weight: 800;
+      margin-bottom: 1rem;
+      text-align: center;
+      color: #2563eb; /* blue */
+    }
+    .dark #marveen-card h2 {
+      color: #93c5fd; /* lighter blue */
+    }
+
+    @keyframes marqueeScroll {
+      0% {
+        transform: translateX(0);
+      }
+      100% {
+        transform: translateX(calc(-292px * 5));
+      }
+    }
+  </style>
+
+  <script>
+    // Apply saved theme on load
+    if (localStorage.getItem("theme") === "dark") {
+      document.documentElement.classList.add("dark");
+    }
+
+    function toggleTheme() {
+      const htmlEl = document.documentElement;
+      htmlEl.classList.toggle("dark");
+      localStorage.setItem("theme", htmlEl.classList.contains("dark") ? "dark" : "light");
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      AOS.init();
+
+      // Marquee Cards Tools Data with 5 cards
+      const tools = [
+        {
+          id: 'passwordChecker',
+          title: 'Password Strength Checker',
+          description: 'Check the strength of your password instantly.'
+        },
+        {
+          id: 'base64Encoder',
+          title: 'Base64 Encoder/Decoder',
+          description: 'Encode or decode text with Base64 easily.'
+        },
+        {
+          id: 'hashGenerator',
+          title: 'SHA-256 Hash Generator',
+          description: 'Generate SHA-256 hash from text input.'
+        },
+        {
+          id: 'ipTracker',
+          title: 'IP Address Tracker',
+          description: 'Locate and get info about any IP address.'
+        },
+        {
+          id: 'dnsLookup',
+          title: 'DNS Lookup Tool',
+          description: 'Query DNS records quickly and reliably.'
+        }
+      ];
+
+      const marqueeContent = document.getElementById('marquee-content');
+      marqueeContent.innerHTML = '';
+      tools.forEach(tool => {
+        const link = document.createElement('a');
+        link.href = `${tool.id}.html`; // Target tool page - create these separately
+        link.className = 'card';
+        link.setAttribute('role', 'listitem');
+        link.setAttribute('tabindex', '0'); // accessibility
+        link.innerHTML = `
+          <h3>${tool.title}</h3>
+          <p>${tool.description}</p>
+        `;
+        marqueeContent.appendChild(link);
+      });
+    });
+
+  </script>
+</head>
+<body class="bg-white text-black dark:bg-gray-900 dark:text-white transition-colors duration-500">
+
+  <!-- Theme Toggle Button -->
+  <button onclick="toggleTheme()" class="toggle-theme-btn px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded shadow-md transition-transform transform hover:scale-105">
+    Toggle Theme
+  </button>
+
+  <!-- Navigation -->
+  <nav id="navbar" class="fixed top-0 left-0 right-0 bg-white dark:bg-gray-800 shadow-md z-50 flex justify-center gap-10 py-4 text-lg font-semibold backdrop-blur-md nav-bounce">
+    <a href="#home" class="hover:text-blue-500 transition-colors duration-300">Home</a>
+    <a href="#threats" class="hover:text-blue-500 transition-colors duration-300">Cyber Threats</a>
+    <a href="#tools" class="hover:text-blue-500 transition-colors duration-300">Tools</a>
+    <a href="#osint" class="hover:text-blue-500 transition-colors duration-300">OSINT</a>
+    <a href="#whois" class="hover:text-blue-500 transition-colors duration-300">WHOIS</a>
+  </nav>
+
+  <main class="pt-20 max-w-7xl mx-auto">
+
+    <!-- Home Section -->
+    <section id="home" class="mb-20 max-w-7xl mx-auto px-4 relative overflow-hidden rounded-lg bg-gradient-to-r from-blue-50 to-indigo-100 dark:from-gray-800 dark:to-gray-900 p-10 shadow-xl" data-aos="fade-up" data-aos-duration="1200" data-aos-once="true">
+
+      <!-- Background animated blur circles -->
+      <div aria-hidden="true" class="absolute -top-20 -left-20 w-72 h-72 bg-blue-400 opacity-30 rounded-full animate-pulse mix-blend-multiply filter blur-3xl"></div>
+      <div aria-hidden="true" class="absolute -bottom-20 -right-20 w-72 h-72 bg-purple-400 opacity-30 rounded-full animate-pulse mix-blend-multiply filter blur-3xl"></div>
+
+      <div class="flex flex-col md:flex-row items-center justify-center gap-10 relative z-10">
+
+        <!-- Lottie Animation Left -->
+        <lottie-player
+          src="https://assets10.lottiefiles.com/packages/lf20_jcikwtux.json"
+          background="transparent"
+          speed="1"
+          style="width: 280px; height: 280px;"
+          loop autoplay
+          class="mx-auto md:mx-0"
+          data-aos="fade-right" data-aos-duration="1000"
+        ></lottie-player>
+
+        <!-- Info Text Right -->
+        <div class="max-w-xl text-center md:text-left">
+          <h1 class="text-5xl md:text-6xl font-extrabold tracking-tight mb-6 text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-700 drop-shadow-lg typing-effect" data-aos="fade-left" data-aos-duration="1000" data-aos-delay="300">
+            CyberShield
+          </h1>
+          <p class="text-lg md:text-xl text-gray-700 dark:text-gray-300 leading-relaxed mb-4 hover:text-indigo-600 transition-colors duration-500" data-aos="fade-left" data-aos-delay="600" data-aos-duration="1200">
+            Cybersecurity is the practice of protecting systems, networks, and data from digital attacks.
+            With the rise of technology, these threats have become more sophisticated, making it crucial to stay informed and protected.
+          </p>
+          <p class="mt-4 text-gray-600 dark:text-gray-400 hover:text-indigo-500 transition-colors duration-500" data-aos="fade-left" data-aos-delay="900" data-aos-duration="1400">
+            Understanding cybersecurity helps you defend against identity theft, data breaches, and financial loss.
+            Stay vigilant, use strong tools, and keep your digital life secure.
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Marveen Cyberpunk Card with Marquee Tools -->
+    <section id="marveen-card" class="mb-20 px-4" data-aos="fade-up" data-aos-duration="1000">
+      <h2>Marveen Cybersecurity Tools</h2>
+      <div id="marquee-container" aria-label="Scrolling cybersecurity tools">
+        <div id="marquee-content" role="list" aria-live="polite" aria-relevant="additions">
+          <!-- Cards inserted by JS -->
+        </div>
+      </div>
+    </section>
+        <section>
+      <!-- Background Effects -->
+      <div
+        aria-hidden="true"
+        class="absolute -top-20 -left-20 w-72 h-72 bg-blue-400 opacity-30 rounded-full animate-pulse blur-3xl dark:bg-indigo-600 dark:opacity-20"
+      ></div>
+      
+    <!-- Cyber Threats Overview Section -->
+<section id="threats" class="mb-20 max-w-7xl mx-auto px-4" data-aos="fade-up">
+  <h2 class="text-3xl font-bold mb-8 text-center text-indigo-700 dark:text-indigo-400">Common Cyber Threats</h2>
+  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
+    
+    <div tabindex="0" role="button" aria-expanded="false" aria-controls="phishing-desc" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 cursor-pointer hover:shadow-lg transition-shadow transform hover:-translate-y-1 focus:outline-none focus:ring-4 focus:ring-indigo-400" onclick="toggleDesc('phishing-desc')" onkeypress="if(event.key==='Enter'){toggleDesc('phishing-desc')}">
+      <div class="flex items-center gap-4 mb-3">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 00-9.33-5.197"/>
+        </svg>
+        <h3 class="text-xl font-semibold text-indigo-600 dark:text-indigo-400">Phishing</h3>
+      </div>
+      <p id="phishing-desc" class="text-gray-700 dark:text-gray-300 hidden">
+        Tricking users to give sensitive info via fake emails or websites.
+        Be wary of suspicious links and always verify sender identity.
+      </p>
+    </div>
+
+    <div tabindex="0" role="button" aria-expanded="false" aria-controls="ransomware-desc" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 cursor-pointer hover:shadow-lg transition-shadow transform hover:-translate-y-1 focus:outline-none focus:ring-4 focus:ring-indigo-400" onclick="toggleDesc('ransomware-desc')" onkeypress="if(event.key==='Enter'){toggleDesc('ransomware-desc')}">
+      <div class="flex items-center gap-4 mb-3">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 11V7m0 4v4m6 0H6a2 2 0 01-2-2V9a2 2 0 012-2h12a2 2 0 012 2v6a2 2 0 01-2 2z"/>
+        </svg>
+        <h3 class="text-xl font-semibold text-indigo-600 dark:text-indigo-400">Ransomware</h3>
+      </div>
+      <p id="ransomware-desc" class="text-gray-700 dark:text-gray-300 hidden">
+        Malicious software that locks your data until you pay a ransom.
+        Always keep backups and avoid clicking suspicious links.
+      </p>
+    </div>
+
+    <div tabindex="0" role="button" aria-expanded="false" aria-controls="malware-desc" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 cursor-pointer hover:shadow-lg transition-shadow transform hover:-translate-y-1 focus:outline-none focus:ring-4 focus:ring-indigo-400" onclick="toggleDesc('malware-desc')" onkeypress="if(event.key==='Enter'){toggleDesc('malware-desc')}">
+      <div class="flex items-center gap-4 mb-3">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2a2 2 0 012-2h2a2 2 0 012 2v2m-4-4v-1a3 3 0 013-3h2a3 3 0 013 3v1m-4 4v1a3 3 0 01-3 3h-2a3 3 0 01-3-3v-1"/>
+        </svg>
+        <h3 class="text-xl font-semibold text-indigo-600 dark:text-indigo-400">Malware</h3>
+      </div>
+      <p id="malware-desc" class="text-gray-700 dark:text-gray-300 hidden">
+        Software designed to damage or gain unauthorized access to your system.
+        Use antivirus software and avoid downloading untrusted files.
+      </p>
+    </div>
+
+  </div>
+</section>
+<div
+        aria-hidden="true"
+        class="absolute -bottom-20 -right-20 w-72 h-72 bg-purple-400 opacity-30 rounded-full animate-pulse blur-3xl dark:bg-purple-700 dark:opacity-20"
+      ></div>
+
+<script>
+  function toggleDesc(id) {
+    const desc = document.getElementById(id);
+    if (desc) {
+      const isHidden = desc.classList.contains('hidden');
+      desc.classList.toggle('hidden');
+      
+      // Update aria-expanded for accessibility
+      const container = desc.parentElement;
+      container.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
+    }
+  }
+</script>
+
+ <script>
+  // Initialize AOS for scroll animations
+  AOS.init({
+    duration: 1000,
+    once: true,
+    easing: "ease-in-out",
+  });
+</script>
+
+ 
+
+
+
+ <!-- Real-Time Cyber Threat News Search Section -->
+<section class="mb-20 max-w-4xl mx-auto px-4" data-aos="fade-up">
+  <h2 class="text-5xl font-extrabold mb-8 text-indigo-700 dark:text-indigo-400 text-center">
+    Real-Time Cyber<br> Threat News Search
+  </h2>
+
+  <!-- Search Card -->
+  <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-2xl w-full border border-indigo-300 dark:border-indigo-700 transition duration-300 hover:shadow-indigo-500/50 animate-fadeIn mx-auto">
+    <h3 class="text-2xl font-semibold mb-6 text-indigo-600 dark:text-indigo-400 text-center">
+      Stay Updated on Latest Cyber Attacks
+    </h3>
+
+    <!-- Search Form -->
+    <form id="searchForm" class="flex flex-col sm:flex-row gap-4 mb-6">
+      <input
+        id="searchInput"
+        type="text"
+        placeholder="Enter keyword (e.g., malware, phishing)..."
+        class="flex-grow px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-900 dark:text-white"
+        required
+      />
+      <button
+        type="submit"
+        class="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition"
+      >
+        Search
+      </button>
+    </form>
+
+    <!-- Search Results -->
+    <div id="newsResults" class="space-y-4 text-gray-900 dark:text-gray-100 max-h-96 overflow-y-auto"></div>
+  </div>
+
+ <!-- Call to Action Section (No Background Card) -->
+<div class="mt-14 text-center max-w-xl mx-auto px-6 py-12">
+  <h3 class="text-4xl font-extrabold mb-4 text-indigo-700 dark:text-indigo-400">
+    Ready to Secure Your Digital Assets?
+  </h3>
+  <p class="mb-8 text-lg text-gray-700 dark:text-gray-300">
+    Join thousands of security professionals who trust CyberShield for their cybersecurity needs.
+  </p>
+  <div class="flex justify-center gap-6">
+    <a href="#tools" class="bg-indigo-600 text-white px-6 py-3 rounded-full font-semibold hover:bg-indigo-700 transition">
+      Start Using Tools
+    </a>
+    <a href="#learn-more" class="border border-indigo-600 text-indigo-600 px-6 py-3 rounded-full font-semibold hover:bg-indigo-600 hover:text-white transition">
+      Learn More
+    </a>
+  </div>
+</div>
+
+
+<!-- Fade In Animation -->
+<style>
+  @keyframes fadeIn {
+    from {opacity: 0; transform: translateY(20px);}
+    to {opacity: 1; transform: translateY(0);}
+  }
+  .animate-fadeIn {
+    animation: fadeIn 0.8s ease-out both;
+  }
+</style>
+
+<script>
+  const keywords = [
+    "malware", "phishing", "ransomware", "cybersecurity", "hacking", "breach", "exploit", "threat", "virus", "attack", "vulnerability",
+  ];
+
+  document.getElementById("searchForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const query = document.getElementById("searchInput").value.toLowerCase();
+    const newsContainer = document.getElementById("newsResults");
+    newsContainer.innerHTML = "";
+
+    const containsKeyword = keywords.some(word => query.includes(word));
+
+    if (!containsKeyword) {
+      newsContainer.innerHTML = '<p class="text-red-500 text-center">Please enter a cybersecurity-related term to search news.</p>';
+      return;
+    }
+
+    try {
+      const rssUrl = "https://thehackernews.com/feeds/posts/default?alt=rss";
+      const proxyUrl = "https://api.allorigins.win/get?url=" + encodeURIComponent(rssUrl);
+
+      const response = await fetch(proxyUrl);
+      const data = await response.json();
+
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(data.contents, "text/xml");
+      const items = xmlDoc.querySelectorAll("item");
+
+      let count = 0;
+      items.forEach(item => {
+        const title = item.querySelector("title").textContent.toLowerCase();
+        if (title.includes(query) && count < 10) {
+          const link = item.querySelector("link").textContent;
+          newsContainer.innerHTML += `
+            <div class="p-3 border border-gray-300 dark:border-gray-700 rounded hover:bg-indigo-100 dark:hover:bg-indigo-900 transition cursor-pointer">
+              <a href="${link}" target="_blank" rel="noopener noreferrer" class="font-semibold text-indigo-600 dark:text-indigo-400">${item.querySelector("title").textContent}</a>
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${new Date(item.querySelector("pubDate").textContent).toLocaleDateString()}</p>
+            </div>`;
+          count++;
+        }
+      });
+
+      if (count === 0) {
+        newsContainer.innerHTML = `<p class="text-yellow-500 text-center">No recent news found for "${query}". Try different keywords.</p>`;
+      }
+    } catch (error) {
+      newsContainer.innerHTML = `<p class="text-red-500 text-center">Error fetching news. Please try again later.</p>`;
+      console.error("News fetch error:", error);
+    }
+  });
+</script>
+
+
+</body>
+</html>

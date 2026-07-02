@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VirusTotal File Scan</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col items-center justify-center p-6">
+
+<div class="w-full max-w-lg bg-white p-6 rounded-lg shadow-md">
+  <h2 class="text-2xl font-bold mb-4 text-indigo-600">VirusTotal File Scanner</h2>
+
+  <input type="file" id="fileInput" class="mb-4 w-full" />
+  <button id="scanBtn" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 w-full">Scan File</button>
+
+  <div id="output" class="mt-6"></div>
+</div>
+
+<script>
+const API_KEY = "YOUR_VIRUSTOTAL_API_KEY"; // replace with your API key
+const fileInput = document.getElementById('fileInput');
+const scanBtn = document.getElementById('scanBtn');
+const output = document.getElementById('output');
+
+scanBtn.addEventListener('click', async () => {
+  const file = fileInput.files[0];
+  if (!file) return alert("Please select a file!");
+
+  output.innerHTML = "Scanning file...";
+  
+  try {
+    // Upload file
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const submitRes = await fetch("https://www.virustotal.com/api/v3/files", {
+      method: "POST",
+      headers: { "x-apikey": "25ef8979da2cceb3b7d6998b6a7b6400a3994ac5419b7289c4c9dd043e300732" },
+      body: formData
+    });
+    const submitData = await submitRes.json();
+    const id = submitData.data.id;
+
+    // Poll until analysis is complete
+    let report;
+    while (true) {
+      const res = await fetch(`https://www.virustotal.com/api/v3/analyses/${id}`, {
+        headers: { "x-apikey": "25ef8979da2cceb3b7d6998b6a7b6400a3994ac5419b7289c4c9dd043e300732" }
+      });
+      const json = await res.json();
+      if (json.data.attributes.status === "completed") break;
+      await new Promise(r => setTimeout(r, 2000));
+    }
+
+    // Fetch final report
+    const reportRes = await fetch(`https://www.virustotal.com/api/v3/files/${id}`, {
+      headers: { "x-apikey": "25ef8979da2cceb3b7d6998b6a7b6400a3994ac5419b7289c4c9dd043e300732" }
+    });
+    report = await reportRes.json();
+
+    const data = report.data.attributes;
+    output.innerHTML = `
+      <div class="p-4 bg-gray-100 rounded shadow">
+        <h4 class="text-indigo-600 font-semibold mb-2">Scan Result</h4>
+        <p><strong>File:</strong> ${file.name}</p>
+        <p><strong>MD5:</strong> ${data.md5}</p>
+        <p><strong>SHA-1:</strong> ${data.sha1}</p>
+        <p><strong>SHA-256:</strong> ${data.sha256}</p>
+        <p><strong>Type:</strong> ${data.type_description}</p>
+        <p><strong>Malicious:</strong> ${data.last_analysis_stats.malicious}</p>
+        <p><strong>Suspicious:</strong> ${data.last_analysis_stats.suspicious}</p>
+        <p><strong>Last Analysis:</strong> ${new Date(data.last_analysis_date*1000).toUTCString()}</p>
+      </div>
+    `;
+    
+  } catch (err) {
+    alert("File scan error: " + err.message);
+  }
+});
+</script>
+</body>
+</html>

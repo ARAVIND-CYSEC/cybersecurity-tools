@@ -1,0 +1,443 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OSINT Tools Suite</title>
+  <script>
+    tailwind = { config: { darkMode: 'class' } };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .nav-btn {
+      padding: 0.35rem 0.9rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      border-radius: 6px;
+      color: var(--tw-text-gray-800);
+      background: transparent;
+      transition: all 0.3s ease;
+    }
+    .nav-btn:hover {
+      background-color: rgba(59, 130, 246, 0.1);
+      transform: translateY(-1px);
+    }
+    .dark .nav-btn:hover {
+      background-color: rgba(99, 102, 241, 0.15);
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fadeIn {
+      animation: fadeIn 0.25s ease-out;
+    }
+  </style>
+  <link rel="stylesheet" href="responsive.css">
+</head>
+<body class="bg-gray-50 text-black dark:bg-gray-900 dark:text-white pt-20 transition-colors duration-300">
+
+  <nav class="fixed top-0 left-0 right-0 backdrop-blur-md bg-white/90 dark:bg-gray-900/90 shadow-md z-50 flex justify-between items-center px-6 py-3 border-b border-gray-200 dark:border-gray-700">
+    <a href="home2.html" class="font-bold text-lg text-gray-900 dark:text-gray-100 relative inline-flex items-center gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 text-indigo-600 dark:text-indigo-400" aria-hidden="true">
+        <path d="M12 2l7 3v6c0 5.25-3.44 9.92-7 11-3.56-1.08-7-5.75-7-11V5l7-3zm0 4.2L8 7.86v3.02c0 3.73 2.24 7.04 4 7.88 1.76-.84 4-4.15 4-7.88V7.86l-4-1.66zm-.75 2.3h1.5v2.75h2.75v1.5h-2.75v2.75h-1.5v-2.75H8.5v-1.5h2.75V8.5z"/>
+      </svg>
+      <span>CyberShield</span>
+      <span class="absolute -top-1 -right-3 w-6 h-6 bg-indigo-500 opacity-20 rounded-full blur-xl animate-pulse dark:bg-indigo-400"></span>
+    </a>
+
+    <div class="flex items-center gap-3">
+      <button onclick="window.location.href='home2.html'" class="nav-btn">Home</button>
+      <button onclick="window.location.href='toolhash.html'" class="nav-btn">Sec Tools</button>
+      <button onclick="window.location.href='tool2.html'" class="nav-btn">Threats</button>
+      <button onclick="window.location.href='tool.html'" class="nav-btn">OSINT</button>
+      <button onclick="window.location.href='tool1.html'" class="nav-btn">CVE</button>
+      <button onclick="window.location.href='reports.html'" class="nav-btn">Reports</button>
+      <button id="themeToggle" class="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+        <svg id="iconMoon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" class="w-5 h-5 block dark:hidden">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+        </svg>
+        <svg id="iconSun" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" class="w-5 h-5 hidden dark:block">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m8.66-9h-1M4.34 12h-1m15.364 5.364l-.707-.707M6.343 6.343l-.707-.707m12.728 12.728l-.707-.707M6.343 17.657l-.707-.707M12 7a5 5 0 100 10 5 5 0 000-10z" />
+        </svg>
+      </button>
+    </div>
+  </nav>
+
+  <section class="bg-indigo-600/40 dark:bg-indigo-700/40 text-white py-10 px-6 rounded-2xl mx-auto max-w-6xl shadow-md relative overflow-hidden backdrop-blur-md">
+    <div class="text-center space-y-6">
+      <h1 class="text-3xl md:text-4xl font-bold leading-snug">What is OSINT?</h1>
+      <p class="text-base md:text-lg leading-relaxed">
+        Open Source Intelligence (OSINT) is the practice of collecting information from publicly available sources.
+        It helps security professionals, analysts, and researchers gain actionable insights while investigating domains,
+        infrastructure, and digital exposure.
+      </p>
+      <button onclick="showToolsContent()" class="bg-white text-indigo-600 px-6 py-3 rounded-md font-semibold shadow hover:shadow-sm transition">
+        Explore Tools
+      </button>
+    </div>
+
+    <span class="absolute top-0 left-0 w-20 h-20 bg-indigo-500/20 rounded-full blur-xl animate-pulse"></span>
+    <span class="absolute bottom-0 right-0 w-24 h-24 bg-indigo-400/20 rounded-full blur-xl animate-pulse"></span>
+  </section>
+
+  <div id="toolsContent" class="hidden animate-fadeIn px-6 py-12 max-w-5xl mx-auto space-y-8">
+    <header class="text-center py-10">
+      <h1 class="text-4xl font-bold text-indigo-600 mb-4">OSINT Tools Suite</h1>
+      <p class="text-gray-700 dark:text-gray-300 max-w-2xl mx-auto text-lg">
+        Perform WHOIS, RDAP, DNS lookups and uptime checks. Each tool can export its result and save it into the shared reports workspace.
+      </p>
+    </header>
+
+    <div class="flex justify-center gap-4 mb-10 flex-wrap">
+      <button onclick="showTool('whois')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded">WHOIS</button>
+      <button onclick="showTool('rdap')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded">RDAP</button>
+      <button onclick="showTool('dns')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded">DNS</button>
+      <button onclick="showTool('uptime')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded">Uptime</button>
+    </div>
+
+    <div id="whois" class="toolCard hidden bg-white dark:bg-gray-800 shadow-md rounded-xl p-6">
+      <div class="mb-4 p-4 bg-indigo-50 dark:bg-indigo-900 rounded-md">
+        <h2 class="text-xl font-semibold text-indigo-700 dark:text-indigo-300">WHOIS</h2>
+        <p class="text-gray-700 dark:text-gray-300">Retrieve domain registration details and registrar information.</p>
+      </div>
+      <input id="whoisInput" type="text" placeholder="Enter domain e.g. example.com" class="w-full max-w-lg px-4 py-2 mb-4 rounded-md border bg-white text-black dark:bg-gray-700 dark:text-white">
+      <div class="flex gap-2 flex-wrap">
+        <button onclick="fetchWhois()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded">Fetch WHOIS</button>
+        <button onclick="exportOsintReport('whois')" class="bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded">Export Report</button>
+      </div>
+      <pre id="whoisResult" class="bg-gray-100 dark:bg-gray-900 p-4 rounded-md mt-4 max-h-80 overflow-auto text-sm">WHOIS data will appear here...</pre>
+    </div>
+
+    <div id="rdap" class="toolCard hidden bg-white dark:bg-gray-800 shadow-md rounded-xl p-6">
+      <div class="mb-4 p-4 bg-indigo-50 dark:bg-indigo-900 rounded-md">
+        <h2 class="text-xl font-semibold text-indigo-700 dark:text-indigo-300">RDAP</h2>
+        <p class="text-gray-700 dark:text-gray-300">Query modern registration data for domains and IP addresses.</p>
+      </div>
+      <input id="rdapInput" type="text" placeholder="Enter IP or domain" class="w-full max-w-lg px-4 py-2 mb-4 rounded-md border bg-white text-black dark:bg-gray-700 dark:text-white">
+      <div class="flex gap-2 flex-wrap">
+        <button onclick="fetchRDAP()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded">Fetch RDAP</button>
+        <button onclick="exportOsintReport('rdap')" class="bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded">Export Report</button>
+      </div>
+      <pre id="rdapResult" class="bg-gray-100 dark:bg-gray-900 p-4 rounded-md mt-4 max-h-80 overflow-auto text-sm">RDAP data will appear here...</pre>
+    </div>
+
+    <div id="dns" class="toolCard hidden bg-white dark:bg-gray-800 shadow-md rounded-xl p-6">
+      <div class="mb-4 p-4 bg-indigo-50 dark:bg-indigo-900 rounded-md">
+        <h2 class="text-xl font-semibold text-indigo-700 dark:text-indigo-300">DNS Lookup</h2>
+        <p class="text-gray-700 dark:text-gray-300">Resolve a domain and inspect A, AAAA, MX, TXT, CNAME, and NS records.</p>
+      </div>
+      <input id="dnsInput" type="text" placeholder="Enter domain e.g. example.com" class="w-full max-w-lg px-4 py-2 mb-4 rounded-md border bg-white text-black dark:bg-gray-700 dark:text-white">
+      <div class="flex gap-2 flex-wrap">
+        <button onclick="fetchDNS()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded">Fetch DNS</button>
+        <button onclick="exportOsintReport('dns')" class="bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded">Export Report</button>
+      </div>
+      <div id="dnsTableContainer" class="overflow-auto max-h-80 mt-4 hidden">
+        <table class="w-full border-collapse border border-gray-300 dark:border-gray-600">
+          <thead>
+            <tr class="bg-indigo-100 dark:bg-indigo-900">
+              <th class="border px-3 py-1">Name</th>
+              <th class="border px-3 py-1">TTL</th>
+              <th class="border px-3 py-1">Type</th>
+              <th class="border px-3 py-1">Data</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <pre id="rawDNS" class="bg-gray-100 dark:bg-gray-900 p-2 rounded-md text-xs overflow-auto mt-2 max-h-48 hidden"></pre>
+    </div>
+
+    <div id="uptime" class="toolCard hidden bg-white dark:bg-gray-800 shadow-md rounded-xl p-6">
+      <div class="mb-4 p-4 bg-indigo-50 dark:bg-indigo-900 rounded-md">
+        <h2 class="text-xl font-semibold text-indigo-700 dark:text-indigo-300">Uptime Check</h2>
+        <p class="text-gray-700 dark:text-gray-300">Check whether a site is responding over HTTP or HTTPS.</p>
+      </div>
+      <input id="uptimeInput" type="text" placeholder="Enter URL e.g. https://example.com" class="w-full max-w-lg px-4 py-2 mb-4 rounded-md border bg-white text-black dark:bg-gray-700 dark:text-white">
+      <div class="flex gap-2 flex-wrap">
+        <button onclick="fetchUptime()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded">Check Uptime</button>
+        <button onclick="exportOsintReport('uptime')" class="bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded">Export Report</button>
+      </div>
+      <pre id="uptimeResult" class="bg-gray-100 dark:bg-gray-900 p-4 rounded-md mt-4 max-h-80 overflow-auto text-sm">Uptime result will appear here...</pre>
+    </div>
+  </div>
+
+<script>
+  const osintReportState = {
+    whois: null,
+    rdap: null,
+    dns: null,
+    uptime: null
+  };
+
+  function applyTheme(isDark){
+    document.documentElement.classList.toggle("dark", isDark);
+    document.getElementById("iconMoon").classList.toggle("hidden", isDark);
+    document.getElementById("iconSun").classList.toggle("hidden", !isDark);
+    localStorage.theme = isDark ? "dark" : "light";
+  }
+
+  function downloadJsonReport(filename, payload){
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function saveLocalReport(report){
+    const key = "cybershieldSavedReports";
+    const reports = JSON.parse(localStorage.getItem(key) || "[]");
+    reports.unshift({
+      id: `${report.tool}-${Date.now()}`,
+      savedAt: new Date().toISOString(),
+      ...report
+    });
+    localStorage.setItem(key, JSON.stringify(reports.slice(0, 50)));
+  }
+
+  function exportOsintReport(tool){
+    const report = osintReportState[tool];
+    if(!report){
+      alert("Run this lookup first so there is report data to export.");
+      return;
+    }
+    downloadJsonReport(`cybershield-${tool}-report.json`, report);
+  }
+
+  function showToolsContent() {
+    const content = document.getElementById("toolsContent");
+    content.classList.remove("hidden");
+    content.scrollIntoView({ behavior: "smooth" });
+  }
+
+  function showTool(tool){
+    document.querySelectorAll(".toolCard").forEach((card) => card.classList.add("hidden"));
+    document.getElementById(tool).classList.remove("hidden");
+  }
+
+  async function safeJson(response){
+    return response.json().catch(() => ({}));
+  }
+
+  function formatWhoisData(data) {
+    const whoisData = data.whoisData || {};
+    const lines = [];
+    
+    lines.push(`Domain Name: ${whoisData.domainName || data.ldhName || data.domainName || data.query || "N/A"}`);
+    
+    if (whoisData.createdDate) lines.push(`Creation Date: ${whoisData.createdDate}`);
+    if (whoisData.expiresDate) lines.push(`Expiration Date: ${whoisData.expiresDate}`);
+    if (whoisData.updatedDate) lines.push(`Updated Date: ${whoisData.updatedDate}`);
+    
+    if (whoisData.registrar) {
+      lines.push("");
+      lines.push("Registrar Information:");
+      if (whoisData.registrar.name) lines.push(`  Registrar: ${whoisData.registrar.name}`);
+      if (whoisData.registrar.email) lines.push(`  Email: ${whoisData.registrar.email}`);
+      if (whoisData.registrar.phone) lines.push(`  Phone: ${whoisData.registrar.phone}`);
+      if (whoisData.registrar.url || whoisData.registrar.referralUrl) lines.push(`  URL: ${whoisData.registrar.url || whoisData.registrar.referralUrl}`);
+      if (whoisData.registrar.ianaId) lines.push(`  IANA ID: ${whoisData.registrar.ianaId}`);
+    }
+    
+    if (whoisData.registrant && Object.keys(whoisData.registrant).length > 0) {
+      lines.push("");
+      lines.push("Registrant Information:");
+      if (whoisData.registrant.name) lines.push(`  Name: ${whoisData.registrant.name}`);
+      if (whoisData.registrant.organization) lines.push(`  Organization: ${whoisData.registrant.organization}`);
+      if (whoisData.registrant.email) lines.push(`  Email: ${whoisData.registrant.email}`);
+      if (whoisData.registrant.phone) lines.push(`  Phone: ${whoisData.registrant.phone}`);
+      if (whoisData.registrant.address) lines.push(`  Address: ${whoisData.registrant.address}`);
+    }
+    
+    if (whoisData.adminContact && Object.keys(whoisData.adminContact).length > 0) {
+      lines.push("");
+      lines.push("Admin Contact:");
+      if (whoisData.adminContact.name) lines.push(`  Name: ${whoisData.adminContact.name}`);
+      if (whoisData.adminContact.organization) lines.push(`  Organization: ${whoisData.adminContact.organization}`);
+      if (whoisData.adminContact.email) lines.push(`  Email: ${whoisData.adminContact.email}`);
+      if (whoisData.adminContact.phone) lines.push(`  Phone: ${whoisData.adminContact.phone}`);
+    }
+    
+    if (whoisData.technicalContact && Object.keys(whoisData.technicalContact).length > 0) {
+      lines.push("");
+      lines.push("Technical Contact:");
+      if (whoisData.technicalContact.name) lines.push(`  Name: ${whoisData.technicalContact.name}`);
+      if (whoisData.technicalContact.organization) lines.push(`  Organization: ${whoisData.technicalContact.organization}`);
+      if (whoisData.technicalContact.email) lines.push(`  Email: ${whoisData.technicalContact.email}`);
+      if (whoisData.technicalContact.phone) lines.push(`  Phone: ${whoisData.technicalContact.phone}`);
+    }
+
+    if (whoisData.abuseContact && Object.keys(whoisData.abuseContact).length > 0) {
+      lines.push("");
+      lines.push("Abuse Contact:");
+      if (whoisData.abuseContact.name) lines.push(`  Name: ${whoisData.abuseContact.name}`);
+      if (whoisData.abuseContact.organization) lines.push(`  Organization: ${whoisData.abuseContact.organization}`);
+      if (whoisData.abuseContact.email) lines.push(`  Email: ${whoisData.abuseContact.email}`);
+      if (whoisData.abuseContact.phone) lines.push(`  Phone: ${whoisData.abuseContact.phone}`);
+    }
+    
+    if (whoisData.nameServers && whoisData.nameServers.length > 0) {
+      lines.push("");
+      lines.push("Name Servers:");
+      whoisData.nameServers.forEach((ns, i) => lines.push(`  ${i + 1}. ${ns}`));
+    }
+    
+    if (whoisData.domainStatus && whoisData.domainStatus.length > 0) {
+      lines.push("");
+      lines.push("Domain Status:");
+      whoisData.domainStatus.forEach((status) => lines.push(`  - ${status}`));
+    }
+    
+    if (whoisData.dnssec !== undefined) {
+      lines.push("");
+      lines.push(`DNSSEC: ${whoisData.dnssec ? "Signed" : "Unsigned"}`);
+    }
+    
+    return lines.join("\n");
+  }
+
+  async function fetchWhois(){
+    const domain = document.getElementById("whoisInput").value.trim();
+    const result = document.getElementById("whoisResult");
+    if(!domain){ result.textContent = "Please enter a domain"; return; }
+    result.textContent = "Fetching WHOIS...";
+
+    try {
+      const res = await fetch(`/api/osint/whois?domain=${encodeURIComponent(domain)}`);
+      const data = await safeJson(res);
+      if(!res.ok){
+        throw new Error([data.error, data.details].filter(Boolean).join(" - ") || "WHOIS request failed");
+      }
+      osintReportState.whois = {
+        tool: "whois",
+        query: domain,
+        fetchedAt: new Date().toISOString(),
+        report: data
+      };
+      saveLocalReport(osintReportState.whois);
+      
+      // Display formatted WHOIS data
+      const formatted = formatWhoisData(data);
+      result.textContent = formatted || "No WHOIS data available for this domain.";
+    } catch (error) {
+      result.textContent = `WHOIS lookup failed: ${error.message}`;
+      console.error(error);
+    }
+  }
+
+  async function fetchRDAP(){
+    const input = document.getElementById("rdapInput").value.trim();
+    const result = document.getElementById("rdapResult");
+    if(!input){ result.textContent = "Please enter domain or IP"; return; }
+    result.textContent = "Fetching RDAP...";
+
+    try {
+      const res = await fetch(`/api/osint/rdap?query=${encodeURIComponent(input)}`);
+      const data = await safeJson(res);
+      if(!res.ok){
+        throw new Error(data.error || "RDAP request failed");
+      }
+      osintReportState.rdap = {
+        tool: "rdap",
+        query: input,
+        fetchedAt: new Date().toISOString(),
+        report: data
+      };
+      saveLocalReport(osintReportState.rdap);
+      result.textContent = JSON.stringify(data, null, 2);
+    } catch (error) {
+      result.textContent = `RDAP lookup failed: ${error.message}`;
+      console.error(error);
+    }
+  }
+
+  async function fetchDNS(){
+    const domain = document.getElementById("dnsInput").value.trim();
+    const tableContainer = document.getElementById("dnsTableContainer");
+    const raw = document.getElementById("rawDNS");
+    const tbody = tableContainer.querySelector("tbody");
+
+    if(!domain){
+      raw.textContent = "Please enter a domain";
+      tableContainer.classList.add("hidden");
+      raw.classList.remove("hidden");
+      return;
+    }
+
+    tbody.innerHTML = "";
+    raw.textContent = "Fetching DNS...";
+    raw.classList.remove("hidden");
+    tableContainer.classList.remove("hidden");
+
+    try {
+      const res = await fetch(`/api/osint/dns?domain=${encodeURIComponent(domain)}`);
+      const data = await safeJson(res);
+      if(!res.ok){
+        throw new Error(data.error || "DNS request failed");
+      }
+      osintReportState.dns = {
+        tool: "dns",
+        query: domain,
+        fetchedAt: new Date().toISOString(),
+        report: data
+      };
+      saveLocalReport(osintReportState.dns);
+
+      (data.records || []).forEach((record) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td class="border px-2 py-1">${record.name}</td>
+                        <td class="border px-2 py-1">${record.ttl}</td>
+                        <td class="border px-2 py-1">${record.type}</td>
+                        <td class="border px-2 py-1">${record.data}</td>`;
+        tbody.appendChild(tr);
+      });
+      raw.textContent = JSON.stringify(data.raw || {}, null, 2);
+    } catch (error) {
+      raw.textContent = `DNS lookup failed: ${error.message}`;
+      console.error(error);
+    }
+  }
+
+  async function fetchUptime(){
+    const url = document.getElementById("uptimeInput").value.trim();
+    const result = document.getElementById("uptimeResult");
+    if(!url){ result.textContent = "Please enter a URL"; return; }
+    result.textContent = "Checking uptime...";
+
+    try {
+      const res = await fetch(`/api/osint/uptime?url=${encodeURIComponent(url)}`);
+      const data = await safeJson(res);
+      if(!res.ok){
+        throw new Error(data.error || "Uptime check failed");
+      }
+      osintReportState.uptime = {
+        tool: "uptime",
+        query: url,
+        fetchedAt: new Date().toISOString(),
+        report: data
+      };
+      saveLocalReport(osintReportState.uptime);
+      result.textContent = JSON.stringify(data, null, 2);
+    } catch (error) {
+      result.textContent = `Uptime check failed: ${error.message}`;
+      console.error(error);
+    }
+  }
+
+  document.getElementById("themeToggle").addEventListener("click", () => {
+    applyTheme(!document.documentElement.classList.contains("dark"));
+  });
+
+  const storedTheme = localStorage.theme;
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  applyTheme(storedTheme === "dark" || (!storedTheme && prefersDark));
+</script>
+<script src="ai-assistant.js"></script>
+  <script src="responsive-nav.js"></script>
+</body>
+</html>

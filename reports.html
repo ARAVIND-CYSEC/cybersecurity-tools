@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CyberShield - Reports</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' };</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#f3f7fb;
+      --surface:rgba(255,255,255,.82);
+      --surface2:rgba(255,255,255,.92);
+      --line:rgba(148,163,184,.22);
+      --text:#0f172a;
+      --muted:#475569;
+    }
+    .dark {
+      --bg:#0b1220;
+      --surface:rgba(17,24,39,.78);
+      --surface2:rgba(15,23,42,.92);
+      --line:rgba(99,102,241,.16);
+      --text:#f8fafc;
+      --muted:#94a3b8;
+    }
+    * { box-sizing:border-box; }
+    body {
+      margin:0;
+      font-family:"Inter",sans-serif;
+      background:
+        radial-gradient(circle at 14% 12%,rgba(99,102,241,.16),transparent 22%),
+        radial-gradient(circle at 84% 20%,rgba(34,211,238,.1),transparent 18%),
+        var(--bg);
+      color:var(--text);
+    }
+    body::before {
+      content:"";
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      background-image:
+        linear-gradient(rgba(148,163,184,.05) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(148,163,184,.05) 1px,transparent 1px);
+      background-size:36px 36px;
+      opacity:.44;
+    }
+    .glass,.glass-strong {
+      border:1px solid var(--line);
+      backdrop-filter:blur(18px);
+      position:relative;
+      overflow:hidden;
+    }
+    .glass {
+      background:var(--surface);
+      box-shadow:0 20px 44px rgba(2,6,23,.18);
+    }
+    .glass-strong { background:var(--surface2); }
+    .glass::before,.glass-strong::before {
+      content:"";
+      position:absolute;
+      width:220px;
+      height:220px;
+      border-radius:999px;
+      background:radial-gradient(circle, rgba(99,102,241,.12), transparent 68%);
+      top:-90px;
+      right:-70px;
+      pointer-events:none;
+    }
+    .nav-link {
+      color:var(--muted);
+      text-decoration:none;
+      padding:.55rem .9rem;
+      border-radius:999px;
+      transition:all .22s ease;
+      font-size:.95rem;
+    }
+    .nav-link:hover,.nav-link.active {
+      color:var(--text);
+      background:rgba(99,102,241,.1);
+    }
+    .section-label {
+      font-size:.74rem;
+      font-weight:700;
+      letter-spacing:.24em;
+      text-transform:uppercase;
+      color:#a5b4fc;
+    }
+    .mono { font-family:"JetBrains Mono",monospace; }
+    .soft-btn {
+      border:1px solid var(--line);
+      border-radius:.95rem;
+      padding:.8rem 1rem;
+      font-weight:600;
+      background:var(--surface);
+      color:var(--text);
+      transition:transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+    }
+    .soft-btn:hover {
+      transform:translateY(-1px);
+      border-color:rgba(99,102,241,.26);
+      box-shadow:0 16px 30px rgba(99,102,241,.1);
+    }
+    .primary-btn {
+      border:0;
+      border-radius:.95rem;
+      padding:.82rem 1rem;
+      font-weight:700;
+      background:linear-gradient(135deg,#6366f1,#4f46e5);
+      color:#fff;
+      box-shadow:0 14px 28px rgba(99,102,241,.18);
+      transition:transform .2s ease, box-shadow .2s ease;
+    }
+    .primary-btn:hover {
+      transform:translateY(-1px);
+      box-shadow:0 18px 34px rgba(99,102,241,.24);
+    }
+    .danger-btn {
+      border:1px solid rgba(239,68,68,.2);
+      border-radius:.95rem;
+      padding:.78rem 1rem;
+      font-weight:700;
+      background:rgba(239,68,68,.12);
+      color:#ef4444;
+    }
+    .report-card {
+      display:grid;
+      gap:1rem;
+      padding:1.1rem;
+      border-radius:1.15rem;
+      border:1px solid var(--line);
+      background:linear-gradient(135deg, rgba(99,102,241,.06), rgba(15,23,42,.02)), var(--surface);
+    }
+    .report-chip {
+      display:inline-flex;
+      align-items:center;
+      gap:.45rem;
+      padding:.38rem .7rem;
+      border-radius:999px;
+      font-size:.72rem;
+      font-weight:700;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      color:#22d3ee;
+      background:rgba(34,211,238,.12);
+    }
+    .compare-surface {
+      border:1px solid var(--line);
+      border-radius:1.25rem;
+      padding:1rem;
+      background:linear-gradient(135deg, rgba(99,102,241,.07), rgba(15,23,42,.03)), var(--surface);
+    }
+    .summary-line {
+      padding:.85rem 1rem;
+      border-radius:1rem;
+      border:1px solid var(--line);
+      background:rgba(99,102,241,.06);
+    }
+    .empty-state {
+      padding:1.2rem;
+      border-radius:1rem;
+      border:1px dashed var(--line);
+      color:var(--muted);
+      background:rgba(99,102,241,.04);
+    }
+    select {
+      width:100%;
+      border:1px solid var(--line);
+      border-radius:1rem;
+      padding:.95rem 1rem;
+      background:var(--surface2);
+      color:var(--text);
+      outline:none;
+    }
+    @media (max-width: 960px) {
+      .desktop-nav { display:none; }
+    }
+  </style>
+  <link rel="stylesheet" href="responsive.css?v=20260429b">
+</head>
+<body>
+  <div class="max-w-[1480px] mx-auto px-4 py-6 relative z-10">
+    <nav class="glass-strong rounded-[1.4rem] px-5 py-4 flex items-center justify-between gap-4 sticky top-4 z-40">
+      <a href="home2.html" class="inline-flex items-center gap-3 no-underline text-inherit">
+        <div class="h-10 w-10 rounded-2xl bg-indigo-500/15 border border-indigo-400/20 flex items-center justify-center text-indigo-300">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l8 4.5v5.2c0 5.3-3.5 10.1-8 11.3-4.5-1.2-8-6-8-11.3V6.5L12 2z"/></svg>
+        </div>
+        <div>
+          <p class="m-0 text-sm font-semibold tracking-[0.2em] uppercase text-indigo-300">CyberShield</p>
+          <p class="m-0 text-xs text-slate-500 dark:text-slate-400">Investigation Reports</p>
+        </div>
+      </a>
+
+      <div class="desktop-nav flex items-center gap-1">
+        <a href="home2.html" class="nav-link">Home</a>
+        <a href="analysis.html" class="nav-link">Analysis</a>
+        <a href="tools-lab.html" class="nav-link">Tools</a>
+        <a href="threat-intel.html" class="nav-link">Threat Intel</a>
+        <a href="urlscan.html" class="nav-link">URLScan</a>
+        <a href="cases.html" class="nav-link">Cases</a>
+        <a href="monitoring.html" class="nav-link">Monitoring</a>
+        <a href="reports.html" class="nav-link active">Reports</a>
+      </div>
+
+      <button id="themeToggle" class="soft-btn text-sm" title="Toggle theme" aria-label="Toggle theme"><span aria-hidden="true">&#9790;</span></button>
+    </nav>
+
+    <main class="pt-6 space-y-6">
+      <section class="glass rounded-[1.8rem] p-6 md:p-8">
+        <p class="section-label m-0">Report Workspace</p>
+        <div class="mt-4 grid lg:grid-cols-[1.2fr_.8fr] gap-6 items-start">
+          <div>
+            <h1 class="m-0 text-4xl md:text-5xl font-extrabold leading-tight">Investigation reports in the same analyst workflow.</h1>
+            <p class="mt-4 mb-0 max-w-3xl text-slate-600 dark:text-slate-300 text-base md:text-lg">
+              Review saved evidence, compare two findings side by side, and export a unified investigation summary using the current CyberShield workspace theme and flow.
+            </p>
+          </div>
+          <div class="grid sm:grid-cols-3 gap-3">
+            <div class="compare-surface">
+              <p class="section-label m-0">Stored</p>
+              <p id="heroStoredCount" class="mt-3 mb-0 text-3xl font-extrabold">0</p>
+              <p class="mt-2 mb-0 text-sm text-slate-500 dark:text-slate-400">Saved report artifacts</p>
+            </div>
+            <div class="compare-surface">
+              <p class="section-label m-0">Compared</p>
+              <p id="heroCompareState" class="mt-3 mb-0 text-3xl font-extrabold">0</p>
+              <p class="mt-2 mb-0 text-sm text-slate-500 dark:text-slate-400">Active comparison set</p>
+            </div>
+            <div class="compare-surface">
+              <p class="section-label m-0">Summary</p>
+              <p id="heroSummaryState" class="mt-3 mb-0 text-3xl font-extrabold">Ready</p>
+              <p class="mt-2 mb-0 text-sm text-slate-500 dark:text-slate-400">Executive export workspace</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid grid-cols-1 xl:grid-cols-[1.45fr_.9fr] gap-6">
+        <section class="glass rounded-[1.5rem] p-5 md:p-6">
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <p class="section-label m-0">Saved Reports</p>
+              <h2 class="mt-3 mb-0 text-2xl font-bold">Evidence archive</h2>
+              <p class="mt-2 mb-0 text-sm text-slate-500 dark:text-slate-400">Reports saved from OSINT, Threat Intel, URLScan, analysis, and tool workflows.</p>
+            </div>
+            <div class="flex flex-wrap gap-3">
+              <button id="refreshReportsBtn" class="soft-btn text-sm">Refresh</button>
+              <button id="clearReportsBtn" class="danger-btn text-sm">Clear Saved Reports</button>
+            </div>
+          </div>
+          <div id="reportsList" class="mt-5 grid gap-4"></div>
+        </section>
+
+        <aside class="space-y-6">
+          <section class="glass rounded-[1.5rem] p-5 md:p-6">
+            <p class="section-label m-0">Compare Reports</p>
+            <h2 class="mt-3 mb-0 text-2xl font-bold">Correlation view</h2>
+            <p class="mt-2 mb-0 text-sm text-slate-500 dark:text-slate-400">Choose two saved reports to compare tools, query targets, and evidence density.</p>
+            <div class="mt-5 space-y-4">
+              <select id="compareFirst"></select>
+              <select id="compareSecond"></select>
+              <button id="compareBtn" class="primary-btn w-full">Compare Reports</button>
+            </div>
+            <div id="compareOutput" class="mt-5 grid gap-3 text-sm text-slate-600 dark:text-slate-300"></div>
+          </section>
+
+          <section class="glass rounded-[1.5rem] p-5 md:p-6">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <p class="section-label m-0">Unified Summary</p>
+                <h2 class="mt-3 mb-0 text-2xl font-bold">Investigation narrative</h2>
+                <p class="mt-2 mb-0 text-sm text-slate-500 dark:text-slate-400">Build one summary from two selected reports for analyst handoff or export.</p>
+              </div>
+              <button id="exportSummaryBtn" class="primary-btn text-sm">Export Summary</button>
+            </div>
+            <div id="summaryOutput" class="mt-5 grid gap-3 text-sm text-slate-600 dark:text-slate-300"></div>
+          </section>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const reportsList = document.getElementById("reportsList");
+    const compareFirst = document.getElementById("compareFirst");
+    const compareSecond = document.getElementById("compareSecond");
+    const compareOutput = document.getElementById("compareOutput");
+    const summaryOutput = document.getElementById("summaryOutput");
+    const themeToggle = document.getElementById("themeToggle");
+    const reportsKey = "cybershieldSavedReports";
+
+    function applyTheme(isDark) {
+      document.documentElement.classList.toggle("dark", isDark);
+      localStorage.theme = isDark ? "dark" : "light";
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>\"']/g, (char) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[char]));
+    }
+
+    function getSavedReports() {
+      return JSON.parse(localStorage.getItem(reportsKey) || "[]");
+    }
+
+    function saveDownload(filename, payload) {
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function countNestedEvidence(value) {
+      if (Array.isArray(value)) return value.length;
+      if (value && typeof value === "object") return Object.keys(value).length;
+      if (typeof value === "string") return value.length ? 1 : 0;
+      return 0;
+    }
+
+    function updateHeroMetrics(reports, compared = false, summaryReady = false) {
+      document.getElementById("heroStoredCount").textContent = String(reports.length);
+      document.getElementById("heroCompareState").textContent = compared ? "2" : "0";
+      document.getElementById("heroSummaryState").textContent = summaryReady ? "Built" : "Ready";
+    }
+
+    function renderReports() {
+      const reports = getSavedReports();
+      updateHeroMetrics(reports, false, false);
+
+      if (!reports.length) {
+        reportsList.innerHTML = `<div class="empty-state">No saved reports yet. Run lookups from the analysis, tools, threat intel, or URLScan pages to build your report workspace.</div>`;
+        compareFirst.innerHTML = '<option value="">No reports available</option>';
+        compareSecond.innerHTML = '<option value="">No reports available</option>';
+        compareOutput.innerHTML = "";
+        summaryOutput.innerHTML = `<div class="empty-state">Compare two reports to build a unified investigation summary.</div>`;
+        return;
+      }
+
+      reportsList.innerHTML = reports.map((report) => `
+        <article class="report-card">
+          <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+            <div class="grid gap-3">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="report-chip">${escapeHtml(report.tool || "unknown")}</span>
+                <span class="text-sm text-slate-500 dark:text-slate-400">Saved ${escapeHtml(report.savedAt ? new Date(report.savedAt).toLocaleString() : "N/A")}</span>
+              </div>
+              <div>
+                <p class="m-0 text-xl font-semibold break-all">${escapeHtml(report.query || "No query value")}</p>
+                <p class="mt-2 mb-0 text-sm text-slate-500 dark:text-slate-400">
+                  Fetched ${escapeHtml(report.fetchedAt ? new Date(report.fetchedAt).toLocaleString() : "N/A")}
+                </p>
+              </div>
+              <div class="grid sm:grid-cols-3 gap-3 text-sm text-slate-600 dark:text-slate-300">
+                <div class="compare-surface">
+                  <p class="section-label m-0">Evidence</p>
+                  <p class="mt-2 mb-0 text-lg font-bold">${countNestedEvidence(report.report)}</p>
+                </div>
+                <div class="compare-surface">
+                  <p class="section-label m-0">Tool</p>
+                  <p class="mt-2 mb-0 text-lg font-bold">${escapeHtml(report.tool || "unknown")}</p>
+                </div>
+                <div class="compare-surface">
+                  <p class="section-label m-0">Record ID</p>
+                  <p class="mt-2 mb-0 text-sm font-semibold mono break-all">${escapeHtml(report.id || "N/A")}</p>
+                </div>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-3">
+              <button onclick="downloadSingleReport('${report.id}')" class="soft-btn text-sm">Export</button>
+              <button onclick="deleteSingleReport('${report.id}')" class="danger-btn text-sm">Delete</button>
+            </div>
+          </div>
+        </article>
+      `).join("");
+
+      const options = ['<option value="">Select report</option>']
+        .concat(reports.map((report) => `<option value="${report.id}">${escapeHtml(report.tool)} | ${escapeHtml(report.query || "N/A")} | ${escapeHtml(new Date(report.savedAt).toLocaleString())}</option>`))
+        .join("");
+      compareFirst.innerHTML = options;
+      compareSecond.innerHTML = options;
+      summaryOutput.innerHTML = `<div class="empty-state">Compare two reports to generate the unified summary output.</div>`;
+    }
+
+    function downloadSingleReport(id) {
+      const report = getSavedReports().find((entry) => entry.id === id);
+      if (!report) return;
+      saveDownload(`cybershield-${report.tool}-saved-report.json`, report);
+    }
+
+    function deleteSingleReport(id) {
+      const reports = getSavedReports().filter((entry) => entry.id !== id);
+      localStorage.setItem(reportsKey, JSON.stringify(reports));
+      renderReports();
+    }
+
+    function getSelectedReports() {
+      const reports = getSavedReports();
+      return {
+        first: reports.find((entry) => entry.id === compareFirst.value),
+        second: reports.find((entry) => entry.id === compareSecond.value)
+      };
+    }
+
+    function renderSummary(first, second) {
+      const summary = {
+        generatedAt: new Date().toISOString(),
+        reportsIncluded: [
+          { tool: first.tool, query: first.query || null, fetchedAt: first.fetchedAt || null },
+          { tool: second.tool, query: second.query || null, fetchedAt: second.fetchedAt || null }
+        ],
+        analystSummary: [
+          `${first.tool} on ${first.query || "N/A"} produced ${countNestedEvidence(first.report)} evidence item(s).`,
+          `${second.tool} on ${second.query || "N/A"} produced ${countNestedEvidence(second.report)} evidence item(s).`,
+          first.query && second.query && first.query === second.query
+            ? "Both reports target the same query, so this comparison is strong for direct correlation."
+            : "The selected reports target different queries, so this summary supports broader investigative context."
+        ],
+        rawReports: [first, second]
+      };
+
+      summaryOutput.innerHTML = `
+        <div class="summary-line"><strong>Generated:</strong> ${escapeHtml(new Date(summary.generatedAt).toLocaleString())}</div>
+        ${summary.analystSummary.map((line) => `<div class="summary-line">${escapeHtml(line)}</div>`).join("")}
+      `;
+
+      window.__cybershieldUnifiedSummary = summary;
+      updateHeroMetrics(getSavedReports(), true, true);
+    }
+
+    document.getElementById("refreshReportsBtn").addEventListener("click", renderReports);
+
+    document.getElementById("clearReportsBtn").addEventListener("click", () => {
+      localStorage.removeItem(reportsKey);
+      window.__cybershieldUnifiedSummary = null;
+      renderReports();
+    });
+
+    document.getElementById("compareBtn").addEventListener("click", () => {
+      const { first, second } = getSelectedReports();
+      if (!first || !second) {
+        compareOutput.innerHTML = `<div class="empty-state">Choose two reports first.</div>`;
+        return;
+      }
+
+      compareOutput.innerHTML = `
+        <div class="compare-surface"><strong>Report A:</strong> ${escapeHtml(first.tool)} | ${escapeHtml(first.query || "N/A")}</div>
+        <div class="compare-surface"><strong>Report B:</strong> ${escapeHtml(second.tool)} | ${escapeHtml(second.query || "N/A")}</div>
+        <div class="compare-surface"><strong>Same tool:</strong> ${first.tool === second.tool ? "Yes" : "No"}</div>
+        <div class="compare-surface"><strong>Same query:</strong> ${first.query === second.query ? "Yes" : "No"}</div>
+        <div class="compare-surface"><strong>Evidence count A:</strong> ${countNestedEvidence(first.report)}</div>
+        <div class="compare-surface"><strong>Evidence count B:</strong> ${countNestedEvidence(second.report)}</div>
+      `;
+
+      renderSummary(first, second);
+    });
+
+    document.getElementById("exportSummaryBtn").addEventListener("click", () => {
+      if (!window.__cybershieldUnifiedSummary) {
+        summaryOutput.innerHTML = `<div class="empty-state">Compare two reports first to build a unified summary.</div>`;
+        return;
+      }
+      saveDownload("cybershield-unified-investigation-summary.json", window.__cybershieldUnifiedSummary);
+    });
+
+    themeToggle.addEventListener("click", () => applyTheme(!document.documentElement.classList.contains("dark")));
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    applyTheme(localStorage.theme ? localStorage.theme === "dark" : prefersDark);
+    renderReports();
+  </script>
+  <script src="ai-assistant.js"></script>
+  <script src="responsive-nav.js?v=20260429b"></script>
+</body>
+</html>

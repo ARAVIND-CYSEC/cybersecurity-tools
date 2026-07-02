@@ -1,0 +1,2002 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CyberShield - Analysis</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' };</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg:#f3f7fb; --surface:rgba(255,255,255,.82); --surface2:rgba(255,255,255,.92); --line:rgba(148,163,184,.22); --text:#0f172a; --muted:#475569; --lightGlow:rgba(99,102,241,.12); --lightGlow2:rgba(34,211,238,.12); }
+    .dark { --bg:#0b1220; --surface:rgba(17,24,39,.78); --surface2:rgba(15,23,42,.92); --line:rgba(99,102,241,.16); --text:#f8fafc; --muted:#94a3b8; }
+    body { margin:0; font-family:"Inter",sans-serif; background:radial-gradient(circle at 14% 12%,rgba(99,102,241,.16),transparent 22%),radial-gradient(circle at 84% 20%,rgba(34,211,238,.1),transparent 18%),var(--bg); color:var(--text); }
+    body::before { content:""; position:fixed; inset:0; pointer-events:none; background-image:linear-gradient(rgba(148,163,184,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(148,163,184,.05) 1px,transparent 1px); background-size:36px 36px; opacity:.44; }
+    .glass {
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.88), rgba(248,250,252,.72)),
+        var(--surface);
+      border:1px solid var(--line);
+      backdrop-filter:blur(18px);
+      box-shadow:0 20px 40px rgba(2,6,23,.08), 0 0 0 1px rgba(255,255,255,.18) inset;
+      position:relative;
+      overflow:hidden;
+    }
+    .glass::before {
+      content:"";
+      position:absolute;
+      inset:auto -12% -35% auto;
+      width:220px;
+      height:220px;
+      border-radius:999px;
+      background:radial-gradient(circle, var(--lightGlow), transparent 70%);
+      pointer-events:none;
+      opacity:.9;
+      transition:transform .4s ease, opacity .4s ease;
+    }
+    .glass::after {
+      content:"";
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      background:linear-gradient(120deg, transparent 0%, rgba(255,255,255,.18) 40%, transparent 72%);
+      transform:translateX(-130%);
+      opacity:.55;
+      animation:lightSweep 9s linear infinite;
+    }
+    .dark .glass {
+      background:var(--surface);
+      box-shadow:0 20px 40px rgba(2,6,23,.16);
+    }
+    .dark .glass::before,
+    .dark .glass::after { display:none; }
+    .glass:hover::before {
+      transform:scale(1.08) translate(-8px, -6px);
+      opacity:1;
+    }
+    .glass-strong {
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.92), rgba(248,250,252,.8)),
+        var(--surface2);
+      border:1px solid var(--line);
+      backdrop-filter:blur(16px);
+      box-shadow:0 18px 34px rgba(2,6,23,.08);
+      position:relative;
+      overflow:hidden;
+    }
+    .glass-strong::before {
+      content:"";
+      position:absolute;
+      left:-8%;
+      top:-35%;
+      width:200px;
+      height:200px;
+      border-radius:999px;
+      background:radial-gradient(circle, var(--lightGlow2), transparent 72%);
+      pointer-events:none;
+      opacity:.8;
+    }
+    .dark .glass-strong {
+      background:var(--surface2);
+      box-shadow:none;
+    }
+    .dark .glass-strong::before { display:none; }
+    .nav-link { color:var(--muted); text-decoration:none; padding:.55rem .9rem; border-radius:999px; transition:all .2s ease; }
+    .nav-link:hover { color:var(--text); background:rgba(99,102,241,.1); }
+    .section-label { font-size:.74rem; font-weight:700; letter-spacing:.24em; text-transform:uppercase; color:#a5b4fc; }
+    .mono { font-family:"JetBrains Mono",monospace; }
+    .tab-btn { padding:.7rem .95rem; border-radius:.9rem; border:1px solid var(--line); background:var(--surface); color:var(--muted); transition:all .2s ease; }
+    .tab-btn.active { color:#fff; background:linear-gradient(135deg,rgba(99,102,241,.28),rgba(34,211,238,.08)); border-color:rgba(99,102,241,.3); }
+    .tab-btn:hover {
+      transform:translateY(-1px);
+      box-shadow:0 10px 20px rgba(99,102,241,.08);
+      background:linear-gradient(135deg, rgba(99,102,241,.08), rgba(34,211,238,.06));
+    }
+    .status-pill { display:inline-flex; align-items:center; gap:.45rem; padding:.42rem .8rem; border-radius:999px; font-size:.74rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+    .copy-btn { border:1px solid var(--line); background:var(--surface); border-radius:.85rem; padding:.55rem .8rem; color:var(--text); font-size:.82rem; }
+    .record-table { width:100%; border-collapse: collapse; }
+    .record-table th,.record-table td { border-bottom:1px solid var(--line); padding:.85rem .75rem; text-align:left; font-size:.92rem; }
+    .primary-btn { border:0; border-radius:.95rem; padding:.8rem 1rem; font-weight:700; background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff; box-shadow:0 14px 28px rgba(99,102,241,.18); transition:transform .2s ease, box-shadow .2s ease; }
+    .primary-btn:hover { transform:translateY(-1px); box-shadow:0 18px 34px rgba(99,102,241,.24); }
+    .soft-btn {
+      border:1px solid var(--line);
+      border-radius:.95rem;
+      padding:.8rem 1rem;
+      font-weight:600;
+      background:linear-gradient(135deg, rgba(255,255,255,.9), rgba(248,250,252,.75));
+      color:var(--text);
+      box-shadow:0 10px 22px rgba(99,102,241,.05);
+      transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+    }
+    .soft-btn:hover {
+      transform:translateY(-1px);
+      border-color:rgba(99,102,241,.26);
+      box-shadow:0 14px 28px rgba(99,102,241,.1);
+    }
+    .dark .soft-btn { background:var(--surface); box-shadow:none; }
+    .insight-list { display:grid; gap:.9rem; }
+    .insight-card {
+      border:1px solid var(--line);
+      border-radius:1.1rem;
+      padding:1rem;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.88), rgba(248,250,252,.72)),
+        var(--surface);
+      box-shadow:0 12px 24px rgba(99,102,241,.04);
+      transition:transform .2s ease, box-shadow .2s ease;
+    }
+    .insight-card:hover {
+      transform:translateY(-2px);
+      box-shadow:0 16px 30px rgba(99,102,241,.08);
+    }
+    .dark .insight-card { background:var(--surface); box-shadow:none; }
+    .insight-card ul { margin:.85rem 0 0; padding-left:1.1rem; }
+    .timeline { position:relative; display:grid; gap:1rem; }
+    .timeline::before { content:""; position:absolute; left:14px; top:8px; bottom:8px; width:2px; background:linear-gradient(180deg,rgba(34,211,238,.4),rgba(99,102,241,.2)); }
+    .timeline-item { position:relative; margin-left:2.2rem; border:1px solid var(--line); border-radius:1rem; background:var(--surface); padding:1rem; }
+    .timeline-item::before { content:""; position:absolute; left:-1.95rem; top:1rem; width:14px; height:14px; border-radius:999px; background:#22d3ee; box-shadow:0 0 0 6px rgba(34,211,238,.12); }
+    .graph-grid { display:grid; gap:1rem; }
+    .graph-node { border:1px solid var(--line); border-radius:1rem; background:var(--surface); padding:1rem; position:relative; }
+    .graph-node::after { content:""; position:absolute; right:-1rem; top:50%; width:1rem; height:2px; background:rgba(99,102,241,.28); }
+    .graph-grid .graph-node:last-child::after { display:none; }
+    .graph-arrow { color:#818cf8; font-weight:700; text-align:center; }
+    .badge { display:inline-flex; align-items:center; gap:.4rem; padding:.35rem .65rem; border-radius:999px; font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+    .badge.safe { color:#10b981; background:rgba(16,185,129,.12); }
+    .badge.warn { color:#f59e0b; background:rgba(245,158,11,.12); }
+    .badge.danger { color:#ef4444; background:rgba(239,68,68,.12); }
+    .badge.info { color:#22d3ee; background:rgba(34,211,238,.12); }
+    .exposure-table { width:100%; border-collapse:separate; border-spacing:0 .7rem; }
+    .exposure-table th { padding:.2rem .75rem; text-align:left; font-size:.72rem; letter-spacing:.18em; text-transform:uppercase; color:#94a3b8; }
+    .exposure-table td { padding:.9rem .75rem; background:var(--surface); border-top:1px solid var(--line); border-bottom:1px solid var(--line); vertical-align:top; }
+    .exposure-table td:first-child { border-left:1px solid var(--line); border-radius:.9rem 0 0 .9rem; }
+    .exposure-table td:last-child { border-right:1px solid var(--line); border-radius:0 .9rem .9rem 0; }
+    .service-card { border:1px solid var(--line); border-radius:1.1rem; padding:1rem; background:linear-gradient(135deg, rgba(15,23,42,.24), rgba(15,23,42,.08)), var(--surface); }
+    .tech-card { border:1px solid rgba(34,211,238,.16); border-radius:1rem; padding:1rem; background:rgba(34,211,238,.06); }
+    .banner-block { max-height:11rem; overflow:auto; white-space:pre-wrap; word-break:break-word; border:1px solid var(--line); border-radius:.85rem; padding:.8rem; background:rgba(15,23,42,.24); }
+    .risk-low { color:#10b981; }
+    .risk-medium { color:#f59e0b; }
+    .risk-high,.risk-critical { color:#ef4444; }
+    .analysis-metric { min-height:120px; }
+    .ip-chip { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:.85rem 1rem; border-radius:1rem; border:1px solid var(--line); background:var(--surface); cursor:pointer; }
+    .history-link {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:1rem;
+      padding:.75rem .95rem;
+      border-radius:.95rem;
+      background:linear-gradient(135deg, rgba(255,255,255,.86), rgba(248,250,252,.74));
+      border:1px solid var(--line);
+      text-decoration:none;
+      color:inherit;
+      transition:transform .2s ease, box-shadow .2s ease;
+    }
+    .history-link:hover {
+      transform:translateY(-1px);
+      box-shadow:0 14px 26px rgba(99,102,241,.08);
+    }
+    .dark .history-link { background:var(--surface); box-shadow:none; }
+    .loading-card { display:flex; align-items:center; gap:.9rem; border:1px solid var(--line); border-radius:1rem; background:var(--surface); padding:1rem; }
+    .spinner { width:18px; height:18px; border-radius:999px; border:2px solid rgba(99,102,241,.22); border-top-color:#6366f1; animation:spin .8s linear infinite; }
+    .situation-shell {
+      display:grid;
+      grid-template-columns:1.12fr .88fr;
+      gap:1rem;
+      padding:1rem;
+      border-radius:1.7rem;
+      border:1px solid var(--line);
+      background:
+        radial-gradient(circle at top left, rgba(34,211,238,.1), transparent 30%),
+        linear-gradient(135deg, rgba(99,102,241,.1), rgba(15,23,42,.04)),
+        var(--surface);
+    }
+    .situation-hero {
+      padding:1.35rem;
+      border-radius:1.5rem;
+      background:
+        linear-gradient(135deg, rgba(99,102,241,.12), rgba(15,23,42,.04)),
+        rgba(15,23,42,.14);
+      position:relative;
+      overflow:hidden;
+    }
+    .situation-hero::after {
+      content:"";
+      position:absolute;
+      right:-4rem;
+      top:-3rem;
+      width:14rem;
+      height:14rem;
+      border-radius:999px;
+      background:radial-gradient(circle, rgba(34,211,238,.16), transparent 68%);
+      pointer-events:none;
+    }
+    .signal-ribbon { display:flex; flex-wrap:wrap; gap:.55rem; margin-top:1rem; }
+    .signal-badge {
+      display:inline-flex;
+      align-items:center;
+      gap:.45rem;
+      padding:.5rem .78rem;
+      border-radius:999px;
+      border:1px solid rgba(99,102,241,.14);
+      background:rgba(15,23,42,.32);
+      font-size:.76rem;
+      font-weight:700;
+      letter-spacing:.06em;
+      text-transform:uppercase;
+    }
+    .analysis-stage {
+      display:grid;
+      grid-template-columns:1.08fr .92fr;
+      gap:1rem;
+      align-items:start;
+      margin-top:1rem;
+    }
+    .stream-panel,
+    .flow-panel,
+    .compare-shell {
+      border:1px solid var(--line);
+      border-radius:1.5rem;
+      background:var(--surface);
+      padding:1rem;
+    }
+    .ip-stream { display:grid; gap:.8rem; margin-top:1rem; }
+    .ip-row {
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      gap:1rem;
+      align-items:start;
+      padding:1rem 1.05rem;
+      border-radius:1.2rem;
+      background:linear-gradient(135deg, rgba(99,102,241,.07), rgba(15,23,42,.05));
+      border:1px solid rgba(99,102,241,.12);
+    }
+    .flow-track { display:flex; align-items:stretch; gap:.75rem; flex-wrap:wrap; margin-top:1rem; }
+    .flow-stage {
+      min-width:140px;
+      flex:1 1 0;
+      border-radius:1.2rem;
+      padding:1rem;
+      background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+      border:1px solid rgba(99,102,241,.14);
+      position:relative;
+    }
+    .flow-stage:not(:last-child)::after {
+      content:"";
+      position:absolute;
+      right:-.55rem;
+      top:50%;
+      width:.7rem;
+      height:2px;
+      background:linear-gradient(90deg, rgba(99,102,241,.4), rgba(34,211,238,.45));
+    }
+    .compare-shell {
+      margin-top:1rem;
+      background:
+        linear-gradient(135deg, rgba(99,102,241,.06), rgba(15,23,42,.03)),
+        var(--surface);
+    }
+    .compare-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; margin-top:1rem; }
+    .compare-pane {
+      padding:1rem 1.05rem;
+      border-radius:1.2rem;
+      border:1px solid rgba(99,102,241,.12);
+      background:rgba(15,23,42,.2);
+    }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    @keyframes lightSweep {
+      from { transform:translateX(-130%); }
+      to { transform:translateX(130%); }
+    }
+    @media (max-width: 1180px) {
+      .situation-shell,
+      .analysis-stage { grid-template-columns:1fr; }
+    }
+    @media (max-width: 768px) {
+      .compare-grid { grid-template-columns:1fr; }
+      .flow-track { flex-direction:column; }
+      .flow-stage:not(:last-child)::after { display:none; }
+      .ip-row { grid-template-columns:1fr; }
+    }
+  </style>
+  <link rel="stylesheet" href="responsive.css?v=20260429b">
+</head>
+<body>
+  <div class="max-w-[1480px] mx-auto px-4 py-6 relative z-10">
+    <nav class="glass-strong rounded-[1.4rem] px-5 py-4 flex items-center justify-between gap-4 sticky top-4 z-40">
+      <a href="home2.html" class="inline-flex items-center gap-3 no-underline text-inherit">
+        <div class="h-10 w-10 rounded-2xl bg-indigo-500/15 border border-indigo-400/20 flex items-center justify-center text-indigo-300">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l8 4.5v5.2c0 5.3-3.5 10.1-8 11.3-4.5-1.2-8-6-8-11.3V6.5L12 2z"/></svg>
+        </div>
+        <div>
+          <p class="m-0 text-sm font-semibold tracking-[0.2em] uppercase text-indigo-300">CyberShield</p>
+          <p class="m-0 text-xs text-slate-500 dark:text-slate-400">Analysis Engine</p>
+        </div>
+      </a>
+      <div class="flex items-center gap-1">
+        <a class="nav-link" href="home2.html">Home</a>
+        <a class="nav-link" href="analysis.html">Analysis</a>
+        <a class="nav-link" href="tools-lab.html">Tools</a>
+        <a class="nav-link" href="threat-intel.html">Threat Intel</a>
+        <a class="nav-link" href="cases.html">Cases</a>
+        <a class="nav-link" href="monitoring.html">Monitoring</a>
+        <a class="nav-link" href="reports.html">Reports</a>
+      </div>
+      <button id="themeToggle" class="px-4 py-2 rounded-full glass text-sm" title="Toggle theme" aria-label="Toggle theme"><span aria-hidden="true">&#9790;</span></button>
+    </nav>
+
+    <main class="pt-6 space-y-6">
+      <section class="glass rounded-[1.8rem] p-6 md:p-7">
+        <div class="grid lg:grid-cols-[1fr_auto] gap-4 items-start">
+          <div>
+            <p class="section-label m-0">Analysis Header</p>
+            <h1 id="analysisTarget" class="mt-3 text-3xl md:text-4xl font-bold break-all">Awaiting IOC</h1>
+            <div class="mt-4 flex flex-wrap gap-3 items-center">
+              <span id="analysisType" class="status-pill bg-cyan-500/10 text-cyan-300">Unknown</span>
+              <span id="analysisRisk" class="status-pill bg-slate-500/10 text-slate-400">Risk: --</span>
+              <span id="analysisTimestamp" class="text-sm text-slate-500 dark:text-slate-400">Timestamp: --</span>
+            </div>
+          </div>
+          <div class="grid sm:grid-cols-[1fr_auto] gap-3 w-full lg:w-[28rem]">
+            <input id="analysisInput" class="rounded-[1rem] border border-indigo-400/20 bg-white/80 dark:bg-slate-900/80 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500/30" placeholder="Enter domain, IP, URL, hash, or email header" />
+            <button id="rerunAnalysisBtn" class="px-5 py-3 rounded-[1rem] bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition">Analyze</button>
+          </div>
+        </div>
+        <div class="mt-5 flex flex-wrap gap-3">
+          <button id="createCaseBtn" class="primary-btn" type="button">Create Case</button>
+          <button id="saveEvidenceBtn" class="soft-btn" type="button">Save Evidence Snapshot</button>
+          <button id="watchIndicatorBtn" class="soft-btn" type="button">Add To Watchlist</button>
+          <button id="exportJsonBtn" class="soft-btn" type="button">Export JSON</button>
+          <button id="exportPdfBtn" class="soft-btn" type="button">Export PDF Report</button>
+        </div>
+      </section>
+
+      <section id="caseWorkspace" class="glass rounded-[1.5rem] p-5 hidden"></section>
+
+      <section class="glass rounded-[1.4rem] p-5">
+        <div class="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <p class="section-label m-0">Recent Searches</p>
+            <p class="mt-2 mb-0 text-sm text-slate-600 dark:text-slate-300">Reopen recent IOC analysis without retyping.</p>
+          </div>
+        </div>
+        <div id="recentSearches" class="mt-4 grid md:grid-cols-2 xl:grid-cols-3 gap-3"></div>
+      </section>
+
+      <section id="tabButtons" class="flex flex-wrap gap-3"></section>
+      <section id="analysisContent" class="space-y-6"></section>
+    </main>
+  </div>
+
+  <script>
+    const state = {
+      query: "",
+      type: "unknown",
+      riskScore: 0,
+      riskLabel: "Unknown",
+      tabs: [],
+      activeTab: "overview",
+      data: {},
+      loading: false,
+      error: "",
+      compareProfile: null,
+      activeCase: null
+    };
+    const HISTORY_KEY = "cybershieldAnalysisHistory";
+    const DEFAULT_ANALYST = "Primary Analyst";
+
+    function applyTheme(isDark) {
+      document.documentElement.classList.toggle("dark", isDark);
+      localStorage.theme = isDark ? "dark" : "light";
+    }
+
+    function detectType(rawValue) {
+      const value = rawValue.trim();
+      if (!value) return "unknown";
+      if (/^https?:\/\//i.test(value)) return "url";
+      if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(value)) return "ip";
+      if (/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(value)) return "domain";
+      if (/^[a-f0-9]{32,128}$/i.test(value)) return "hash";
+      if (/^(from:|received:|return-path:|delivered-to:)/im.test(value)) return "email";
+      return "unknown";
+    }
+
+    function sanitizeIndicatorInput(rawValue) {
+      const value = rawValue.trim();
+      if (!value) return "";
+      if (/^(from:|received:|return-path:|delivered-to:)/im.test(value) || /^[a-f0-9]{32,128}$/i.test(value)) return value;
+      if (/^https?:\/\//i.test(value)) {
+        try {
+          const parsed = new URL(value);
+          parsed.hostname = parsed.hostname.replace(/^www\./i, "");
+          return parsed.toString();
+        } catch {
+          return value;
+        }
+      }
+      return value.replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/\/$/, "");
+    }
+
+    function tabListForType(type) {
+      if (type === "domain") return ["overview", "timeline", "relationships", "whois", "dns", "rdap", "tls", "ports-services", "technology-stack", "threat-intelligence"];
+      if (type === "ip") return ["overview", "geolocation", "threat"];
+      if (type === "url") return ["overview", "timeline", "relationships", "safe-link", "tls", "ports-services", "technology-stack", "threat-intelligence"];
+      if (type === "email") return ["header-analysis"];
+      if (type === "hash") return ["overview", "threat-detection"];
+      return ["overview"];
+    }
+
+    function riskClasses(label) {
+      if (label === "Malicious") return "bg-rose-500/10 text-rose-400";
+      if (label === "Suspicious") return "bg-amber-500/10 text-amber-400";
+      return "bg-emerald-500/10 text-emerald-400";
+    }
+
+    function saveActivity(value, type, risk) {
+      const key = "cybershieldRecentActivity";
+      const items = JSON.parse(localStorage.getItem(key) || "[]");
+      items.unshift({ value, type: type.toUpperCase(), risk, timestamp: new Date().toLocaleTimeString() });
+      localStorage.setItem(key, JSON.stringify(items.slice(0, 20)));
+    }
+
+    function readAnalysisHistory() {
+      return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+    }
+
+    function writeAnalysisHistory(query, type) {
+      const items = readAnalysisHistory().filter((item) => item.query !== query);
+      items.unshift({ query, type, timestamp: new Date().toLocaleString() });
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(items.slice(0, 8)));
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[char]));
+    }
+
+    function setHeader() {
+      document.getElementById("analysisTarget").textContent = state.query || "Awaiting IOC";
+      document.getElementById("analysisType").textContent = state.type.toUpperCase();
+      document.getElementById("analysisRisk").className = `status-pill ${riskClasses(state.riskLabel)}`;
+      document.getElementById("analysisRisk").textContent = `Risk: ${state.riskScore}/100 ${state.riskLabel}`;
+      document.getElementById("analysisTimestamp").textContent = `Timestamp: ${new Date().toLocaleString()}`;
+      document.getElementById("analysisInput").value = state.query;
+    }
+
+    function renderTabs() {
+      const container = document.getElementById("tabButtons");
+      container.innerHTML = state.tabs.map((tab) => `<button class="tab-btn ${state.activeTab === tab ? "active" : ""}" data-tab="${tab}">${tab.replace(/-/g, " ").replace(/\b\w/g, (m) => m.toUpperCase())}</button>`).join("");
+      container.querySelectorAll("[data-tab]").forEach((button) => button.addEventListener("click", () => {
+        state.activeTab = button.dataset.tab;
+        renderTabs();
+        renderContent();
+        bindRenderedActions();
+      }));
+    }
+
+    function renderRecordTable(records) {
+      if (!records || !records.length) return `<div class="glass rounded-[1.3rem] p-5 text-sm text-slate-600 dark:text-slate-300">No records returned.</div>`;
+      return `<div class="glass rounded-[1.3rem] p-5 overflow-auto"><table class="record-table"><thead><tr><th>Name</th><th>Type</th><th>TTL</th><th>Data</th></tr></thead><tbody>${records.map((record) => `<tr><td>${escapeHtml(record.name || "")}</td><td>${escapeHtml(record.type || "")}</td><td>${escapeHtml(record.ttl || "")}</td><td class="mono">${escapeHtml(record.data || "")}</td></tr>`).join("")}</tbody></table></div>`;
+    }
+
+    function parseEmailHeader(raw) {
+      const lines = raw.split(/\r?\n/).filter(Boolean);
+      const fields = {};
+      lines.forEach((line) => {
+        const idx = line.indexOf(":");
+        if (idx > 0) fields[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
+      });
+      return fields;
+    }
+
+    function renderOverviewCards(cards) {
+      return `<div class="grid md:grid-cols-2 xl:grid-cols-4 gap-4">${cards.map((card) => `<div class="glass rounded-[1.2rem] p-4 analysis-metric"><p class="section-label m-0">${escapeHtml(card.label)}</p><p class="mt-3 mb-0 text-base md:text-lg font-semibold break-all">${escapeHtml(card.value)}</p></div>`).join("")}</div>`;
+    }
+
+    function renderLoadingState(message) {
+      return `<div class="loading-card"><span class="spinner"></span><div><p class="m-0 font-semibold">${escapeHtml(message)}</p><p class="m-0 mt-1 text-sm text-slate-500 dark:text-slate-400">Querying live intelligence sources.</p></div></div>`;
+    }
+
+    function renderErrorState(message) {
+      return `<div class="glass rounded-[1.2rem] p-5 border border-rose-500/30"><p class="m-0 font-semibold text-rose-500">Unable to resolve domain</p><p class="mt-2 mb-0 text-sm text-slate-600 dark:text-slate-300">${escapeHtml(message)}</p></div>`;
+    }
+
+    function getVcardField(entity, fieldName) {
+      const entries = entity?.vcardArray?.[1] || [];
+      const match = entries.find((entry) => String(entry?.[0] || "").toLowerCase() === fieldName.toLowerCase());
+      return match?.[3] || "";
+    }
+
+    function getRdapEntityByRole(payload, roleName) {
+      const entities = payload?.entities || [];
+      for (const entity of entities) {
+        if ((entity.roles || []).includes(roleName)) return entity;
+        for (const nested of entity.entities || []) {
+          if ((nested.roles || []).includes(roleName)) return nested;
+        }
+      }
+      return null;
+    }
+
+    function getRdapRegistrar(payload) {
+      const registrar = getRdapEntityByRole(payload, "registrar");
+      return getVcardField(registrar, "fn") || registrar?.handle || "";
+    }
+
+    function getRdapEvent(payload, action) {
+      return (payload?.events || []).find((event) => String(event.eventAction || "").toLowerCase() === action.toLowerCase())?.eventDate || "";
+    }
+
+    function classifyProvider(org) {
+      const value = String(org || "").toLowerCase();
+      if (!value) return "Unknown";
+      if (/(wireless|broadband|telecom|communications|mobile|fiber|isp)/.test(value)) return "Consumer ISP";
+      if (/(google|amazon|aws|microsoft|azure|cloudflare|digitalocean|linode|ovh|oracle cloud|alibaba cloud|vultr)/.test(value)) return "Cloud Provider";
+      return "Enterprise Hosting";
+    }
+
+    function detectInfraType(ipProfile) {
+      const hostname = String(ipProfile?.hostname || "").toLowerCase();
+      const org = String(ipProfile?.org || ipProfile?.isp || "").toLowerCase();
+      if (/cloudflare|fastly|akamai|cdn|edge/.test(`${hostname} ${org}`)) return "CDN Edge Node";
+      if (classifyProvider(org) === "Cloud Provider") return "Cloud Hosted";
+      if (classifyProvider(org) === "Consumer ISP") return "Consumer ISP";
+      return "Enterprise Hosting";
+    }
+
+    function formatLocalTime(timezone) {
+      if (!timezone) return "Unknown";
+      try {
+        return new Intl.DateTimeFormat("en-US", {
+          timeZone: timezone,
+          hour: "2-digit",
+          minute: "2-digit",
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "2-digit"
+        }).format(new Date());
+      } catch {
+        return timezone;
+      }
+    }
+
+    function formatCoordinates(loc) {
+      if (!loc) return "Unknown";
+      const [lat, lon] = String(loc).split(",");
+      if (!lat || !lon) return loc;
+      const latNum = Number(lat);
+      const lonNum = Number(lon);
+      if (Number.isNaN(latNum) || Number.isNaN(lonNum)) return loc;
+      const latDir = latNum >= 0 ? "N" : "S";
+      const lonDir = lonNum >= 0 ? "E" : "W";
+      return `${Math.abs(latNum).toFixed(4)} ${latDir}, ${Math.abs(lonNum).toFixed(4)} ${lonDir}`;
+    }
+
+    function renderGeoIntelSection(ipProfile, domain) {
+      const mapsHref = ipProfile?.loc ? `https://www.openstreetmap.org/?mlat=${encodeURIComponent(String(ipProfile.loc).split(",")[0])}&mlon=${encodeURIComponent(String(ipProfile.loc).split(",")[1])}#map=10/${encodeURIComponent(String(ipProfile.loc).split(",")[0])}/${encodeURIComponent(String(ipProfile.loc).split(",")[1])}` : "#";
+      return `
+        <section class="analysis-stage">
+          <div class="stream-panel">
+            <p class="section-label m-0">IP Geolocation</p>
+            <div class="mt-4 grid md:grid-cols-2 gap-3 text-sm">
+              ${[
+                ["City", ipProfile?.city || "Unknown"],
+                ["State", ipProfile?.region || "Unknown"],
+                ["Country", ipProfile?.country || "Unknown"],
+                ["Postal", ipProfile?.postal || "Unknown"],
+                ["Local Time", formatLocalTime(ipProfile?.timezone)],
+                ["Timezone", ipProfile?.timezone || "Unknown"],
+                ["Coordinates", formatCoordinates(ipProfile?.loc)]
+              ].map(([label, value]) => `<div class="insight-card"><p class="section-label m-0">${escapeHtml(label)}</p><p class="mt-3 mb-0 text-base font-semibold">${escapeHtml(value)}</p></div>`).join("")}
+            </div>
+          </div>
+          <div class="flow-panel">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <p class="section-label m-0">Map Reference</p>
+                <p class="mt-2 mb-0 text-sm text-slate-500 dark:text-slate-400">Open the live coordinates in a map view.</p>
+              </div>
+              <a class="soft-btn no-underline" href="${mapsHref}" target="_blank" rel="noopener noreferrer">Maps</a>
+            </div>
+            <div class="mt-4 insight-card">
+              <p class="section-label m-0">Coordinate Anchor</p>
+              <p class="mt-3 mb-0 text-2xl font-bold">${escapeHtml(formatCoordinates(ipProfile?.loc))}</p>
+              <p class="mt-3 mb-0 text-sm text-slate-500 dark:text-slate-400">${escapeHtml(domain)} resolved into ${escapeHtml(ipProfile?.city || "Unknown city")}, ${escapeHtml(ipProfile?.country || "Unknown country")}.</p>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    function renderProviderIntelSection(ipProfile, domain) {
+      const infraType = detectInfraType(ipProfile);
+      const hostingDetected = infraType === "Cloud Hosted" || infraType === "CDN Edge Node" || infraType === "Enterprise Hosting";
+      return `
+        <section class="analysis-stage">
+          <div class="stream-panel">
+            <p class="section-label m-0">Anonymization Services</p>
+            <div class="mt-4 grid gap-3">
+              <div class="ip-row">
+                <div>
+                  <div class="text-lg font-semibold">Hosting</div>
+                  <div class="mt-1 text-sm text-slate-500 dark:text-slate-400">Infrastructure classification based on hostname, organization, and provider pattern.</div>
+                </div>
+                <span class="badge ${hostingDetected ? "danger" : "safe"}">${hostingDetected ? "Detected" : "Not Detected"}</span>
+              </div>
+            </div>
+          </div>
+          <div class="flow-panel">
+            <p class="section-label m-0">ASN</p>
+            <div class="mt-4 insight-card">
+              <p class="m-0 text-3xl font-bold">${escapeHtml(ipProfile?.asn || "ASN Unavailable")} - ${escapeHtml(ipProfile?.asnName || ipProfile?.org || "Unknown Organization")}</p>
+              <div class="mt-5 grid md:grid-cols-3 gap-3 text-sm">
+                <div><p class="section-label m-0">Domain</p><p class="mt-2 mb-0 font-semibold">${escapeHtml(domain)}</p></div>
+                <div><p class="section-label m-0">ASN Type</p><p class="mt-2 mb-0 font-semibold">${escapeHtml(infraType === "CDN Edge Node" ? "CDN / Hosting" : infraType)}</p></div>
+                <div><p class="section-label m-0">Route</p><p class="mt-2 mb-0 font-semibold">${escapeHtml(ipProfile?.prefix || "Unavailable from live source")}</p></div>
+              </div>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    function scoreDomainRisk(profile) {
+      let score = 0;
+      const firstIp = profile?.ips?.[0] || {};
+      const org = firstIp.org || "";
+      const asnName = firstIp.asnName || "";
+      const country = firstIp.country || "";
+      if (/cloudflare|google/i.test(`${org} ${asnName}`)) score += 10;
+      if (country && country !== "US") score += 20;
+      if (profile?.ips?.some((ip) => detectInfraType(ip) === "Consumer ISP")) score += 25;
+      if (profile?.secureDns === false) score += 10;
+      return Math.min(100, score);
+    }
+
+    function riskBand(score) {
+      if (score >= 70) return "High";
+      if (score >= 35) return "Medium";
+      return "Low";
+    }
+
+    function getCertTimelineSummary(tls) {
+      return {
+        firstSeen: tls?.summary?.firstSeen || null,
+        latestIssued: tls?.summary?.latestIssued || null,
+        latestSeen: tls?.summary?.latestSeen || null,
+        issuer: tls?.summary?.issuers?.[0] || tls?.recentCertificates?.[0]?.issuerName || null
+      };
+    }
+
+    function getExposure(data = {}) {
+      return data.exposure || {};
+    }
+
+    function getExposureServices(exposure) {
+      return Array.isArray(exposure?.services) ? exposure.services : [];
+    }
+
+    function severityTone(severity) {
+      const value = String(severity || "").toUpperCase();
+      if (value === "CRITICAL" || value === "HIGH") return "danger";
+      if (value === "MEDIUM") return "warn";
+      return "safe";
+    }
+
+    function formatDateOnly(value) {
+      if (!value) return "Unknown";
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return value;
+      return parsed.toISOString().slice(0, 10);
+    }
+
+    function technologyItemsFromExposure(exposure) {
+      return Array.isArray(exposure?.technology?.items) ? exposure.technology.items : [];
+    }
+
+    function buildInfrastructureTimeline(correlation, exposure, tls) {
+      const services = getExposureServices(exposure);
+      const shodanEvents = (exposure?.timeline || []).map((event) => ({
+        label: event.label,
+        value: event.timestamp || event.detail,
+        source: `${event.source || "Shodan"}${event.detail ? ` | ${event.detail}` : ""}`
+      }));
+      const serviceEvents = services.slice(0, 8).map((service) => ({
+        label: `${service.service || "Service"} Detected`,
+        value: service.observedAt || exposure?.exposure?.lastObserved || "Observed by infrastructure source",
+        source: `${service.port}/${String(service.transport || "tcp").toUpperCase()} on ${service.ip || state.query}`
+      }));
+      const tlsEvents = (exposure?.tls?.certificates || []).slice(0, 5).map((cert) => ({
+        label: "TLS Certificate Observed",
+        value: cert.issued || cert.expires || cert.fingerprint,
+        source: `${cert.port}/TCP issuer ${cert.issuer || getCertTimelineSummary(tls).issuer || "Unknown"}`
+      }));
+      const techEvents = technologyItemsFromExposure(exposure).slice(0, 6).map((tech) => ({
+        label: `${tech.name} Fingerprint`,
+        value: exposure?.exposure?.lastObserved || "Current infrastructure fingerprint",
+        source: `${tech.category || "Technology"} via ${tech.evidence || "banner correlation"}`
+      }));
+      return [...shodanEvents, ...serviceEvents, ...tlsEvents, ...techEvents, ...(correlation.timeline || [])];
+    }
+
+    function buildInfrastructureRelationships(baseRelationships, exposure) {
+      const services = getExposureServices(exposure);
+      const firstService = services[0] || {};
+      const firstCert = exposure?.tls?.certificates?.[0] || {};
+      const firstTech = technologyItemsFromExposure(exposure)[0] || {};
+      const attribution = exposure?.attribution || {};
+      const ports = services.slice(0, 5).map((service) => `${service.port}/${String(service.transport || "tcp").toUpperCase()} ${service.service || ""}`).join(" | ");
+      const techStack = technologyItemsFromExposure(exposure).slice(0, 5).map((item) => item.name).join(" | ");
+      return [
+        { label: "Domain", value: exposure?.domain || state.query, meta: "queried indicator" },
+        { label: "Resolved IP", value: firstService.ip || exposure?.resolvedIps?.[0], meta: `${exposure?.resolvedIps?.length || 0} resolved address(es)` },
+        { label: "Open Ports", value: ports || (firstService.port ? `${firstService.port}/${String(firstService.transport || "tcp").toUpperCase()} ${firstService.service || ""}` : ""), meta: "Shodan service observations" },
+        { label: "TLS Certificate", value: firstCert.issuer || getCertTimelineSummary(state.data.tls).issuer, meta: firstCert.fingerprint || "certificate intelligence" },
+        { label: "Technology", value: techStack || firstTech.name, meta: firstTech.category || "fingerprint correlation" },
+        { label: "ASN / Provider", value: [attribution.asn, attribution.hostingProvider || attribution.organization].filter(Boolean).join(" - "), meta: attribution.country || "hosting attribution" },
+        ...baseRelationships.filter((node) => !["Domain", "IP", "ASN / Org", "Cert Issuer"].includes(node.label))
+      ];
+    }
+
+    function renderExposureOverview(profile, exposure, tls) {
+      const services = getExposureServices(exposure);
+      const attribution = exposure?.attribution || {};
+      const exposureInfo = exposure?.exposure || {};
+      const detectedServices = [...new Set(services.map((service) => service.service).filter(Boolean))].slice(0, 5).join(", ") || "No Shodan services observed";
+      const os = exposure?.technology?.operatingSystems?.[0] || services.find((service) => service.os)?.os || "Unknown";
+      const severity = exposureInfo.severity || "LOW";
+      const distribution = Object.entries(exposureInfo.protocolDistribution || {}).slice(0, 6);
+      return `
+        ${renderOverviewCards([
+          { label: "Open Ports", value: String(exposureInfo.openPortCount ?? exposure?.ports?.length ?? 0) },
+          { label: "Detected Services", value: detectedServices },
+          { label: "TLS Availability", value: exposure?.tls?.enabled || tls?.ssllabs?.status ? "TLS Enabled" : "Not Observed" },
+          { label: "Infrastructure Risk", value: `${exposureInfo.score ?? 0}/100 ${severity}` },
+          { label: "Hosting Provider", value: attribution.hostingProvider || profile?.ips?.[0]?.org || "Unknown" },
+          { label: "ASN Attribution", value: attribution.asn || profile?.ips?.[0]?.asn || "Unknown" },
+          { label: "Operating System", value: os },
+          { label: "Last Observed", value: formatDateOnly(exposureInfo.lastObserved) },
+          { label: "Exposure Classification", value: exposureInfo.classification || "UNOBSERVED" },
+          { label: "Geolocation", value: [attribution.city, attribution.country].filter(Boolean).join(", ") || profile?.ips?.[0]?.country || "Unknown" },
+          { label: "Service Count", value: String(exposureInfo.serviceCount ?? services.length) },
+          { label: "Source Mode", value: exposure?.sourceStatus?.shodan === "configured" ? "Shodan Enriched" : "DNS/TLS Fallback" }
+        ])}
+        <section class="analysis-stage">
+          <div class="stream-panel">
+            <div class="flex items-center justify-between gap-3">
+              <p class="section-label m-0">Real-Time Attack Surface Summary</p>
+              <span class="badge ${severityTone(severity)}">${escapeHtml(severity)}</span>
+            </div>
+            <div class="mt-4 grid md:grid-cols-2 gap-3">
+              ${(exposureInfo.indicators || []).slice(0, 6).map((item) => `<div class="insight-card">${escapeHtml(item)}</div>`).join("") || `<div class="insight-card">No high-risk service exposure indicators were returned by configured sources.</div>`}
+            </div>
+          </div>
+          <div class="flow-panel">
+            <p class="section-label m-0">Protocol Distribution</p>
+            <div class="mt-4 grid gap-3 text-sm">
+              ${distribution.length ? distribution.map(([name, count]) => `<div class="ip-row"><div class="font-semibold">${escapeHtml(name)}</div><span class="badge info">${escapeHtml(count)}</span></div>`).join("") : Object.entries(exposure?.sourceStatus || {}).map(([name, status]) => `<div class="ip-row"><div class="font-semibold">${escapeHtml(name.toUpperCase())}</div><span class="badge ${/configured|available/i.test(status) ? "safe" : "warn"}">${escapeHtml(status)}</span></div>`).join("")}
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    function renderPortsServicesPanel(exposure) {
+      const services = getExposureServices(exposure);
+      const severity = exposure?.exposure?.severity || "LOW";
+      const risks = exposure?.exposure?.serviceRisks || [];
+      const mapping = exposure?.exposure?.serviceToInfrastructure || [];
+      const shodanConfigured = exposure?.sourceStatus?.shodan === "configured";
+      const hostReasons = (exposure?.hosts || []).map((host) => host.reason).filter(Boolean);
+      const emptyMessage = shodanConfigured
+        ? `Shodan is configured, but no open services were returned for the resolved IPs.${hostReasons.length ? ` ${hostReasons.slice(0, 2).join(" | ")}` : ""}`
+        : "No open services were returned. Configure SHODAN_API_KEY in .env and restart the backend.";
+      const serviceDistribution = Object.entries(services.reduce((acc, service) => {
+        const key = service.service || "Unknown";
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, {}));
+      return `
+        <div class="space-y-5">
+          <section class="analysis-stage">
+            <div class="stream-panel">
+              <div class="flex items-center justify-between gap-3">
+                <p class="section-label m-0">Ports & Services Intelligence</p>
+                <span class="badge ${severityTone(severity)}">${escapeHtml(severity)}</span>
+              </div>
+              <div class="mt-4 overflow-auto">
+                <table class="exposure-table">
+                  <thead><tr><th>Port</th><th>Service</th><th>Product</th><th>TLS</th><th>Risk</th><th>Observed</th></tr></thead>
+                  <tbody>
+                    ${services.length ? services.map((service) => `
+                      ${(() => {
+                        const risk = risks.find((item) => item.ip === service.ip && item.port === service.port && item.transport === service.transport) || {};
+                        return `
+                      <tr>
+                        <td class="mono font-semibold">${escapeHtml(service.port)}/${escapeHtml(String(service.transport || "tcp").toUpperCase())}</td>
+                        <td>${escapeHtml(service.service || "Unknown")}</td>
+                        <td>${escapeHtml(service.product || service.version || "Unknown")}</td>
+                        <td><span class="badge ${service.tlsEnabled ? "safe" : "warn"}">${service.tlsEnabled ? "Enabled" : "Not observed"}</span></td>
+                        <td><span class="badge ${severityTone(risk.severity)}">${escapeHtml(risk.severity || "LOW")}</span></td>
+                        <td>${escapeHtml(formatDateOnly(service.observedAt))}</td>
+                      </tr>
+                        `;
+                      })()}
+                    `).join("") : `<tr><td colspan="6">${escapeHtml(emptyMessage)}</td></tr>`}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="flow-panel">
+              <p class="section-label m-0">Protocol Analytics</p>
+              <div class="mt-4 grid gap-3">
+                ${serviceDistribution.length ? serviceDistribution.map(([name, count]) => `<div class="ip-row"><div class="font-semibold">${escapeHtml(name)}</div><span class="badge info">${count}</span></div>`).join("") : `<div class="insight-card">${escapeHtml(emptyMessage)}</div>`}
+              </div>
+              <div class="mt-4 grid gap-3">
+                ${(exposure?.exposure?.exposedManagement || []).slice(0, 4).map((item) => `<div class="insight-card"><strong>Administrative Exposure</strong><div class="mt-2">${escapeHtml(item.port)}/${escapeHtml(String(item.transport || "tcp").toUpperCase())} ${escapeHtml(item.service || "")}</div></div>`).join("")}
+                ${(exposure?.exposure?.unsupportedTlsServices || []).slice(0, 4).map((item) => `<div class="insight-card"><strong>Unsupported TLS</strong><div class="mt-2">${escapeHtml(item.port)} ${escapeHtml((item.issues || []).join(", "))}</div></div>`).join("")}
+              </div>
+            </div>
+          </section>
+          <section class="grid lg:grid-cols-2 gap-4">
+            ${services.map((service) => `
+              ${(() => {
+                const risk = risks.find((item) => item.ip === service.ip && item.port === service.port && item.transport === service.transport) || {};
+                const map = mapping.find((item) => item.ip === service.ip && item.port === service.port && item.transport === service.transport) || {};
+                return `
+              <details class="service-card">
+                <summary class="list-none cursor-pointer">
+                  <div class="flex items-start justify-between gap-3">
+                    <div>
+                      <p class="section-label m-0">${escapeHtml(service.ip || exposure?.domain || "Infrastructure")}</p>
+                      <h3 class="mt-2 mb-0 text-xl font-bold">${escapeHtml(service.port)}/${escapeHtml(String(service.transport || "tcp").toUpperCase())} -> ${escapeHtml(service.service || "Unknown")}</h3>
+                      <p class="mt-2 mb-0 text-sm text-slate-500 dark:text-slate-400">${escapeHtml(service.product || service.http?.server || "No product banner")} ${service.tlsEnabled ? "| TLS Enabled" : "| Publicly accessible"}</p>
+                    </div>
+                    <span class="badge ${severityTone(risk.severity)}">${escapeHtml(risk.severity || (service.tlsEnabled ? "TLS" : "OPEN"))}</span>
+                  </div>
+                </summary>
+                <div class="mt-4 grid gap-3 text-sm">
+                  <div class="grid md:grid-cols-2 gap-3">
+                    <div class="insight-card"><strong>Protocol</strong><div class="mt-2">${escapeHtml(service.protocol || "Unknown")}</div></div>
+                    <div class="insight-card"><strong>Version</strong><div class="mt-2">${escapeHtml(service.version || "Unknown")}</div></div>
+                    <div class="insight-card"><strong>OS</strong><div class="mt-2">${escapeHtml(service.os || "Unknown")}</div></div>
+                    <div class="insight-card"><strong>TLS Issuer</strong><div class="mt-2">${escapeHtml(service.tls?.issuer || "N/A")}</div></div>
+                    <div class="insight-card"><strong>ASN / Org</strong><div class="mt-2">${escapeHtml([map.asn, map.organization].filter(Boolean).join(" - ") || "Unknown")}</div></div>
+                    <div class="insight-card"><strong>Vulnerabilities</strong><div class="mt-2">${escapeHtml((service.vulns || []).slice(0, 5).join(", ") || "None reported by Shodan")}</div></div>
+                  </div>
+                  ${(risk.risks || []).length ? `<div><p class="section-label m-0">Service Risk Analysis</p><div class="mt-3 grid gap-2">${risk.risks.map((item) => `<div class="insight-card">${escapeHtml(item)}</div>`).join("")}</div></div>` : ``}
+                  ${service.banner ? `<div><p class="section-label m-0">Banner Intelligence</p><pre class="banner-block mt-3 mono text-xs">${escapeHtml(service.banner)}</pre></div>` : ``}
+                </div>
+              </details>
+                `;
+              })()}
+            `).join("") || `<div class="glass rounded-[1.3rem] p-5 text-sm text-slate-600 dark:text-slate-300">No service cards available yet.</div>`}
+          </section>
+        </div>
+      `;
+    }
+
+    function renderTechnologyStackPanel(exposure) {
+      const items = technologyItemsFromExposure(exposure);
+      const grouped = items.reduce((acc, item) => {
+        const key = item.category || "Technology";
+        acc[key] = acc[key] || [];
+        acc[key].push(item);
+        return acc;
+      }, {});
+      const osItems = exposure?.technology?.operatingSystems || [];
+      const services = getExposureServices(exposure);
+      const faviconHashes = [...new Set(services.map((service) => service.http?.faviconHash).filter(Boolean))];
+      const cpes = [...new Set(services.flatMap((service) => service.cpe || []).filter(Boolean))].slice(0, 8);
+      const sources = exposure?.technology?.sources || ["Shodan metadata", "service banners", "HTTP headers", "TLS metadata"];
+      return `
+        <section class="analysis-stage">
+          <div class="stream-panel">
+            <p class="section-label m-0">Technology Stack Intelligence</p>
+            <div class="mt-4 grid md:grid-cols-2 gap-3">
+              ${Object.entries(grouped).map(([category, values]) => `
+                <div class="tech-card">
+                  <p class="section-label m-0">${escapeHtml(category)}</p>
+                  <div class="mt-3 flex flex-wrap gap-2">${values.map((item) => `<span class="badge info">${escapeHtml(item.name)}</span>`).join("")}</div>
+                  <p class="mt-3 mb-0 text-sm text-slate-500 dark:text-slate-400">${escapeHtml(values[0]?.evidence || "fingerprint correlation")}</p>
+                </div>
+              `).join("") || `<div class="tech-card">No technology fingerprints were returned. Shodan, HTTP headers, Wappalyzer, or favicon data can enrich this panel.</div>`}
+            </div>
+            <div class="mt-4 grid md:grid-cols-2 gap-3">
+              <div class="tech-card">
+                <p class="section-label m-0">Fingerprint Sources</p>
+                <div class="mt-3 flex flex-wrap gap-2">${sources.map((item) => `<span class="badge info">${escapeHtml(item)}</span>`).join("")}</div>
+              </div>
+              <div class="tech-card">
+                <p class="section-label m-0">Favicon / CPE Signals</p>
+                <p class="mt-3 mb-0 text-sm text-slate-500 dark:text-slate-400">${escapeHtml([...faviconHashes.map((hash) => `favicon:${hash}`), ...cpes].join(" | ") || "No favicon hash or CPE metadata returned.")}</p>
+              </div>
+            </div>
+          </div>
+          <div class="flow-panel">
+            <p class="section-label m-0">Stack Summary</p>
+            <div class="mt-4 space-y-3 text-sm">
+              ${[
+                ["Frontend", items.find((item) => /frontend/i.test(item.category))?.name || "Unknown"],
+                ["Web Server", items.find((item) => /web server/i.test(item.category))?.name || "Unknown"],
+                ["Backend", items.find((item) => /backend|runtime/i.test(item.category))?.name || "Unknown"],
+                ["CDN / WAF", items.find((item) => /cdn|waf/i.test(item.category))?.name || "Unknown"],
+                ["Security", items.find((item) => /security/i.test(item.category))?.name || (exposure?.tls?.enabled ? "TLS Enabled" : "Unknown")],
+                ["Operating System", osItems[0] || "Unknown"]
+              ].map(([label, value]) => `<div class="ip-row"><div class="section-label">${escapeHtml(label)}</div><div class="font-semibold">${escapeHtml(value)}</div></div>`).join("")}
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    function renderTlsIntelligencePanel(tls, exposure) {
+      const cert = getCertTimelineSummary(tls);
+      const shodanCerts = exposure?.tls?.certificates || [];
+      const endpoints = tls?.ssllabs?.endpoints || [];
+      const versions = [...new Set(shodanCerts.flatMap((item) => item.versions || []))].join(", ") || "Use SSL Labs details / Shodan TLS records";
+      const ciphers = [...new Set(shodanCerts.map((item) => [item.cipher, item.cipherBits].filter(Boolean).join(" ")).filter(Boolean))].join(", ") || "No Shodan cipher data";
+      const sanDomains = [...new Set(shodanCerts.flatMap((item) => Array.isArray(item.san) ? item.san : String(item.san || "").split(/,\s*/)).filter(Boolean))].slice(0, 12);
+      return `
+        <div class="space-y-5">
+          ${renderOverviewCards([
+            { label: "Certificate Issuer", value: shodanCerts[0]?.issuer || cert.issuer || "Unknown" },
+            { label: "TLS Versions", value: versions },
+            { label: "Certificate Status", value: tls?.ssllabs?.status || (shodanCerts.length ? "Observed" : "Unknown") },
+            { label: "Expiration", value: formatDateOnly(shodanCerts[0]?.expires || tls?.recentCertificates?.[0]?.notAfter) },
+            { label: "Fingerprint", value: shodanCerts[0]?.fingerprint || tls?.recentCertificates?.[0]?.serialNumber || "Unknown" },
+            { label: "HTTPS Posture", value: exposure?.tls?.enabled ? "TLS-enabled public service" : "Not observed" },
+            { label: "Trust Chain", value: endpoints[0]?.grade ? `SSL Labs ${endpoints[0].grade}` : "Awaiting validation" },
+            { label: "Cipher Support", value: ciphers },
+            { label: "CT Entries", value: String((tls?.recentCertificates || []).length) }
+          ])}
+          <section class="analysis-stage">
+            <div class="stream-panel">
+              <p class="section-label m-0">SAN Domains</p>
+              <div class="mt-4 flex flex-wrap gap-2">${sanDomains.map((name) => `<span class="badge info">${escapeHtml(name)}</span>`).join("") || `<span class="text-sm text-slate-500 dark:text-slate-400">No SAN data returned by Shodan TLS metadata.</span>`}</div>
+            </div>
+            <div class="flow-panel">
+              <p class="section-label m-0">Certificate Transparency Intelligence</p>
+              <div class="mt-4 grid gap-3">
+                ${(tls?.recentCertificates || []).slice(0, 5).map((item) => `<div class="insight-card"><div class="font-semibold break-all">${escapeHtml(item.commonName || item.nameValue || "Certificate")}</div><div class="mt-2 text-sm text-slate-500 dark:text-slate-400">${escapeHtml(item.issuerName || "Unknown issuer")} | ${escapeHtml(formatDateOnly(item.notBefore))} -> ${escapeHtml(formatDateOnly(item.notAfter))}</div></div>`).join("") || `<div class="insight-card">No crt.sh certificate transparency records available.</div>`}
+              </div>
+            </div>
+          </section>
+        </div>
+      `;
+    }
+
+    function renderThreatIntelligencePanel(exposure, correlation) {
+      const exposureInfo = exposure?.exposure || {};
+      const severity = exposureInfo.severity || "LOW";
+      const serviceRisks = exposureInfo.serviceRisks || [];
+      const highRiskServices = serviceRisks.filter((item) => ["HIGH", "CRITICAL"].includes(String(item.severity || "").toUpperCase()));
+      return `
+        <section class="analysis-stage">
+          <div class="stream-panel">
+            <div class="flex items-center justify-between gap-3">
+              <p class="section-label m-0">Threat & Exposure Correlation</p>
+              <span class="badge ${severityTone(severity)}">${escapeHtml(severity)}</span>
+            </div>
+            <div class="mt-4 grid gap-3">
+              ${(exposureInfo.indicators || []).map((item) => `<div class="insight-card">${escapeHtml(item)}</div>`).join("") || `<div class="insight-card">No critical exposure indicators detected from the current infrastructure enrichment.</div>`}
+              ${(correlation.anomalies || []).map((item) => `<div class="insight-card">${escapeHtml(item)}</div>`).join("")}
+              ${highRiskServices.slice(0, 6).map((item) => `<div class="insight-card"><strong>${escapeHtml(item.port)}/${escapeHtml(String(item.transport || "tcp").toUpperCase())} ${escapeHtml(item.service || "")}</strong><ul>${(item.risks || []).map((risk) => `<li>${escapeHtml(risk)}</li>`).join("")}</ul></div>`).join("")}
+            </div>
+          </div>
+          <div class="flow-panel">
+            <p class="section-label m-0">Risk Model</p>
+            <div class="mt-4 insight-card">
+              <p class="m-0 text-5xl font-extrabold risk-${escapeHtml(String(severity).toLowerCase())}">${escapeHtml(exposureInfo.score ?? 0)}</p>
+              <p class="mt-2 mb-0 text-lg font-semibold">${escapeHtml(exposureInfo.classification || "UNOBSERVED")}</p>
+              <p class="mt-3 mb-0 text-sm text-slate-500 dark:text-slate-400">Severity is based on externally exposed administrative services, weak TLS indicators, outdated product banners, risky protocols, and suspicious infrastructure patterns.</p>
+            </div>
+            <div class="mt-4 grid gap-3">
+              <div class="ip-row"><div class="font-semibold">Administrative Services</div><span class="badge ${exposureInfo.exposedManagement?.length ? "warn" : "safe"}">${escapeHtml(exposureInfo.exposedManagement?.length || 0)}</span></div>
+              <div class="ip-row"><div class="font-semibold">Unsupported TLS</div><span class="badge ${exposureInfo.unsupportedTlsServices?.length ? "warn" : "safe"}">${escapeHtml(exposureInfo.unsupportedTlsServices?.length || 0)}</span></div>
+              <div class="ip-row"><div class="font-semibold">EOL / Risky Software</div><span class="badge ${exposureInfo.eolSoftware?.length ? "danger" : "safe"}">${escapeHtml(exposureInfo.eolSoftware?.length || 0)}</span></div>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    function renderTimeline(events) {
+      const filtered = events.filter((event) => event.value);
+      if (!filtered.length) {
+        return `<div class="glass rounded-[1.3rem] p-5 text-sm text-slate-600 dark:text-slate-300">No live timeline events were available from the queried sources.</div>`;
+      }
+      return `<div class="timeline">${filtered.map((event) => `<div class="timeline-item"><p class="section-label m-0">${escapeHtml(event.label)}</p><p class="mt-3 mb-1 font-semibold">${escapeHtml(event.value)}</p><p class="m-0 text-sm text-slate-500 dark:text-slate-400">${escapeHtml(event.source)}</p></div>`).join("")}</div>`;
+    }
+
+    function renderRelationshipGraph(nodes) {
+      const filtered = nodes.filter((node) => node.value);
+      if (!filtered.length) {
+        return `<div class="glass rounded-[1.3rem] p-5 text-sm text-slate-600 dark:text-slate-300">No relationship graph nodes are available yet.</div>`;
+      }
+      return `
+        <div class="glass rounded-[1.3rem] p-5">
+          <div class="graph-grid lg:grid-cols-[repeat(${filtered.length},minmax(0,1fr))]">
+            ${filtered.map((node, index) => `
+              <div class="graph-node">
+                <p class="section-label m-0">${escapeHtml(node.label)}</p>
+                <p class="mt-3 mb-1 font-semibold break-all">${escapeHtml(node.value)}</p>
+                ${node.meta ? `<p class="m-0 text-sm text-slate-500 dark:text-slate-400">${escapeHtml(node.meta)}</p>` : ``}
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderRecentSearches() {
+      const root = document.getElementById("recentSearches");
+      const items = readAnalysisHistory();
+      if (!items.length) {
+        root.innerHTML = `<div class="text-sm text-slate-500 dark:text-slate-400">No recent searches yet.</div>`;
+        return;
+      }
+      root.innerHTML = items.map((item) => `
+        <a href="analysis.html?query=${encodeURIComponent(item.query)}" class="history-link">
+          <div>
+            <div class="font-semibold mono break-all">${escapeHtml(item.query)}</div>
+            <div class="text-sm text-slate-500 dark:text-slate-400">${escapeHtml(item.type.toUpperCase())}</div>
+          </div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 text-right">${escapeHtml(item.timestamp)}</div>
+        </a>
+      `).join("");
+    }
+
+    function exportCurrentJson() {
+      const payload = {
+        query: state.query,
+        type: state.type,
+        riskScore: state.riskScore,
+        riskLabel: state.riskLabel,
+        generatedAt: new Date().toISOString(),
+        data: state.data
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `cybershield-analysis-${state.type || "ioc"}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function exportCurrentPdf() {
+      window.print();
+    }
+
+    async function requestJson(url, options = {}) {
+      const response = await fetch(url, options);
+      const text = await response.text();
+      let data = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch (error) {
+        throw new Error(text.startsWith("<!DOCTYPE") ? "Server returned HTML instead of JSON." : text || "Unexpected response.");
+      }
+      if (!response.ok) {
+        throw new Error(data?.error || "Request failed.");
+      }
+      return data;
+    }
+
+    function collectEvidenceSources() {
+      const sources = [];
+      if (state.data.domainProfile) sources.push("domain_profile");
+      if (state.data.dns) sources.push("dns");
+      if (state.data.rdap) sources.push("rdap");
+      if (state.data.whois) sources.push("whois");
+      if (state.data.tls) sources.push("tls");
+      if (state.data.exposure) sources.push("infrastructure_exposure");
+      if (state.data.ip) sources.push("ip");
+      if (state.data.urlIntel) sources.push("url_redirects");
+      if (state.data.header) sources.push("email_header");
+      return sources;
+    }
+
+    function buildCasePayload() {
+      return {
+        title: state.query,
+        indicator: state.query,
+        indicatorType: state.type,
+        verdict: state.riskLabel === "Malicious" ? "malicious" : state.riskLabel === "Suspicious" ? "suspicious" : "benign",
+        priority: state.riskScore >= 70 ? "high" : state.riskScore >= 35 ? "medium" : "low",
+        tags: [state.type, state.riskLabel.toLowerCase(), "analysis"].filter(Boolean),
+        evidence: [
+          {
+            label: "Initial Live Analysis Snapshot",
+            source: "analysis",
+            capturedAt: new Date().toISOString(),
+            data: {
+              query: state.query,
+              type: state.type,
+              riskScore: state.riskScore,
+              riskLabel: state.riskLabel,
+              sources: collectEvidenceSources(),
+              data: state.data
+            }
+          }
+        ],
+        watchTargets: [state.query]
+      };
+    }
+
+    async function createCaseFromCurrentAnalysis() {
+      if (!state.query) return;
+      const result = await requestJson("/api/cases", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildCasePayload())
+      });
+      state.activeCase = result.case;
+      renderCaseWorkspace();
+      syncCaseQueryParam();
+    }
+
+    async function saveEvidenceSnapshot() {
+      if (!state.activeCase?.id) {
+        await createCaseFromCurrentAnalysis();
+        return;
+      }
+      const result = await requestJson(`/api/cases/${encodeURIComponent(state.activeCase.id)}/evidence`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          label: `Live Snapshot ${new Date().toLocaleString()}`,
+          source: "analysis",
+          data: {
+            query: state.query,
+            type: state.type,
+            riskScore: state.riskScore,
+            riskLabel: state.riskLabel,
+            sources: collectEvidenceSources(),
+            data: state.data
+          }
+        })
+      });
+      state.activeCase = result.case;
+      renderCaseWorkspace();
+    }
+
+    async function addCurrentIndicatorToWatchlist() {
+      if (!state.query) return;
+      await requestJson("/api/watchlists", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          indicator: state.query,
+          indicatorType: state.type,
+          caseId: state.activeCase?.id || null,
+          scope: collectEvidenceSources(),
+          latestStatus: `${state.riskLabel} | ${state.riskScore}/100`
+        })
+      });
+      if (state.activeCase?.id) {
+        const updated = await requestJson(`/api/cases/${encodeURIComponent(state.activeCase.id)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            watcherEnabled: true,
+            watchTargets: [...new Set([...(state.activeCase.watchTargets || []), state.query])]
+          })
+        });
+        state.activeCase = updated.case;
+        renderCaseWorkspace();
+      }
+    }
+
+    async function loadCase(caseId) {
+      if (!caseId) {
+        state.activeCase = null;
+        renderCaseWorkspace();
+        return;
+      }
+      try {
+        const response = await requestJson(`/api/cases/${encodeURIComponent(caseId)}`);
+        state.activeCase = response.case;
+      } catch {
+        state.activeCase = null;
+      }
+      renderCaseWorkspace();
+    }
+
+    function syncCaseQueryParam() {
+      const params = new URLSearchParams(window.location.search);
+      if (state.query) params.set("query", state.query);
+      if (state.activeCase?.id) {
+        params.set("case", state.activeCase.id);
+      } else {
+        params.delete("case");
+      }
+      history.replaceState({}, "", `${location.pathname}?${params.toString()}`);
+    }
+
+    function renderCaseWorkspace() {
+      const root = document.getElementById("caseWorkspace");
+      if (!state.activeCase) {
+        root.classList.add("hidden");
+        root.innerHTML = "";
+        return;
+      }
+
+      root.classList.remove("hidden");
+      const caseItem = state.activeCase;
+      const evidence = Array.isArray(caseItem.evidence) ? caseItem.evidence : [];
+      const notes = Array.isArray(caseItem.notes) ? caseItem.notes : [];
+      const comments = Array.isArray(caseItem.comments) ? caseItem.comments : [];
+      const activity = Array.isArray(caseItem.activity) ? caseItem.activity.slice(0, 6) : [];
+
+      root.innerHTML = `
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p class="section-label m-0">Active Case Workspace</p>
+            <h2 class="mt-3 mb-0 text-2xl font-bold break-all">${escapeHtml(caseItem.title || caseItem.indicator)}</h2>
+            <div class="mt-3 flex flex-wrap gap-2 items-center">
+              <span class="badge info">${escapeHtml(caseItem.indicatorType || "unknown")}</span>
+              <span class="badge ${caseItem.verdict === "malicious" ? "danger" : caseItem.verdict === "suspicious" || caseItem.verdict === "under-review" ? "warn" : "safe"}">${escapeHtml(caseItem.verdict || "under-review")}</span>
+              <span class="badge ${caseItem.locked ? "danger" : "safe"}">${caseItem.locked ? "Evidence Locked" : "Evidence Writable"}</span>
+              <span class="badge info">${evidence.length} snapshots</span>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <a href="cases.html?case=${encodeURIComponent(caseItem.id)}" class="soft-btn no-underline">Open Full Case</a>
+            <button id="toggleLockBtn" class="soft-btn" type="button">${caseItem.locked ? "Unlock Evidence" : "Lock Evidence"}</button>
+          </div>
+        </div>
+        <div class="mt-5 grid xl:grid-cols-[1.2fr_.8fr] gap-4">
+          <div class="space-y-4">
+            <div class="insight-card">
+              <div class="flex items-center justify-between gap-3 flex-wrap">
+                <p class="section-label m-0">Case Metadata</p>
+                <div class="flex gap-2 flex-wrap">
+                  <select id="caseVerdictSelect" class="rounded-[.8rem] border border-indigo-400/20 bg-white/80 dark:bg-slate-900/80 px-3 py-2 text-sm">
+                    ${["under-review","suspicious","malicious","benign"].map((option) => `<option value="${option}" ${caseItem.verdict === option ? "selected" : ""}>${option}</option>`).join("")}
+                  </select>
+                  <select id="casePrioritySelect" class="rounded-[.8rem] border border-indigo-400/20 bg-white/80 dark:bg-slate-900/80 px-3 py-2 text-sm">
+                    ${["low","medium","high","critical"].map((option) => `<option value="${option}" ${caseItem.priority === option ? "selected" : ""}>${option}</option>`).join("")}
+                  </select>
+                  <input id="caseTagsInput" class="rounded-[.8rem] border border-indigo-400/20 bg-white/80 dark:bg-slate-900/80 px-3 py-2 text-sm min-w-[220px]" value="${escapeHtml((caseItem.tags || []).join(", "))}" placeholder="tags, comma separated" />
+                  <button id="saveCaseMetaBtn" class="primary-btn" type="button">Save Case</button>
+                </div>
+              </div>
+              <div class="mt-4 grid md:grid-cols-3 gap-3 text-sm">
+                <div><p class="section-label m-0">Indicator</p><p class="mt-2 mb-0 font-semibold break-all">${escapeHtml(caseItem.indicator)}</p></div>
+                <div><p class="section-label m-0">Updated</p><p class="mt-2 mb-0 font-semibold">${escapeHtml(caseItem.updatedAt || "Unknown")}</p></div>
+                <div><p class="section-label m-0">Watch Targets</p><p class="mt-2 mb-0 font-semibold">${escapeHtml((caseItem.watchTargets || []).join(" | ") || "None")}</p></div>
+              </div>
+            </div>
+            <div class="insight-card">
+              <div class="flex items-center justify-between gap-3">
+                <p class="section-label m-0">Analyst Notes</p>
+                <span class="badge info">${notes.length}</span>
+              </div>
+              <textarea id="caseNoteInput" class="mt-4 w-full min-h-[110px] rounded-[1rem] border border-indigo-400/20 bg-white/80 dark:bg-slate-900/80 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500/30" placeholder="Add analyst reasoning, scope, or next steps..."></textarea>
+              <div class="mt-3 flex justify-end">
+                <button id="addCaseNoteBtn" class="soft-btn" type="button">Add Note</button>
+              </div>
+              <div class="mt-4 space-y-3">
+                ${notes.length ? notes.slice(0, 4).map((note) => `<div class="rounded-[1rem] border border-indigo-400/10 px-4 py-3"><div class="text-sm font-semibold">${escapeHtml(note.author || "Analyst")}</div><div class="mt-2 text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">${escapeHtml(note.body)}</div><div class="mt-2 text-xs text-slate-500 dark:text-slate-400">${escapeHtml(note.createdAt || "")}</div></div>`).join("") : `<div class="text-sm text-slate-500 dark:text-slate-400">No notes yet.</div>`}
+              </div>
+            </div>
+          </div>
+          <div class="space-y-4">
+            <div class="insight-card">
+              <div class="flex items-center justify-between gap-3">
+                <p class="section-label m-0">Team Comments</p>
+                <span class="badge info">${comments.length}</span>
+              </div>
+              <div class="mt-4 flex gap-2">
+                <input id="caseCommentInput" class="flex-1 rounded-[.9rem] border border-indigo-400/20 bg-white/80 dark:bg-slate-900/80 px-3 py-2 text-sm" placeholder="Leave a collaboration comment" />
+                <button id="addCaseCommentBtn" class="soft-btn" type="button">Post</button>
+              </div>
+              <div class="mt-4 space-y-3">
+                ${comments.length ? comments.slice(0, 4).map((comment) => `<div class="rounded-[1rem] border border-indigo-400/10 px-4 py-3"><div class="text-sm font-semibold">${escapeHtml(comment.author || "Team Analyst")}</div><div class="mt-2 text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">${escapeHtml(comment.body)}</div><div class="mt-2 text-xs text-slate-500 dark:text-slate-400">${escapeHtml(comment.createdAt || "")}</div></div>`).join("") : `<div class="text-sm text-slate-500 dark:text-slate-400">No comments yet.</div>`}
+              </div>
+            </div>
+            <div class="insight-card">
+              <div class="flex items-center justify-between gap-3">
+                <p class="section-label m-0">Recent Activity</p>
+                <span class="badge info">${activity.length}</span>
+              </div>
+              <div class="mt-4 space-y-3">
+                ${activity.length ? activity.map((entry) => `<div class="rounded-[1rem] border border-indigo-400/10 px-4 py-3"><div class="text-sm font-semibold">${escapeHtml(entry.message || entry.type || "Activity")}</div><div class="mt-2 text-xs text-slate-500 dark:text-slate-400">${escapeHtml(entry.createdAt || "")}</div></div>`).join("") : `<div class="text-sm text-slate-500 dark:text-slate-400">No activity yet.</div>`}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function fetchDomainProfileWithFallback(domain) {
+      try {
+        return await requestJson(`/api/threat/domain/profile?domain=${encodeURIComponent(domain)}`);
+      } catch (error) {
+        if (!/Route not found/i.test(error.message)) throw error;
+        const [whois, dns, rdap, asn] = await Promise.all([
+          requestJson(`/api/osint/whois?domain=${encodeURIComponent(domain)}`).catch(() => null),
+          requestJson(`/api/osint/dns?domain=${encodeURIComponent(domain)}`).catch(() => null),
+          requestJson(`/api/osint/rdap?query=${encodeURIComponent(domain)}`).catch(() => null),
+          requestJson(`/api/threat/domain/asn?domain=${encodeURIComponent(domain)}`).catch(() => null)
+        ]);
+        const addresses = [...new Set((dns?.records || []).filter((record) => record.type === "A").map((record) => record.data))];
+        return {
+          domain,
+          totalIps: addresses.length,
+          nameservers: (whois?.nameservers || rdap?.data?.nameservers || []).map((entry) => entry.ldhName || entry.unicodeName).filter(Boolean),
+          registrationDate: (whois?.events || rdap?.data?.events || []).find((event) => event.eventAction === "registration")?.eventDate || null,
+          lastChanged: (whois?.events || rdap?.data?.events || []).find((event) => event.eventAction === "last changed")?.eventDate || null,
+          secureDns: whois?.secureDNS?.delegationSigned ?? rdap?.data?.secureDNS?.delegationSigned ?? null,
+          registrar: getRdapRegistrar(whois || rdap?.data || {}) || null,
+          ips: addresses.map((ip) => ({
+            ip,
+            hostname: asn?.ip === ip ? asn.hostname : null,
+            isp: asn?.ip === ip ? asn.org : null,
+            org: asn?.ip === ip ? asn.org : null,
+            city: asn?.ip === ip ? asn.city : null,
+            region: asn?.ip === ip ? asn.region : null,
+            country: asn?.ip === ip ? asn.country : null,
+            timezone: asn?.ip === ip ? asn.timezone : null,
+            asn: null,
+            asnName: null,
+            abuseContact: getVcardField(getRdapEntityByRole(whois || rdap?.data || {}, "abuse"), "email")
+          }))
+        };
+      }
+    }
+
+    async function runCompareDomain() {
+      const input = document.getElementById("compareDomainInput");
+      if (!input) return;
+      const value = sanitizeIndicatorInput(input.value);
+      if (!value || detectType(value) !== "domain") return;
+      const response = await fetch(`/api/threat/domain/profile?domain=${encodeURIComponent(value)}`);
+      const data = await response.json();
+      if (!response.ok || data.error) {
+        state.compareProfile = { domain: value, ips: [], error: data.error || "Compare lookup failed." };
+      } else {
+        state.compareProfile = data;
+      }
+      renderContent();
+      bindRenderedActions();
+    }
+
+    async function saveCaseMetadata() {
+      if (!state.activeCase?.id) return;
+      const verdict = document.getElementById("caseVerdictSelect")?.value || state.activeCase.verdict;
+      const priority = document.getElementById("casePrioritySelect")?.value || state.activeCase.priority;
+      const tags = (document.getElementById("caseTagsInput")?.value || "")
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+      const result = await requestJson(`/api/cases/${encodeURIComponent(state.activeCase.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ verdict, priority, tags, lastObservedAt: new Date().toISOString() })
+      });
+      state.activeCase = result.case;
+      renderCaseWorkspace();
+      bindRenderedActions();
+    }
+
+    async function toggleCaseLock() {
+      if (!state.activeCase?.id) return;
+      const result = await requestJson(`/api/cases/${encodeURIComponent(state.activeCase.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ locked: !state.activeCase.locked })
+      });
+      state.activeCase = result.case;
+      renderCaseWorkspace();
+      bindRenderedActions();
+    }
+
+    async function addCaseNote() {
+      if (!state.activeCase?.id) return;
+      const input = document.getElementById("caseNoteInput");
+      const body = String(input?.value || "").trim();
+      if (!body) return;
+      const result = await requestJson(`/api/cases/${encodeURIComponent(state.activeCase.id)}/notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body, author: DEFAULT_ANALYST })
+      });
+      state.activeCase = result.case;
+      renderCaseWorkspace();
+      bindRenderedActions();
+    }
+
+    async function addCaseComment() {
+      if (!state.activeCase?.id) return;
+      const input = document.getElementById("caseCommentInput");
+      const body = String(input?.value || "").trim();
+      if (!body) return;
+      const result = await requestJson(`/api/cases/${encodeURIComponent(state.activeCase.id)}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body, author: "Team Analyst" })
+      });
+      state.activeCase = result.case;
+      renderCaseWorkspace();
+      bindRenderedActions();
+    }
+
+    function bindRenderedActions() {
+      document.getElementById("compareDomainBtn")?.addEventListener("click", runCompareDomain);
+      document.getElementById("compareDomainInput")?.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          runCompareDomain();
+        }
+      });
+      document.getElementById("saveCaseMetaBtn")?.addEventListener("click", saveCaseMetadata);
+      document.getElementById("toggleLockBtn")?.addEventListener("click", toggleCaseLock);
+      document.getElementById("addCaseNoteBtn")?.addEventListener("click", addCaseNote);
+      document.getElementById("addCaseCommentBtn")?.addEventListener("click", addCaseComment);
+    }
+
+    function renderDomainInfraOverview(profile, exposure = null) {
+      const ips = profile?.ips || [];
+      const score = scoreDomainRisk(profile);
+      const band = riskBand(score);
+      const tone = band === "High" ? "danger" : band === "Medium" ? "warn" : "safe";
+      const firstIp = ips[0] || {};
+      const openPorts = exposure?.exposure?.openPortCount ?? exposure?.ports?.length ?? 0;
+      return `
+        <div class="space-y-5">
+          <section class="situation-shell">
+            <div class="situation-hero">
+              <p class="section-label m-0">Infrastructure Situation</p>
+              <div class="mt-4 flex flex-wrap items-end gap-4">
+                <div>
+                  <p class="m-0 text-sm text-slate-500 dark:text-slate-400">Primary Domain</p>
+                  <h2 class="mt-1 mb-0 text-3xl md:text-4xl font-bold break-all">${escapeHtml(profile?.domain || state.query)}</h2>
+                </div>
+                <div class="pb-1">
+                  <p class="m-0 text-sm text-slate-500 dark:text-slate-400">Primary IP</p>
+                  <p class="mt-1 mb-0 text-xl md:text-2xl font-semibold mono">${escapeHtml(firstIp.ip || "N/A")}</p>
+                </div>
+              </div>
+              <div class="signal-ribbon">
+                <span class="signal-badge ${tone}">Risk ${band.toUpperCase()} ${score}/100</span>
+                <span class="signal-badge">Reputation ${band === "High" ? "Malicious" : band === "Medium" ? "Suspicious" : "Clean"}</span>
+                <span class="signal-badge">${escapeHtml(detectInfraType(firstIp))}</span>
+                <span class="signal-badge">Geo ${escapeHtml(firstIp.country || "Unknown")}</span>
+                <span class="signal-badge">${ips.length} Resolved IPs</span>
+              </div>
+              <div class="mt-6 grid md:grid-cols-3 gap-3">
+                <div class="insight-card">
+                  <p class="section-label m-0">Organization</p>
+                  <p class="mt-3 mb-0 text-lg font-semibold">${escapeHtml(firstIp.org || "Unknown")}</p>
+                </div>
+                <div class="insight-card">
+                  <p class="section-label m-0">Registrar</p>
+                  <p class="mt-3 mb-0 text-lg font-semibold">${escapeHtml(profile.registrar || "Unknown")}</p>
+                </div>
+                <div class="insight-card">
+                  <p class="section-label m-0">Registration</p>
+                  <p class="mt-3 mb-0 text-lg font-semibold">${escapeHtml(profile.registrationDate || "Unknown")}</p>
+                </div>
+              </div>
+            </div>
+            <div class="stream-panel">
+              <p class="section-label m-0">Intelligence Snapshot</p>
+              <div class="mt-4 space-y-3">
+                <div class="insight-card">
+                  <p class="m-0 text-sm text-slate-500 dark:text-slate-400">Hostname</p>
+                  <p class="mt-2 mb-0 text-lg font-semibold break-all">${escapeHtml(firstIp.hostname || "No reverse DNS")}</p>
+                </div>
+                <div class="insight-card">
+                  <p class="m-0 text-sm text-slate-500 dark:text-slate-400">ISP / ASN</p>
+                  <p class="mt-2 mb-0 text-lg font-semibold">${escapeHtml(firstIp.isp || "N/A")}</p>
+                  <p class="mt-2 mb-0 text-sm text-slate-500 dark:text-slate-400">${escapeHtml(firstIp.asn || "ASN N/A")} ${escapeHtml(firstIp.asnName || "")}</p>
+                </div>
+                <div class="insight-card">
+                  <p class="m-0 text-sm text-slate-500 dark:text-slate-400">Abuse Contact</p>
+                  <p class="mt-2 mb-0 text-lg font-semibold break-all">${escapeHtml(firstIp.abuseContact || "N/A")}</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="analysis-stage">
+            <div class="stream-panel">
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <p class="section-label m-0">Resolved IP Stream</p>
+                  <p class="mt-2 mb-0 text-sm text-slate-500 dark:text-slate-400">All live A records for the queried domain with expandable drilldown.</p>
+                </div>
+                <span class="badge info">${ips.length} IPs</span>
+              </div>
+              <div class="ip-stream">
+                ${ips.length ? ips.map((item) => `
+                  <details class="ip-row">
+                    <summary class="list-none cursor-pointer">
+                      <div class="flex items-start justify-between gap-4 flex-wrap">
+                        <div>
+                          <div class="text-2xl font-bold mono">${escapeHtml(item.ip)}</div>
+                          <div class="mt-1 text-sm text-slate-500 dark:text-slate-400 break-all">${escapeHtml(item.hostname || "No reverse DNS")}</div>
+                        </div>
+                        <span class="badge ${detectInfraType(item) === "Consumer ISP" ? "warn" : "safe"}">${escapeHtml(detectInfraType(item))}</span>
+                      </div>
+                    </summary>
+                    <div class="mt-4 grid md:grid-cols-2 xl:grid-cols-3 gap-3 text-sm">
+                      <div class="insight-card"><strong>Hostname</strong><div class="mt-2 break-all">${escapeHtml(item.hostname || "N/A")}</div></div>
+                      <div class="insight-card"><strong>ISP</strong><div class="mt-2">${escapeHtml(item.isp || "N/A")}</div></div>
+                      <div class="insight-card"><strong>ASN</strong><div class="mt-2">${escapeHtml(item.asn || "N/A")} ${escapeHtml(item.asnName || "")}</div></div>
+                      <div class="insight-card"><strong>Abuse Contact</strong><div class="mt-2 break-all">${escapeHtml(item.abuseContact || "N/A")}</div></div>
+                      <div class="insight-card"><strong>Location</strong><div class="mt-2">${escapeHtml(item.city || "Unknown")}, ${escapeHtml(item.country || "Unknown")}</div></div>
+                      <div class="insight-card"><strong>Open Ports</strong><div class="mt-2">${escapeHtml(openPorts)} observed from exposure intelligence</div></div>
+                    </div>
+                  </details>
+                `).join("") : `<p class="text-sm text-slate-500 dark:text-slate-400">No IPs resolved.</p>`}
+              </div>
+            </div>
+
+            <div class="flow-panel">
+              <p class="section-label m-0">Relationship Flow</p>
+              <p class="mt-2 mb-0 text-sm text-slate-500 dark:text-slate-400">A wider infrastructure sequence instead of boxed mini-cards.</p>
+              <div class="flow-track">
+                ${(ips.slice(0, 3)).map((item) => `
+                  <div class="flow-stage">
+                    <p class="section-label m-0">Domain</p>
+                    <p class="mt-3 mb-0 text-lg font-semibold break-all">${escapeHtml(profile.domain)}</p>
+                  </div>
+                  <div class="flow-stage">
+                    <p class="section-label m-0">IP</p>
+                    <p class="mt-3 mb-0 text-lg font-semibold mono">${escapeHtml(item.ip)}</p>
+                  </div>
+                  <div class="flow-stage">
+                    <p class="section-label m-0">ASN</p>
+                    <p class="mt-3 mb-0 text-lg font-semibold">${escapeHtml(item.asn || "N/A")}</p>
+                  </div>
+                  <div class="flow-stage">
+                    <p class="section-label m-0">Organization</p>
+                    <p class="mt-3 mb-0 text-lg font-semibold">${escapeHtml(item.org || "N/A")}</p>
+                  </div>
+                `).join("") || `<p class="text-sm text-slate-500 dark:text-slate-400">No relationships available.</p>`}
+              </div>
+            </div>
+          </section>
+
+          ${renderGeoIntelSection(firstIp, profile.domain)}
+          ${renderProviderIntelSection(firstIp, profile.domain)}
+
+          <section class="compare-shell">
+            <div class="flex items-end gap-3 flex-wrap">
+              <div class="flex-1 min-w-[220px]">
+                <p class="section-label m-0">Compare Domains</p>
+                <input id="compareDomainInput" class="mt-3 w-full rounded-[1rem] border border-indigo-400/20 bg-white/80 dark:bg-slate-900/80 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500/30" placeholder="fakebook-login.com" />
+              </div>
+              <button id="compareDomainBtn" class="primary-btn" type="button">Compare</button>
+            </div>
+            <div id="compareDomainResult" class="mt-4">
+              ${state.compareProfile ? `
+                <div class="compare-grid">
+                  <div class="compare-pane">
+                    <p class="section-label m-0">Primary Target</p>
+                    <p class="mt-3 mb-0 text-2xl font-bold break-all">${escapeHtml(profile.domain)}</p>
+                    <p class="mt-3 mb-0 text-sm text-slate-500 dark:text-slate-400">${(profile.ips || []).length} IPs | ${escapeHtml(profile.ips?.[0]?.org || "Unknown org")}</p>
+                  </div>
+                  <div class="compare-pane">
+                    <p class="section-label m-0">Comparison Target</p>
+                    <p class="mt-3 mb-0 text-2xl font-bold break-all">${escapeHtml(state.compareProfile.domain)}</p>
+                    <p class="mt-3 mb-0 text-sm text-slate-500 dark:text-slate-400">${(state.compareProfile.ips || []).length} IPs | ${escapeHtml(state.compareProfile.ips?.[0]?.org || "Unknown org")}</p>
+                  </div>
+                </div>
+              ` : `<p class="text-sm text-slate-500 dark:text-slate-400">Compare this domain against another target using the same live infrastructure sources.</p>`}
+            </div>
+          </section>
+        </div>
+      `;
+    }
+
+    function buildDomainCorrelation(data) {
+      const whois = data.whois || {};
+      const rdap = data.rdap?.data || data.rdap || {};
+      const dns = data.dns || {};
+      const tls = data.tls || {};
+      const asn = data.asn || {};
+      const exposure = getExposure(data);
+      const cert = getCertTimelineSummary(tls);
+      const providerClass = classifyProvider(asn.org);
+      const suspicious = [];
+      const benign = [];
+      const missing = [];
+      const anomalies = [];
+
+      if (/xn--/i.test(state.query)) suspicious.push("Punycode detected in the queried domain.");
+      if (rdap.secureDNS?.delegationSigned === false) suspicious.push("Secure DNS is not signed in RDAP.");
+      if ((tls.ssllabs?.status || "").toUpperCase() !== "READY") suspicious.push(`TLS scan status is ${tls.ssllabs?.status || "unknown"}.`);
+      if (exposure?.exposure?.severity && exposure.exposure.severity !== "LOW") suspicious.push(`Infrastructure exposure severity is ${exposure.exposure.severity}.`);
+      if (providerClass === "Cloud Provider") benign.push(`Infrastructure is hosted by a known cloud provider: ${asn.org || "provider unknown"}.`);
+      if (providerClass === "Consumer ISP") anomalies.push(`Infrastructure resolves into a consumer ISP classification: ${asn.org || "unknown org"}.`);
+      if ((dns.records || []).some((record) => record.type === "NS")) benign.push("Authoritative nameserver records are present.");
+      if (getRdapRegistrar(rdap)) benign.push(`Registrar identified from RDAP: ${getRdapRegistrar(rdap)}.`);
+      if (!cert.issuer) missing.push("Certificate issuer data was not available from crt.sh / SSL sources.");
+      if (!getRdapEvent(rdap, "registration")) missing.push("Registration timestamp was not available from RDAP.");
+      missing.push("Direct CVE publication data cannot be derived from a domain alone without validated software fingerprinting.");
+      if (cert.latestIssued && getRdapEvent(rdap, "registration")) {
+        const age = new Date(cert.latestIssued).getTime() - new Date(getRdapEvent(rdap, "registration")).getTime();
+        if (!Number.isNaN(age) && age < 7 * 24 * 60 * 60 * 1000) anomalies.push("Certificate issuance appears very close to domain registration.");
+      }
+
+      const timeline = [
+        { label: "Domain Registered", value: getRdapEvent(rdap, "registration"), source: "RDAP registration event" },
+        { label: "Cert Issued", value: cert.latestIssued, source: "crt.sh / certificate not_before" },
+        { label: "First Seen", value: cert.firstSeen, source: "crt.sh entry timestamp" },
+        { label: "Last Modified", value: getRdapEvent(rdap, "last changed"), source: "RDAP last changed event" }
+      ];
+      getExposureServices(exposure).slice(0, 4).forEach((service) => {
+        timeline.unshift({
+          label: `${service.service || "Service"} Exposure`,
+          value: service.observedAt || exposure?.exposure?.lastObserved || "Current observation",
+          source: `${service.port}/${String(service.transport || "tcp").toUpperCase()} on ${service.ip || state.query}`
+        });
+      });
+
+      const relationships = [
+        { label: "Domain", value: state.query, meta: "queried indicator" },
+        { label: "IP", value: asn.ip || data.resolve?.addresses?.[0], meta: "resolved infrastructure" },
+        { label: "ASN / Org", value: asn.org, meta: providerClass },
+        { label: "Cert Issuer", value: cert.issuer, meta: "live certificate source" },
+        { label: "Nameservers", value: (rdap.nameservers || []).map((item) => item.ldhName || item.unicodeName).filter(Boolean).slice(0, 2).join(" | "), meta: "RDAP nameserver set" }
+      ];
+
+      return { suspicious, benign, missing, anomalies, timeline, relationships, providerClass, cert };
+    }
+
+    function buildUrlCorrelation(data) {
+      const intel = data.urlIntel || {};
+      const tls = data.tls || {};
+      const asn = data.asn || {};
+      const exposure = getExposure(data);
+      const cert = getCertTimelineSummary(tls);
+      const providerClass = classifyProvider(asn.org);
+      const suspicious = [];
+      const benign = [];
+      const missing = [];
+      const anomalies = [];
+
+      if ((intel.redirectCount || 0) > 0) suspicious.push(`Redirect chain contains ${intel.redirectCount} hop(s).`);
+      if (new URL(state.query).protocol !== "https:") suspicious.push("Original URL does not use HTTPS.");
+      if (intel.finalHost && intel.finalHost !== new URL(state.query).hostname) anomalies.push(`Final host differs from input host: ${intel.finalHost}.`);
+      if (providerClass === "Cloud Provider") benign.push(`Final host resolves into a known cloud provider: ${asn.org || "provider unknown"}.`);
+      if ((tls.ssllabs?.status || "").toUpperCase() === "READY") benign.push("Certificate data was returned successfully for the final host.");
+      if (exposure?.exposure?.severity && exposure.exposure.severity !== "LOW") suspicious.push(`Final host exposure severity is ${exposure.exposure.severity}.`);
+      if (!cert.issuer) missing.push("No certificate issuer was available for the final host.");
+      missing.push("Direct CVE publication data cannot be derived from a URL alone without validated application fingerprinting.");
+
+      const timeline = [
+        { label: "Cert Issued", value: cert.latestIssued, source: "crt.sh / certificate not_before" },
+        { label: "First Seen", value: cert.firstSeen, source: "crt.sh entry timestamp" },
+        { label: "Last Seen", value: cert.latestSeen, source: "crt.sh latest certificate observation" }
+      ];
+      getExposureServices(exposure).slice(0, 4).forEach((service) => {
+        timeline.unshift({
+          label: `${service.service || "Service"} Exposure`,
+          value: service.observedAt || exposure?.exposure?.lastObserved || "Current observation",
+          source: `${service.port}/${String(service.transport || "tcp").toUpperCase()} on ${service.ip || "final host"}`
+        });
+      });
+
+      const relationships = [
+        { label: "URL", value: intel.inputUrl || state.query, meta: "queried indicator" },
+        { label: "Domain", value: intel.finalHost || data.safeLink?.hostname, meta: "final destination host" },
+        { label: "IP", value: asn.ip, meta: "resolved host IP" },
+        { label: "ASN / Org", value: asn.org, meta: providerClass },
+        { label: "Cert Issuer", value: cert.issuer, meta: "live certificate source" }
+      ];
+
+      return { suspicious, benign, missing, anomalies, timeline, relationships, providerClass, cert };
+    }
+
+    function renderContent() {
+      const root = document.getElementById("analysisContent");
+      const type = state.type;
+      const tab = state.activeTab;
+      const data = state.data;
+
+      if (state.loading) {
+        root.innerHTML = renderLoadingState("Fetching analysis");
+        return;
+      }
+
+      if (state.error) {
+        root.innerHTML = renderErrorState(state.error);
+        return;
+      }
+
+      if (type === "domain") {
+        const profile = data.domainProfile || { domain: state.query, ips: [] };
+        const correlation = buildDomainCorrelation({
+          ...data,
+          resolve: { domain: profile.domain, addresses: (profile.ips || []).map((item) => item.ip) },
+          asn: profile.ips?.[0] || data.asn
+        });
+        const exposure = getExposure(data);
+        if (tab === "overview") {
+          root.innerHTML = `
+            ${renderExposureOverview(profile, exposure, data.tls)}
+            <div class="mt-6">${renderDomainInfraOverview(profile, exposure)}</div>
+          `;
+          return;
+        }
+        if (tab === "timeline") {
+          root.innerHTML = renderTimeline(buildInfrastructureTimeline(correlation, exposure, data.tls));
+          return;
+        }
+        if (tab === "relationships") {
+          root.innerHTML = renderRelationshipGraph(buildInfrastructureRelationships(correlation.relationships, exposure));
+          return;
+        }
+        if (tab === "whois") {
+          root.innerHTML = `<div class="glass rounded-[1.3rem] p-5"><pre class="whitespace-pre-wrap text-sm">${escapeHtml(JSON.stringify(data.whois || { error: "No WHOIS data." }, null, 2))}</pre></div>`;
+          return;
+        }
+        if (tab === "dns") {
+          root.innerHTML = renderRecordTable(data.dns?.records || []);
+          return;
+        }
+        if (tab === "rdap") {
+          root.innerHTML = `<div class="glass rounded-[1.3rem] p-5"><pre class="whitespace-pre-wrap text-sm">${escapeHtml(JSON.stringify(data.rdap || { error: "No RDAP data." }, null, 2))}</pre></div>`;
+          return;
+        }
+        if (tab === "tls") {
+          root.innerHTML = renderTlsIntelligencePanel(data.tls, exposure);
+          return;
+        }
+        if (tab === "ports-services") {
+          root.innerHTML = renderPortsServicesPanel(exposure);
+          return;
+        }
+        if (tab === "technology-stack") {
+          root.innerHTML = renderTechnologyStackPanel(exposure);
+          return;
+        }
+        if (tab === "threat-intelligence") {
+          root.innerHTML = renderThreatIntelligencePanel(exposure, correlation);
+          return;
+        }
+      }
+
+      if (type === "ip") {
+        if (tab === "overview") {
+          root.innerHTML = renderOverviewCards([
+            { label: "IP", value: data.ip?.ip || state.query },
+            { label: "Hostname", value: data.ip?.hostname || "Unknown" },
+            { label: "Organization", value: data.ip?.org || "Unknown" },
+            { label: "Country", value: data.ip?.country || "Unknown" }
+          ]);
+          return;
+        }
+        if (tab === "geolocation") {
+          root.innerHTML = renderOverviewCards([
+            { label: "City", value: data.ip?.city || "Unknown" },
+            { label: "Region", value: data.ip?.region || "Unknown" },
+            { label: "Country", value: data.ip?.country || "Unknown" },
+            { label: "Timezone", value: data.ip?.timezone || "Unknown" }
+          ]);
+          return;
+        }
+        if (tab === "threat") {
+          root.innerHTML = `<div class="glass rounded-[1.3rem] p-5"><pre class="whitespace-pre-wrap text-sm">${escapeHtml(JSON.stringify(data.ip || { error: "No IP data." }, null, 2))}</pre></div>`;
+          return;
+        }
+      }
+
+      if (type === "url") {
+        const correlation = buildUrlCorrelation(data);
+        const exposure = getExposure(data);
+        if (tab === "overview") {
+          root.innerHTML = `
+            ${renderExposureOverview(data.domainProfile || { domain: data.urlIntel?.finalHost || data.safeLink?.hostname || state.query, ips: data.asn ? [data.asn] : [] }, exposure, data.tls)}
+            <div class="mt-6">
+            ${renderOverviewCards([
+              { label: "URL", value: state.query },
+              { label: "Redirects", value: String(data.urlIntel?.redirectCount ?? 0) },
+              { label: "Final Host", value: data.urlIntel?.finalHost || data.safeLink?.hostname || "Unknown" },
+              { label: "TLS Status", value: data.tls?.ssllabs?.status || "Unknown" }
+            ])}
+            </div>
+            <div class="glass rounded-[1.3rem] p-5 mt-6">
+              <p class="section-label m-0">Redirect Intelligence</p>
+              <div class="mt-4 grid gap-3">
+                ${(data.urlIntel?.chain || []).map((step, index) => `<div class="insight-card"><p class="m-0 font-semibold">${index + 1}. ${escapeHtml(step.host || step.url)}</p><p class="mt-2 mb-0 text-sm text-slate-500 dark:text-slate-400">Status ${escapeHtml(step.status)}${step.redirectedTo ? ` -> ${escapeHtml(step.redirectedTo)}` : ""}</p></div>`).join("") || `<p class="text-sm text-slate-500 dark:text-slate-400">No redirect chain available.</p>`}
+              </div>
+            </div>
+          `;
+          return;
+        }
+        if (tab === "timeline") {
+          root.innerHTML = renderTimeline(buildInfrastructureTimeline(correlation, exposure, data.tls));
+          return;
+        }
+        if (tab === "relationships") {
+          root.innerHTML = renderRelationshipGraph(buildInfrastructureRelationships(correlation.relationships, exposure));
+          return;
+        }
+        if (tab === "safe-link") {
+          root.innerHTML = `
+            <div class="glass rounded-[1.3rem] p-5">
+              <p class="section-label m-0">URL -> Domain -> Redirects -> Certificate</p>
+              <div class="mt-4 space-y-3">
+                ${(data.urlIntel?.chain || []).map((step, index) => `<div class="insight-card"><p class="m-0 font-semibold">${index + 1}. ${escapeHtml(step.url)}</p><p class="mt-2 mb-0 text-sm text-slate-500 dark:text-slate-400">Host: ${escapeHtml(step.host)} | Status: ${escapeHtml(step.status)}${step.redirectedTo ? ` | Next: ${escapeHtml(step.redirectedTo)}` : ""}</p></div>`).join("") || `<p class="text-sm text-slate-500 dark:text-slate-400">No redirect chain available.</p>`}
+              </div>
+            </div>
+          `;
+          return;
+        }
+        if (tab === "tls") {
+          root.innerHTML = renderTlsIntelligencePanel(data.tls, exposure);
+          return;
+        }
+        if (tab === "ports-services") {
+          root.innerHTML = renderPortsServicesPanel(exposure);
+          return;
+        }
+        if (tab === "technology-stack") {
+          root.innerHTML = renderTechnologyStackPanel(exposure);
+          return;
+        }
+        if (tab === "threat-intelligence") {
+          root.innerHTML = renderThreatIntelligencePanel(exposure, correlation);
+          return;
+        }
+      }
+
+      if (type === "email") {
+        root.innerHTML = `<div class="glass rounded-[1.3rem] p-5"><pre class="whitespace-pre-wrap text-sm">${escapeHtml(JSON.stringify(data.header || {}, null, 2))}</pre></div>`;
+        return;
+      }
+
+      if (type === "hash") {
+        if (tab === "overview") {
+          root.innerHTML = renderOverviewCards([
+            { label: "Hash", value: state.query },
+            { label: "Length", value: String(state.query.length) },
+            { label: "Format", value: state.query.length === 64 ? "SHA-256" : state.query.length === 40 ? "SHA-1" : "Generic hash" },
+            { label: "Next Step", value: "Use Tools Lab for manual verification" }
+          ]);
+          return;
+        }
+        if (tab === "threat-detection") {
+          root.innerHTML = `<div class="glass rounded-[1.3rem] p-5 text-sm text-slate-600 dark:text-slate-300">No upstream hash reputation source is configured yet. Use the Tools Lab for manual file-hash workflows and external verification.</div>`;
+          return;
+        }
+      }
+
+      root.innerHTML = `<div class="glass rounded-[1.3rem] p-5 text-sm text-slate-600 dark:text-slate-300">No analysis content available for this tab yet.</div>`;
+      bindRenderedActions();
+    }
+
+    async function runAnalysis(query) {
+      state.query = sanitizeIndicatorInput(query);
+      state.type = detectType(state.query);
+      state.tabs = tabListForType(state.type);
+      state.activeTab = state.tabs[0];
+      state.data = {};
+      state.loading = true;
+      state.error = "";
+      state.compareProfile = null;
+      state.riskScore = 10;
+      state.riskLabel = "Safe";
+
+      setHeader();
+      renderTabs();
+      renderContent();
+
+      if (!state.query) {
+        state.loading = false;
+        setHeader();
+        renderTabs();
+        renderContent();
+        bindRenderedActions();
+        return;
+      }
+
+      try {
+        if (state.type === "domain") {
+          const [profileRes, whoisRes, dnsRes, rdapRes, tlsRes, exposureRes] = await Promise.all([
+            fetchDomainProfileWithFallback(state.query),
+            requestJson(`/api/osint/whois?domain=${encodeURIComponent(state.query)}`).catch(() => null),
+            requestJson(`/api/osint/dns?domain=${encodeURIComponent(state.query)}`).catch(() => null),
+            requestJson(`/api/osint/rdap?query=${encodeURIComponent(state.query)}`).catch(() => null),
+            requestJson(`/api/security/ssl?domain=${encodeURIComponent(state.query)}`).catch(() => null),
+            requestJson(`/api/infrastructure/exposure?domain=${encodeURIComponent(state.query)}`).catch(() => null)
+          ]);
+          state.data = {
+            domainProfile: profileRes,
+            whois: whoisRes,
+            dns: dnsRes,
+            rdap: rdapRes,
+            tls: tlsRes,
+            exposure: exposureRes
+          };
+          state.riskScore = Math.max(scoreDomainRisk(profileRes), exposureRes?.exposure?.score || 0);
+        } else if (state.type === "ip") {
+          const ipRes = await requestJson(`/api/threat/ip/${encodeURIComponent(state.query)}`);
+          state.data = { ip: ipRes };
+          state.riskScore = ipRes?.org ? 34 : 18;
+        } else if (state.type === "url") {
+          const parsed = new URL(state.query);
+          const issues = [];
+          if (parsed.protocol !== "https:") issues.push("Non-HTTPS");
+          if (/xn--|bit\.ly|tinyurl|t\.co|goo\.gl/i.test(parsed.hostname)) issues.push("Shortener or punycode");
+          if (/@|\.\./.test(parsed.href)) issues.push("Obfuscated pathing");
+          if (/login|verify|secure|account|reset/i.test(parsed.href)) issues.push("Credential lure");
+          const finalHost = parsed.hostname.replace(/^www\./i, "");
+          const [urlIntel, tlsData, profileData, exposureData] = await Promise.all([
+            requestJson(`/api/url/intel?url=${encodeURIComponent(state.query)}`).catch(() => null),
+            requestJson(`/api/security/ssl?domain=${encodeURIComponent(finalHost)}`).catch(() => null),
+            fetchDomainProfileWithFallback(finalHost).catch(() => null),
+            requestJson(`/api/infrastructure/exposure?domain=${encodeURIComponent(finalHost)}`).catch(() => null)
+          ]);
+          state.data = { safeLink: { hostname: parsed.hostname, issues, protocol: parsed.protocol }, tls: tlsData, urlIntel, asn: profileData?.ips?.[0] || null, domainProfile: profileData, exposure: exposureData };
+          state.riskScore = Math.min(100, Math.max(exposureData?.exposure?.score || 0, 20 + issues.length * 18 + ((urlIntel?.redirectCount || 0) * 8)));
+        } else if (state.type === "email") {
+          state.data = { header: parseEmailHeader(state.query) };
+          state.riskScore = 42;
+        } else if (state.type === "hash") {
+          state.data = {};
+          state.riskScore = 28;
+        } else {
+          state.data = {};
+          state.riskScore = 12;
+        }
+      } catch (error) {
+        state.error = error.message || "Analysis failed.";
+      }
+
+      state.loading = false;
+      state.riskLabel = state.riskScore >= 75 ? "Malicious" : state.riskScore >= 35 ? "Suspicious" : "Safe";
+      if (!state.error) {
+        saveActivity(state.query, state.type, state.riskLabel);
+        writeAnalysisHistory(state.query, state.type);
+      }
+      setHeader();
+      renderTabs();
+      renderContent();
+      bindRenderedActions();
+      renderRecentSearches();
+    }
+
+    document.getElementById("rerunAnalysisBtn").addEventListener("click", () => {
+      runAnalysis(document.getElementById("analysisInput").value);
+      syncCaseQueryParam();
+    });
+
+    document.getElementById("analysisInput").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        document.getElementById("rerunAnalysisBtn").click();
+      }
+    });
+
+    document.getElementById("themeToggle").addEventListener("click", () => applyTheme(!document.documentElement.classList.contains("dark")));
+    document.getElementById("exportJsonBtn").addEventListener("click", exportCurrentJson);
+    document.getElementById("exportPdfBtn").addEventListener("click", exportCurrentPdf);
+    document.getElementById("createCaseBtn").addEventListener("click", createCaseFromCurrentAnalysis);
+    document.getElementById("saveEvidenceBtn").addEventListener("click", saveEvidenceSnapshot);
+    document.getElementById("watchIndicatorBtn").addEventListener("click", addCurrentIndicatorToWatchlist);
+
+    const params = new URLSearchParams(window.location.search);
+    const query = params.get("query") || "";
+    const caseId = params.get("case") || "";
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const storedTheme = localStorage.theme;
+    applyTheme(storedTheme ? storedTheme === "dark" : prefersDark);
+    renderRecentSearches();
+    loadCase(caseId);
+    runAnalysis(query);
+  </script>
+  <script src="ai-assistant.js"></script>
+  <script src="responsive-nav.js?v=20260429b"></script>
+</body>
+</html>

@@ -1,0 +1,1933 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CyberShield - Tools Lab</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' };</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg:#f3f7fb; --surface:rgba(255,255,255,.86); --surface2:rgba(255,255,255,.94); --line:rgba(148,163,184,.22); --text:#0f172a; --muted:#475569; }
+    .dark { --bg:#0b1220; --surface:rgba(17,24,39,.78); --surface2:rgba(15,23,42,.92); --line:rgba(99,102,241,.16); --text:#f8fafc; --muted:#94a3b8; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Inter",sans-serif; background:radial-gradient(circle at 14% 12%,rgba(99,102,241,.16),transparent 22%),radial-gradient(circle at 84% 20%,rgba(34,211,238,.1),transparent 18%),var(--bg); color:var(--text); }
+    body::before { content:""; position:fixed; inset:0; pointer-events:none; background-image:linear-gradient(rgba(148,163,184,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(148,163,184,.05) 1px,transparent 1px); background-size:36px 36px; opacity:.44; }
+    .glass { background:var(--surface); border:1px solid var(--line); backdrop-filter:blur(18px); box-shadow:0 18px 40px rgba(2,6,23,.16); }
+    .glass-strong { background:var(--surface2); border:1px solid var(--line); backdrop-filter:blur(16px); }
+    .nav-link { color:var(--muted); text-decoration:none; padding:.55rem .9rem; border-radius:999px; transition:all .2s ease; }
+    .nav-link:hover { color:var(--text); background:rgba(99,102,241,.1); }
+    .section-label { font-size:.74rem; font-weight:700; letter-spacing:.24em; text-transform:uppercase; color:#a5b4fc; }
+    .mono { font-family:"JetBrains Mono",monospace; }
+    .tool-nav-btn { width:100%; display:flex; align-items:center; gap:.9rem; padding:1rem 1.1rem; border-radius:1rem; border:1px solid transparent; background:transparent; color:var(--muted); transition:all .22s ease; text-align:left; }
+    .tool-nav-btn:hover { color:var(--text); background:rgba(99,102,241,.08); }
+    .tool-nav-btn.active { color:#fff; background:linear-gradient(135deg,rgba(99,102,241,.24),rgba(34,211,238,.08)); border-color:rgba(99,102,241,.28); box-shadow:0 0 0 1px rgba(99,102,241,.12),0 0 18px rgba(99,102,241,.14); }
+    .tool-input { width:100%; border-radius:1rem; border:1px solid rgba(99,102,241,.18); background:rgba(255,255,255,.82); color:#0f172a; padding:.95rem 1rem; outline:none; transition:all .2s ease; }
+    .dark .tool-input { background:rgba(15,23,42,.84); color:#f8fafc; }
+    .tool-input:focus { box-shadow:0 0 0 3px rgba(99,102,241,.18); border-color:rgba(99,102,241,.45); }
+    .action-btn { display:inline-flex; align-items:center; justify-content:center; gap:.5rem; padding:.9rem 1.1rem; border-radius:1rem; border:1px solid var(--line); background:var(--surface); color:var(--text); font-weight:600; transition:all .2s ease; }
+    .action-btn:hover { transform:translateY(-1px); box-shadow:0 12px 22px rgba(2,6,23,.12); }
+    .action-btn.primary { background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff; border-color:transparent; }
+    .result-card { border:1px solid var(--line); border-radius:1rem; background:var(--surface); }
+    .intel-grid { display:grid; gap:1rem; }
+    .intel-metrics { display:grid; gap:1rem; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); }
+    .intel-section { border:1px solid var(--line); border-radius:1rem; background:var(--surface); padding:1rem; }
+    .intel-list { display:grid; gap:.7rem; margin-top:1rem; }
+    .intel-row { display:flex; justify-content:space-between; gap:1rem; padding:.7rem .85rem; border-radius:.9rem; background:rgba(99,102,241,.06); border:1px solid rgba(99,102,241,.08); }
+    .intel-key { color:var(--muted); font-size:.84rem; text-transform:uppercase; letter-spacing:.08em; }
+    .intel-value { font-weight:600; text-align:right; word-break:break-word; }
+    .badge { display:inline-flex; align-items:center; gap:.45rem; padding:.42rem .7rem; border-radius:999px; font-size:.75rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+    .badge.safe { color:#10b981; background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.2); }
+    .badge.warn { color:#f59e0b; background:rgba(245,158,11,.12); border:1px solid rgba(245,158,11,.2); }
+    .badge.danger { color:#ef4444; background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.2); }
+    .badge.info { color:#22d3ee; background:rgba(34,211,238,.12); border:1px solid rgba(34,211,238,.2); }
+    .tool-subtab { padding:.7rem .95rem; border-radius:.9rem; border:1px solid var(--line); background:var(--surface); color:var(--muted); transition:all .2s ease; }
+    .tool-subtab.active { color:#fff; background:linear-gradient(135deg,rgba(99,102,241,.24),rgba(34,211,238,.08)); border-color:rgba(99,102,241,.28); }
+    @media (max-width:1080px) { .tools-layout { grid-template-columns:1fr !important; } .tools-sidebar { order:-1; position:static !important; } }
+  </style>
+  <link rel="stylesheet" href="responsive.css?v=20260429b">
+</head>
+<body>
+  <div class="max-w-[1280px] mx-auto px-4 py-6 relative z-10">
+    <nav class="glass-strong rounded-[1.4rem] px-5 py-4 flex items-center justify-between gap-4 sticky top-4 z-40">
+      <a href="home2.html" class="inline-flex items-center gap-3 no-underline text-inherit">
+        <div class="h-10 w-10 rounded-2xl bg-indigo-500/15 border border-indigo-400/20 flex items-center justify-center text-indigo-300">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l8 4.5v5.2c0 5.3-3.5 10.1-8 11.3-4.5-1.2-8-6-8-11.3V6.5L12 2z"/></svg>
+        </div>
+        <div>
+          <p class="m-0 text-sm font-semibold tracking-[0.2em] uppercase text-indigo-300">CyberShield</p>
+          <p class="m-0 text-xs text-slate-500 dark:text-slate-400">Tools Lab</p>
+        </div>
+      </a>
+      <div class="flex items-center gap-1">
+        <a class="nav-link" href="home2.html">Home</a>
+        <a class="nav-link" href="analysis.html">Analysis</a>
+        <a class="nav-link" href="tools-lab.html">Tools</a>
+        <a class="nav-link" href="threat-intel.html">Threat Intel</a>
+        <a class="nav-link" href="urlscan.html">URLScan</a>
+        <a class="nav-link" href="cases.html">Cases</a>
+        <a class="nav-link" href="monitoring.html">Monitoring</a>
+        <a class="nav-link" href="reports.html">Reports</a>
+      </div>
+      <button id="themeToggle" class="px-4 py-2 rounded-full glass text-sm" title="Toggle theme" aria-label="Toggle theme"><span aria-hidden="true">&#9790;</span></button>
+    </nav>
+
+    <main class="pt-6 grid tools-layout grid-cols-[1fr_290px] gap-6">
+      <section class="space-y-6">
+        <div class="glass rounded-[1.8rem] p-6 md:p-7">
+          <p class="section-label m-0">Tools Lab</p>
+          <h1 id="toolTitle" class="mt-4 text-4xl md:text-5xl font-bold leading-tight">URL Intelligence</h1>
+          <p id="toolDescription" class="mt-4 max-w-3xl text-slate-600 dark:text-slate-300 leading-relaxed">Run live, backend-backed analysis for the selected tool without leaving this page.</p>
+        </div>
+        <section id="toolWorkspace" class="space-y-6"></section>
+      </section>
+      <aside class="tools-sidebar glass rounded-[1.8rem] p-4 h-fit sticky top-28">
+        <p class="section-label m-2">Tool Navigation</p>
+        <div class="mt-4 space-y-2" id="toolRail"></div>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    const state = {
+      activeTool: "url",
+      securitySubtab: "safe-link",
+      reports: { whois:null, dns:null, rdap:null, uptime:null, ip:null, domain:null, email:null, safeLink:null, hashing:null, tls:null }
+    };
+    const tools = [
+      { key: "whois", label: "WHOIS Tool", desc: "Look up registrar, contacts, and registration context for a domain." },
+      { key: "dns", label: "DNS Lookup", desc: "Inspect live resolver records including A, MX, TXT, NS, and more." },
+      { key: "rdap", label: "RDAP", desc: "Query structured domain or IP registration data in real time." },
+      { key: "uptime", label: "Uptime Check", desc: "Confirm whether a site is currently reachable over HTTP or HTTPS." },
+      { key: "ip", label: "IP Threat Lookup", desc: "Inspect geolocation, ASN, organization context, and live IP intelligence." },
+      { key: "domain", label: "Domain Resolve", desc: "Pivot a domain into IP and ASN-oriented network signals." },
+      { key: "email", label: "Header Analyzer", desc: "Parse raw email headers locally for routing and origin clues." },
+      { key: "url", label: "Security Utilities", desc: "Use Safe Link, Base64, File Hashing, and TLS tools inside one modern lab." }
+    ];
+
+    function applyTheme(isDark) {
+      document.documentElement.classList.toggle("dark", isDark);
+      localStorage.theme = isDark ? "dark" : "light";
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[char]));
+    }
+
+    function saveLocalReport(report) {
+      const existing = JSON.parse(localStorage.getItem("cybershieldSavedReports") || "[]");
+      existing.unshift({ id: `${report.tool}-${Date.now()}`, savedAt: new Date().toISOString(), ...report });
+      localStorage.setItem("cybershieldSavedReports", JSON.stringify(existing.slice(0, 40)));
+    }
+
+    function exportReport(payload, filename) {
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function exportText(content, filename, type = "text/plain") {
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function csvEscape(value) {
+      return `"${String(value ?? "").replace(/"/g, '""')}"`;
+    }
+
+    async function safeJson(response) {
+      const text = await response.text();
+      try {
+        return JSON.parse(text);
+      } catch (error) {
+        throw new Error(text.startsWith("<!DOCTYPE") ? "Server returned HTML instead of JSON." : text || "Unexpected response.");
+      }
+    }
+
+    function metricCard(label, value, tone = "info") {
+      return `
+        <div class="result-card p-4">
+          <p class="section-label m-0">${escapeHtml(label)}</p>
+          <p class="mt-3 text-lg font-semibold break-all">${escapeHtml(value ?? "N/A")}</p>
+          <span class="badge ${tone} mt-3">${escapeHtml(tone)}</span>
+        </div>
+      `;
+    }
+
+    function detailRows(entries) {
+      const rows = entries
+        .map(([label, value]) => [label, normalizeFieldValue(value)])
+        .filter(([, value]) => value !== "N/A");
+
+      if (!rows.length) {
+        return `<div class="text-sm text-slate-500 dark:text-slate-400 mt-4">No published values returned by the live source.</div>`;
+      }
+
+      return rows.map(([label, value]) => `
+        <div class="intel-row">
+          <span class="intel-key">${escapeHtml(label)}</span>
+          <span class="intel-value">${escapeHtml(value)}</span>
+        </div>
+      `).join("");
+    }
+
+    function arraySection(title, values, emptyMessage = "No entries returned.") {
+      return `
+        <div class="intel-section">
+          <p class="section-label m-0">${escapeHtml(title)}</p>
+          <div class="intel-list">
+            ${values.length ? values.map((value) => `<div class="intel-row"><span class="intel-value mono text-left">${escapeHtml(value)}</span></div>`).join("") : `<div class="text-sm text-slate-500 dark:text-slate-400 mt-4">${escapeHtml(emptyMessage)}</div>`}
+          </div>
+        </div>
+      `;
+    }
+
+    function getVcardField(entity, fieldName) {
+      const entries = entity?.vcardArray?.[1] || [];
+      const match = entries.find((entry) => entry?.[0]?.toLowerCase?.() === fieldName.toLowerCase());
+      return match?.[3] || "";
+    }
+
+    function getRdapEntityByRole(payload, roleName) {
+      const entities = payload?.entities || [];
+      for (const entity of entities) {
+        if ((entity.roles || []).includes(roleName)) return entity;
+        for (const nested of entity.entities || []) {
+          if ((nested.roles || []).includes(roleName)) return nested;
+        }
+      }
+      return null;
+    }
+
+    function getRdapRegistrar(payload) {
+      const registrar = getRdapEntityByRole(payload, "registrar");
+      return getVcardField(registrar, "fn") || registrar?.handle || "";
+    }
+
+    function getRdapAbuseEmail(payload) {
+      const abuse = getRdapEntityByRole(payload, "abuse");
+      return getVcardField(abuse, "email") || "";
+    }
+
+    function getRdapEvent(payload, action) {
+      return (payload?.events || []).find((event) => String(event.eventAction || "").toLowerCase() === action.toLowerCase())?.eventDate || "";
+    }
+
+    function normalizeFieldValue(value) {
+      if (Array.isArray(value)) return value.filter(Boolean).join(", ");
+      if (value === undefined || value === null || value === "") return "N/A";
+      return String(value);
+    }
+
+    function hasProfileValue(profile) {
+      return Object.values(profile || {}).some((value) => normalizeFieldValue(value) !== "N/A");
+    }
+
+    function formatDateValue(value) {
+      if (!value || value === "Unknown") return "Unknown";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return String(value);
+      return new Intl.DateTimeFormat("en", {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "UTC",
+        timeZoneName: "short"
+      }).format(date);
+    }
+
+    function getVcardAddressParts(entity) {
+      const entries = entity?.vcardArray?.[1] || [];
+      const adr = entries.find((entry) => entry?.[0]?.toLowerCase?.() === "adr");
+      const value = adr?.[3];
+      if (!Array.isArray(value)) return {};
+      return {
+        street: [value[2], value[1]].filter(Boolean).join(", "),
+        city: value[3] || "",
+        state: value[4] || "",
+        postalCode: value[5] || "",
+        country: value[6] || ""
+      };
+    }
+
+    function getEntityContactProfile(entity) {
+      const address = getVcardAddressParts(entity);
+      return {
+        name: getVcardField(entity, "fn") || "",
+        organization: getVcardField(entity, "org") || "",
+        street: address.street || "",
+        city: address.city || "",
+        state: address.state || "",
+        postalCode: address.postalCode || "",
+        country: address.country || "",
+        phone: getVcardField(entity, "tel") || "",
+        fax: getVcardField(entity, "fax") || "",
+        email: getVcardField(entity, "email") || "",
+        url: getVcardField(entity, "url") || "",
+        handle: entity?.handle || "",
+        roles: (entity?.roles || []).join(", ")
+      };
+    }
+
+    function getRegistrarProfile(payload) {
+      const registrar = getRdapEntityByRole(payload, "registrar");
+      const abuse = getRdapEntityByRole(payload, "abuse");
+      const whoisRegistrar = payload?.whoisData?.registrar || {};
+      const rawFields = payload?.whoisData?.rawWhois?.fields || {};
+      return {
+        name: getVcardField(registrar, "fn") || whoisRegistrar.name || rawFields.Registrar || registrar?.handle || payload?.registrar || payload?.registrarName || "",
+        ianaId: registrar?.publicIds?.find((item) => /iana/i.test(item?.type || ""))?.identifier || rawFields["Registrar IANA ID"] || "",
+        email: getVcardField(registrar, "email") || getVcardField(registrar, "url") || whoisRegistrar.url || rawFields["Registrar URL"] || "",
+        abuseEmail: getVcardField(abuse, "email") || rawFields["Registrar Abuse Contact Email"] || rawFields["Registrar Abuse Contact"] || "",
+        abusePhone: getVcardField(abuse, "tel") || rawFields["Registrar Abuse Contact Phone"] || ""
+      };
+    }
+
+    function contactSection(title, profile, fields) {
+      const rows = fields.map(([label, key]) => [label, profile?.[key]]);
+      return `
+        <div class="intel-section">
+          <p class="section-label m-0">${escapeHtml(title)}</p>
+          <div class="intel-list">
+            ${detailRows(rows)}
+          </div>
+        </div>
+      `;
+    }
+
+    function groupDnsRecords(records) {
+      return (records || []).reduce((acc, record) => {
+        const type = record.type || "OTHER";
+        if (!acc[type]) acc[type] = [];
+        acc[type].push(record);
+        return acc;
+      }, {});
+    }
+
+    function parseEmailAddress(value) {
+      const text = String(value || "");
+      const angleMatch = text.match(/<([^<>@\s]+@[^<>\s]+)>/);
+      const plainMatch = text.match(/([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/i);
+      const address = (angleMatch?.[1] || plainMatch?.[1] || "").toLowerCase();
+      const domain = address.includes("@") ? address.split("@").pop() : "";
+      return { address, domain };
+    }
+
+    function parseDomainFromMessageId(value) {
+      const match = String(value || "").match(/@([^>\s]+)/);
+      return (match?.[1] || "").toLowerCase().replace(/[>)]$/, "");
+    }
+
+    function parseIpAddresses(value) {
+      const text = String(value || "");
+      const ipv4 = text.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g) || [];
+      const ipv6 = text.match(/\b[0-9a-f]{0,4}:[0-9a-f:]{2,}\b/gi) || [];
+      return [...new Set([...ipv4, ...ipv6])];
+    }
+
+    function isPrivateIp(ip) {
+      if (/^(10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip)) return true;
+      if (/^(::1|fc|fd|fe80)/i.test(ip)) return true;
+      return false;
+    }
+
+    function parseAuthResults(value) {
+      const text = String(value || "").toLowerCase();
+      const pick = (name) => text.match(new RegExp(`${name}\\s*=\\s*([a-z]+)`))?.[1] || "missing";
+      return {
+        spf: pick("spf"),
+        dkim: pick("dkim"),
+        dmarc: pick("dmarc")
+      };
+    }
+
+    function authTone(value) {
+      if (value === "pass") return "safe";
+      if (value === "missing") return "warn";
+      return "danger";
+    }
+
+    function parseReceivedHop(value, index, total) {
+      const text = String(value || "").replace(/\s+/g, " ").trim();
+      const from = text.match(/\bfrom\s+(.+?)(?:\s+by\s+|\s+with\s+|\s+via\s+|;|$)/i)?.[1] || "";
+      const by = text.match(/\bby\s+(.+?)(?:\s+with\s+|\s+via\s+|;|$)/i)?.[1] || "";
+      const protocol = text.match(/\bwith\s+([A-Z0-9_-]+)/i)?.[1] || "";
+      const timestamp = text.includes(";") ? text.split(";").slice(1).join(";").trim() : "";
+      const ips = parseIpAddresses(text);
+      return {
+        hop: total - index,
+        from,
+        by,
+        protocol,
+        timestamp,
+        ips,
+        raw: text
+      };
+    }
+
+    function parseEmailHeaders(raw) {
+      const unfolded = [];
+      for (const line of String(raw || "").replace(/\r\n/g, "\n").split("\n")) {
+        if (/^\s/.test(line) && unfolded.length) {
+          unfolded[unfolded.length - 1] += ` ${line.trim()}`;
+        } else if (line.trim()) {
+          unfolded.push(line.trimEnd());
+        }
+      }
+
+      const fields = {};
+      const ordered = [];
+      for (const line of unfolded) {
+        const match = line.match(/^([!-9;-~]+):\s*(.*)$/);
+        if (!match) continue;
+        const name = match[1].trim();
+        const key = name.toLowerCase();
+        const value = match[2].trim();
+        ordered.push({ name, key, value });
+        if (!fields[key]) fields[key] = [];
+        fields[key].push(value);
+      }
+
+      const first = (key) => fields[key]?.[0] || "";
+      const from = parseEmailAddress(first("from"));
+      const replyTo = parseEmailAddress(first("reply-to"));
+      const returnPath = parseEmailAddress(first("return-path"));
+      const messageIdDomain = parseDomainFromMessageId(first("message-id"));
+      const auth = parseAuthResults([...(fields["authentication-results"] || []), ...(fields["arc-authentication-results"] || [])].join(" "));
+      const received = fields.received || [];
+      const hops = received.map((value, index) => parseReceivedHop(value, index, received.length));
+      const publicIps = [...new Set(hops.flatMap((hop) => hop.ips).filter((ip) => !isPrivateIp(ip)))];
+      const issues = [];
+      let riskScore = 0;
+
+      if (!received.length) {
+        issues.push({ severity: "high", label: "No Received chain", detail: "The header lacks standard transit evidence." });
+        riskScore += 25;
+      }
+      if (auth.spf !== "pass") {
+        issues.push({ severity: auth.spf === "missing" ? "medium" : "high", label: "SPF not passing", detail: `SPF result is ${auth.spf}.` });
+        riskScore += auth.spf === "missing" ? 12 : 24;
+      }
+      if (auth.dkim !== "pass") {
+        issues.push({ severity: auth.dkim === "missing" ? "medium" : "high", label: "DKIM not passing", detail: `DKIM result is ${auth.dkim}.` });
+        riskScore += auth.dkim === "missing" ? 12 : 24;
+      }
+      if (auth.dmarc !== "pass") {
+        issues.push({ severity: auth.dmarc === "missing" ? "medium" : "high", label: "DMARC not passing", detail: `DMARC result is ${auth.dmarc}.` });
+        riskScore += auth.dmarc === "missing" ? 14 : 26;
+      }
+      if (replyTo.domain && from.domain && replyTo.domain !== from.domain) {
+        issues.push({ severity: "medium", label: "Reply-To mismatch", detail: `Reply-To domain ${replyTo.domain} differs from From domain ${from.domain}.` });
+        riskScore += 14;
+      }
+      if (returnPath.domain && from.domain && returnPath.domain !== from.domain) {
+        issues.push({ severity: "medium", label: "Return-Path mismatch", detail: `Return-Path domain ${returnPath.domain} differs from From domain ${from.domain}.` });
+        riskScore += 10;
+      }
+      if (messageIdDomain && from.domain && !messageIdDomain.endsWith(from.domain)) {
+        issues.push({ severity: "low", label: "Message-ID domain mismatch", detail: `Message-ID domain ${messageIdDomain} does not align with ${from.domain}.` });
+        riskScore += 6;
+      }
+      if (/x-mailer:\s*(phpmailer|outlook express|mass|bulk)/i.test(raw)) {
+        issues.push({ severity: "medium", label: "Bulk or risky mailer signal", detail: "Mailer metadata resembles bulk or legacy tooling." });
+        riskScore += 12;
+      }
+
+      riskScore = Math.max(0, Math.min(100, riskScore));
+      const verdict = riskScore >= 70 ? "High Risk" : riskScore >= 35 ? "Suspicious" : "Low Risk";
+      return {
+        summary: {
+          verdict,
+          riskScore,
+          from: from.address || "Unknown",
+          fromDomain: from.domain || "Unknown",
+          replyTo: replyTo.address || "",
+          returnPath: returnPath.address || "",
+          subject: first("subject") || "",
+          date: first("date") || "",
+          messageId: first("message-id") || "",
+          receivedHops: received.length,
+          publicIps,
+          analyzedAt: new Date().toISOString()
+        },
+        authentication: auth,
+        alignment: {
+          fromDomain: from.domain,
+          replyToDomain: replyTo.domain,
+          returnPathDomain: returnPath.domain,
+          messageIdDomain
+        },
+        issues,
+        hops,
+        fields,
+        ordered
+      };
+    }
+
+    function renderIssueList(issues) {
+      if (!issues.length) {
+        return `<div class="text-sm text-slate-500 dark:text-slate-400 mt-4">No major header anomalies detected from local analysis.</div>`;
+      }
+      return issues.map((issue) => `
+        <div class="intel-row">
+          <span class="intel-key">${escapeHtml(issue.severity.toUpperCase())}</span>
+          <span class="intel-value"><strong>${escapeHtml(issue.label)}</strong><br>${escapeHtml(issue.detail)}</span>
+        </div>
+      `).join("");
+    }
+
+    function renderReceivedTimeline(hops) {
+      if (!hops.length) {
+        return `<div class="text-sm text-slate-500 dark:text-slate-400 mt-4">No Received hops found.</div>`;
+      }
+      return hops.map((hop) => `
+        <div class="intel-section">
+          <p class="section-label m-0">Hop ${escapeHtml(hop.hop)}</p>
+          <div class="intel-list">${detailRows([
+            ["From", hop.from],
+            ["By", hop.by],
+            ["Protocol", hop.protocol],
+            ["Timestamp", hop.timestamp],
+            ["IP Addresses", hop.ips]
+          ])}</div>
+        </div>
+      `).join("");
+    }
+
+    async function enrichEmailThreatIntel(report) {
+      const candidates = [
+        ...report.summary.publicIps.map((input) => ({ input, type: "ip" })),
+        ...report.iocs.domains.slice(0, 4).map((input) => ({ input, type: "domain" })),
+        ...report.iocs.urls.slice(0, 3).map((input) => ({ input, type: "url" }))
+      ].slice(0, 8);
+
+      const lookups = await Promise.allSettled(candidates.map(async (item) => {
+        const response = await fetch("/api/threat-intel/lookup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(item)
+        });
+        const data = await safeJson(response);
+        if (!response.ok) throw new Error(data.error || "Threat intelligence lookup failed.");
+        return { ...item, data };
+      }));
+
+      const results = lookups.map((result, index) => result.status === "fulfilled"
+        ? result.value
+        : { ...candidates[index], error: result.reason?.message || "Lookup failed" });
+      const malicious = results.filter((item) => item.data?.classification === "malicious");
+      const suspicious = results.filter((item) => item.data?.classification === "suspicious" || item.data?.riskLevel === "MEDIUM");
+
+      return {
+        status: malicious.length ? "MALICIOUS IOC HIT" : suspicious.length ? "SUSPICIOUS INFRASTRUCTURE" : results.length ? "NO KNOWN IOC HIT" : "NO IOCs TO ENRICH",
+        providerMode: "Best effort: local backend, abuse.ch, DNS/RDAP/IP enrichment when configured",
+        note: "VirusTotal, AbuseIPDB, AlienVault OTX, passive DNS, and commercial feeds require API keys or connectors. This dashboard keeps their slots explicit and uses configured backend sources when available.",
+        results,
+        totals: {
+          queried: results.length,
+          malicious: malicious.length,
+          suspicious: suspicious.length,
+          failed: results.filter((item) => item.error).length
+        }
+      };
+    }
+
+    function renderThreatIntel(enrichment) {
+      if (!enrichment) {
+        return `<div class="text-sm text-slate-500 dark:text-slate-400 mt-4">Threat intelligence enrichment was not run.</div>`;
+      }
+      return `
+        <div class="intel-list">${detailRows([
+          ["Status", enrichment.status],
+          ["Provider Mode", enrichment.providerMode],
+          ["Queried", enrichment.totals?.queried],
+          ["Malicious", enrichment.totals?.malicious],
+          ["Suspicious", enrichment.totals?.suspicious],
+          ["Failed", enrichment.totals?.failed]
+        ])}</div>
+        <div class="grid lg:grid-cols-2 gap-4 mt-4">
+          ${(enrichment.results || []).map((item) => `
+            <div class="intel-section">
+              <p class="section-label m-0">${escapeHtml(item.type)} IOC</p>
+              <div class="intel-list">${detailRows([
+                ["Input", item.input],
+                ["Classification", item.data?.classification],
+                ["Risk", item.data?.riskLevel],
+                ["Reputation", item.data?.reputation],
+                ["ASN", item.data?.entityProfile?.asn],
+                ["Org", item.data?.entityProfile?.org],
+                ["Error", item.error]
+              ])}</div>
+            </div>
+          `).join("") || `<div class="text-sm text-slate-500 dark:text-slate-400">No enrichment results.</div>`}
+        </div>
+      `;
+    }
+
+    function renderBrandHits(hits) {
+      if (!hits.length) return `<div class="text-sm text-slate-500 dark:text-slate-400 mt-4">No typosquatting, homoglyph, or brand impersonation indicators detected.</div>`;
+      return hits.map((hit) => `
+        <div class="intel-row">
+          <span class="intel-key">${escapeHtml(hit.type)}</span>
+          <span class="intel-value">${escapeHtml(hit.domainLabel || "message text")} -> ${escapeHtml(hit.brand)}${hit.distance !== null ? ` (distance ${escapeHtml(hit.distance)})` : ""}</span>
+        </div>
+      `).join("");
+    }
+
+    function renderDkimSignatures(signatures) {
+      if (!signatures.length) return `<div class="text-sm text-slate-500 dark:text-slate-400 mt-4">No DKIM-Signature headers found.</div>`;
+      return signatures.map((signature, index) => `
+        <div class="intel-section">
+          <p class="section-label m-0">DKIM ${index + 1}</p>
+          <div class="intel-list">${detailRows([
+            ["Domain", signature.domain],
+            ["Selector", signature.selector],
+            ["Algorithm", signature.algorithm],
+            ["Canonicalization", signature.canonicalization],
+            ["Signed Headers", signature.signedHeaders]
+          ])}</div>
+        </div>
+      `).join("");
+    }
+
+    function buildEmailCsv(report) {
+      const rows = [["section", "key", "value"]];
+      Object.entries(report.summary || {}).forEach(([key, value]) => rows.push(["summary", key, Array.isArray(value) ? value.join("; ") : value]));
+      (report.issues || []).forEach((issue) => rows.push(["finding", issue.severity, `${issue.label}: ${issue.detail}`]));
+      (report.hops || []).forEach((hop) => rows.push(["received-hop", `hop-${hop.hop}`, hop.raw]));
+      (report.iocs?.ips || []).forEach((ioc) => rows.push(["ioc", "ip", ioc]));
+      (report.iocs?.domains || []).forEach((ioc) => rows.push(["ioc", "domain", ioc]));
+      (report.iocs?.urls || []).forEach((ioc) => rows.push(["ioc", "url", ioc]));
+      return rows.map((row) => row.map(csvEscape).join(",")).join("\n");
+    }
+
+    function buildEmailIocBundle(report) {
+      return [
+        "# CyberShield Email IOC Bundle",
+        `# Generated: ${new Date().toISOString()}`,
+        "",
+        "[ips]",
+        ...(report.iocs?.ips || []),
+        "",
+        "[domains]",
+        ...(report.iocs?.domains || []),
+        "",
+        "[urls]",
+        ...(report.iocs?.urls || []),
+        "",
+        "[emails]",
+        ...(report.iocs?.emails || [])
+      ].join("\n");
+    }
+
+    function buildEmailStix(report) {
+      const objects = [];
+      const now = new Date().toISOString();
+      const makeId = (type, value) => `${type}--${cryptoRandomId(value)}`;
+      objects.push({
+        type: "report",
+        spec_version: "2.1",
+        id: makeId("report", report.summary?.messageId || now),
+        created: now,
+        modified: now,
+        name: "CyberShield Email Header Investigation",
+        description: `${report.summary?.verdict} (${report.summary?.riskScore}/100)`,
+        published: now,
+        report_types: ["threat-report"],
+        object_refs: []
+      });
+      const addObservable = (type, value) => {
+        const observable = { type, spec_version: "2.1", id: makeId(type, value), value };
+        objects.push(observable);
+        objects[0].object_refs.push(observable.id);
+      };
+      (report.iocs?.ips || []).forEach((value) => addObservable(isValidIPv6(value) ? "ipv6-addr" : "ipv4-addr", value));
+      (report.iocs?.domains || []).forEach((value) => addObservable("domain-name", value));
+      (report.iocs?.urls || []).forEach((value) => addObservable("url", value));
+      (report.iocs?.emails || []).forEach((value) => addObservable("email-addr", value));
+      return JSON.stringify({ type: "bundle", id: makeId("bundle", now), objects }, null, 2);
+    }
+
+    function cryptoRandomId(seed) {
+      let hash = 0;
+      for (const char of String(seed || Math.random())) hash = ((hash << 5) - hash + char.charCodeAt(0)) | 0;
+      const hex = Math.abs(hash).toString(16).padStart(8, "0");
+      return `${hex.slice(0, 8)}-${hex.slice(0, 4)}-4${hex.slice(1, 4)}-a${hex.slice(2, 5)}-${hex.repeat(2).slice(0, 12)}`;
+    }
+
+    function exportEmailReport(format) {
+      const report = state.reports.email?.report;
+      if (!report) {
+        alert("Run Header Analyzer first.");
+        return;
+      }
+      if (format === "json") return exportReport(state.reports.email, "cybershield-email-header-report.json");
+      if (format === "csv") return exportText(buildEmailCsv(report), "cybershield-email-header-report.csv", "text/csv");
+      if (format === "stix") return exportText(buildEmailStix(report), "cybershield-email-header-stix.json", "application/stix+json");
+      if (format === "ioc") return exportText(buildEmailIocBundle(report), "cybershield-email-iocs.txt", "text/plain");
+      if (format === "pdf") {
+        const win = window.open("", "_blank");
+        win.document.write(`<html><head><title>Email Header Report</title><style>body{font-family:Arial,sans-serif;background:#0f172a;color:#e5e7eb;padding:32px}pre{white-space:pre-wrap;background:#111827;padding:16px;border-radius:8px}</style></head><body><h1>CyberShield Email Header Report</h1><pre>${escapeHtml(JSON.stringify(report, null, 2))}</pre></body></html>`);
+        win.document.close();
+        win.print();
+      }
+    }
+
+    function isValidIPv4(ip) {
+      const parts = String(ip || "").split(".");
+      return parts.length === 4 && parts.every((part) => /^\d{1,3}$/.test(part) && Number(part) >= 0 && Number(part) <= 255 && String(Number(part)) === String(part).replace(/^0+(?=\d)/, ""));
+    }
+
+    function isValidIPv6(ip) {
+      const value = String(ip || "").toLowerCase();
+      if (!value || value.includes(":::")) return false;
+      if ((value.match(/::/g) || []).length > 1) return false;
+      const hasCompressed = value.includes("::");
+      const parts = value.split(":");
+      if (!hasCompressed && parts.length !== 8) return false;
+      if (hasCompressed && parts.length > 8) return false;
+      return parts.every((part, index) => {
+        if (part === "") return hasCompressed;
+        if (part.includes(".")) return index === parts.length - 1 && isValidIPv4(part);
+        return /^[0-9a-f]{1,4}$/.test(part);
+      });
+    }
+
+    function parseIpAddresses(value) {
+      const text = String(value || "");
+      const ipv4 = text.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g) || [];
+      const bracketedIpv6 = [...text.matchAll(/\[([0-9a-f:.]+)\]/gi)].map((match) => match[1]);
+      const looseIpv6 = text.match(/\b(?:[0-9a-f]{1,4}:){2,}[0-9a-f:.]{1,}\b/gi) || [];
+      return [...new Set([...ipv4.filter(isValidIPv4), ...bracketedIpv6.filter(isValidIPv6), ...looseIpv6.filter(isValidIPv6)])];
+    }
+
+    function parseHeaderParameters(value) {
+      const params = {};
+      const regex = /(?:^|[;\s])([a-z][a-z0-9_-]*)\s*=\s*("?)([^";\s]+|"[^"]*")\2/gi;
+      for (const match of String(value || "").matchAll(regex)) {
+        params[match[1].toLowerCase()] = String(match[3] || "").replace(/^"|"$/g, "");
+      }
+      return params;
+    }
+
+    function parseStructuredAuthResults(values) {
+      const joined = (values || []).join(" ");
+      const authservId = joined.match(/^\s*([^;\s]+)/)?.[1] || "";
+      const mechanisms = {};
+      for (const mech of ["spf", "dkim", "dmarc", "arc"]) {
+        const match = joined.match(new RegExp(`(?:^|[;\\s])${mech}\\s*=\\s*([a-z0-9_-]+)([^;]*)`, "i"));
+        if (match) {
+          mechanisms[mech] = {
+            result: match[1].toLowerCase(),
+            properties: parseHeaderParameters(match[2] || "")
+          };
+        } else {
+          mechanisms[mech] = { result: "missing", properties: {} };
+        }
+      }
+      return { authservId, raw: values || [], mechanisms };
+    }
+
+    function parseDkimSignatures(values) {
+      return (values || []).map((value) => {
+        const tags = {};
+        for (const part of String(value || "").split(";")) {
+          const [key, ...rest] = part.split("=");
+          if (!key || !rest.length) continue;
+          tags[key.trim().toLowerCase()] = rest.join("=").trim();
+        }
+        return {
+          domain: tags.d || "",
+          selector: tags.s || "",
+          algorithm: tags.a || "",
+          canonicalization: tags.c || "",
+          signedHeaders: tags.h || "",
+          bodyHash: tags.bh || "",
+          tags
+        };
+      });
+    }
+
+    function parseArcSet(fields) {
+      const seals = fields["arc-seal"] || [];
+      const messageSignatures = fields["arc-message-signature"] || [];
+      const authResults = fields["arc-authentication-results"] || [];
+      return {
+        count: Math.max(seals.length, messageSignatures.length, authResults.length),
+        seals: seals.map(parseHeaderParameters),
+        messageSignatures: parseDkimSignatures(messageSignatures),
+        authResults: parseStructuredAuthResults(authResults)
+      };
+    }
+
+    function normalizeHeaderName(name) {
+      return String(name || "").trim().toLowerCase();
+    }
+
+    function domainBase(domain) {
+      const parts = String(domain || "").toLowerCase().split(".").filter(Boolean);
+      return parts.length >= 2 ? parts.slice(-2).join(".") : parts.join(".");
+    }
+
+    function isAligned(left, right) {
+      if (!left || !right) return false;
+      return domainBase(left) === domainBase(right);
+    }
+
+    function levenshtein(a, b) {
+      const left = String(a || "");
+      const right = String(b || "");
+      const dp = Array.from({ length: left.length + 1 }, (_, i) => [i]);
+      for (let j = 1; j <= right.length; j += 1) dp[0][j] = j;
+      for (let i = 1; i <= left.length; i += 1) {
+        for (let j = 1; j <= right.length; j += 1) {
+          dp[i][j] = Math.min(
+            dp[i - 1][j] + 1,
+            dp[i][j - 1] + 1,
+            dp[i - 1][j - 1] + (left[i - 1] === right[j - 1] ? 0 : 1)
+          );
+        }
+      }
+      return dp[left.length][right.length];
+    }
+
+    function normalizeHomoglyphs(value) {
+      const map = {
+        "?": "a", "?": "e", "?": "o", "?": "p", "?": "c", "?": "y", "?": "x",
+        "?": "i", "?": "i", "?": "j", "?": "s", "?": "l", "?": "d", "?": "q",
+        "?": "A", "?": "B", "?": "E", "?": "Z", "?": "H", "?": "I", "?": "K",
+        "?": "M", "?": "N", "?": "O", "?": "P", "?": "T", "?": "X", "?": "Y"
+      };
+      return String(value || "").split("").map((char) => map[char] || char).join("");
+    }
+
+    function analyzeBrandImpersonation(domains, text) {
+      const brands = ["microsoft", "office", "outlook", "google", "gmail", "apple", "icloud", "amazon", "paypal", "meta", "facebook", "instagram", "netflix", "openai", "chatgpt", "github", "dropbox", "docusign", "adobe", "bankofamerica", "chase", "wellsfargo"];
+      const candidates = [...new Set((domains || []).map((domain) => domainBase(domain).split(".")[0]).filter(Boolean))];
+      const hits = [];
+      for (const candidate of candidates) {
+        const normalized = normalizeHomoglyphs(candidate).toLowerCase();
+        for (const brand of brands) {
+          const distance = levenshtein(normalized, brand);
+          if (normalized !== brand && (normalized.includes(brand) || brand.includes(normalized) || distance <= 2)) {
+            hits.push({ domainLabel: candidate, brand, distance, type: /[^\x00-\x7F]/.test(candidate) ? "homoglyph" : "typosquat" });
+          }
+        }
+      }
+      for (const brand of brands) {
+        if (new RegExp(`\\b${brand}\\b`, "i").test(text) && !candidates.some((item) => normalizeHomoglyphs(item).toLowerCase().includes(brand))) {
+          hits.push({ domainLabel: "", brand, distance: null, type: "brand-text-mismatch" });
+        }
+      }
+      return hits;
+    }
+
+    function extractIocs(raw, fields, hops) {
+      const text = String(raw || "");
+      const urls = [...new Set((text.match(/https?:\/\/[^\s<>"')]+/gi) || []).map((url) => url.replace(/[.,;]+$/, "")))];
+      const emails = [...new Set((text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || []).map((email) => email.toLowerCase()))];
+      const ips = [...new Set([...(hops || []).flatMap((hop) => hop.ips), ...parseIpAddresses(text)])];
+      const domains = [...new Set([
+        ...emails.map((email) => email.split("@").pop()),
+        ...urls.map((url) => {
+          try { return new URL(url).hostname.toLowerCase(); } catch { return ""; }
+        }),
+        ...["from", "reply-to", "return-path", "sender"].map((key) => parseEmailAddress(fields[key]?.[0] || "").domain),
+        parseDomainFromMessageId(fields["message-id"]?.[0] || "")
+      ].filter(Boolean))];
+      return { urls, emails, ips, domains };
+    }
+
+    function parseReceivedHop(value, index, total) {
+      const text = String(value || "").replace(/\s+/g, " ").trim();
+      const from = text.match(/\bfrom\s+(.+?)(?:\s+by\s+|\s+with\s+|\s+via\s+|;|$)/i)?.[1] || "";
+      const by = text.match(/\bby\s+(.+?)(?:\s+with\s+|\s+via\s+|;|$)/i)?.[1] || "";
+      const protocol = text.match(/\bwith\s+([A-Z0-9_-]+)/i)?.[1] || "";
+      const timestampRaw = text.includes(";") ? text.split(";").slice(1).join(";").trim() : "";
+      const timestamp = timestampRaw ? new Date(timestampRaw) : null;
+      const ips = parseIpAddresses(text);
+      return {
+        hop: total - index,
+        from,
+        by,
+        protocol,
+        timestamp: timestampRaw,
+        timestampIso: timestamp && !Number.isNaN(timestamp.getTime()) ? timestamp.toISOString() : "",
+        ips,
+        publicIps: ips.filter((ip) => !isPrivateIp(ip)),
+        raw: text
+      };
+    }
+
+    function parseEmailHeaders(raw) {
+      const normalizedRaw = String(raw || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+      const unfolded = [];
+      const malformed = [];
+      for (const [index, line] of normalizedRaw.split("\n").entries()) {
+        if (/^[\t ]/.test(line)) {
+          if (unfolded.length) {
+            unfolded[unfolded.length - 1].value += ` ${line.trim()}`;
+          } else {
+            malformed.push({ line: index + 1, reason: "orphan-continuation", value: line });
+          }
+          continue;
+        }
+        if (!line.trim()) continue;
+        const match = line.match(/^([!-9;-~]+):[ \t]*(.*)$/);
+        if (!match) {
+          malformed.push({ line: index + 1, reason: "missing-header-separator", value: line });
+          continue;
+        }
+        unfolded.push({ name: match[1], key: normalizeHeaderName(match[1]), value: match[2].trim(), line: index + 1 });
+      }
+
+      const fields = {};
+      for (const item of unfolded) {
+        if (!fields[item.key]) fields[item.key] = [];
+        fields[item.key].push(item.value);
+      }
+
+      const first = (key) => fields[key]?.[0] || "";
+      const from = parseEmailAddress(first("from"));
+      const replyTo = parseEmailAddress(first("reply-to"));
+      const returnPath = parseEmailAddress(first("return-path"));
+      const sender = parseEmailAddress(first("sender"));
+      const messageIdDomain = parseDomainFromMessageId(first("message-id"));
+      const authentication = parseStructuredAuthResults([...(fields["authentication-results"] || []), ...(fields["arc-authentication-results"] || [])]);
+      const dkimSignatures = parseDkimSignatures(fields["dkim-signature"] || []);
+      const arc = parseArcSet(fields);
+      const received = fields.received || [];
+      const hops = received.map((value, index) => parseReceivedHop(value, index, received.length));
+      const iocs = extractIocs(raw, fields, hops);
+      const brandHits = analyzeBrandImpersonation(iocs.domains, `${first("from")} ${first("subject")} ${normalizedRaw}`);
+      const mailer = first("x-mailer") || first("user-agent") || first("x-ms-exchange-organization-authas") || "";
+      const issues = [];
+      let riskScore = 0;
+      const addIssue = (severity, label, detail, points, category = "heuristic") => {
+        issues.push({ severity, label, detail, category, points });
+        riskScore += points;
+      };
+
+      const spf = authentication.mechanisms.spf.result;
+      const dkim = authentication.mechanisms.dkim.result;
+      const dmarc = authentication.mechanisms.dmarc.result;
+      const arcResult = authentication.mechanisms.arc.result;
+      const dkimAligned = dkimSignatures.some((sig) => isAligned(sig.domain, from.domain));
+      const spfDomain = authentication.mechanisms.spf.properties["smtp.mailfrom"] || returnPath.domain;
+      const spfAligned = isAligned(spfDomain, from.domain);
+      const dmarcPass = dmarc === "pass";
+
+      if (!received.length) addIssue("high", "No Received chain", "The header lacks standard SMTP transit evidence.", 25, "routing");
+      if (malformed.length) addIssue("medium", "Malformed header lines", `${malformed.length} malformed or orphan continuation line(s) were recovered.`, Math.min(18, malformed.length * 6), "parser");
+      if (spf !== "pass") addIssue(spf === "missing" ? "medium" : "high", "SPF not passing", `SPF result is ${spf}.`, spf === "missing" ? 12 : 24, "authentication");
+      if (dkim !== "pass") addIssue(dkim === "missing" ? "medium" : "high", "DKIM not passing", `DKIM result is ${dkim}.`, dkim === "missing" ? 12 : 24, "authentication");
+      if (dmarc !== "pass") addIssue(dmarc === "missing" ? "medium" : "high", "DMARC not passing", `DMARC result is ${dmarc}.`, dmarc === "missing" ? 14 : 26, "authentication");
+      if (spf === "pass" && !spfAligned) addIssue("medium", "SPF alignment gap", `SPF authenticated ${spfDomain || "an envelope sender"} but it does not align with ${from.domain || "Header From"}.`, 12, "alignment");
+      if (dkim === "pass" && !dkimAligned) addIssue("medium", "DKIM alignment gap", "At least one DKIM result passed, but no DKIM d= domain aligns with Header From.", 12, "alignment");
+      if (replyTo.domain && from.domain && !isAligned(replyTo.domain, from.domain)) addIssue("medium", "Reply-To mismatch", `Reply-To domain ${replyTo.domain} differs from From domain ${from.domain}.`, 14, "spoofing");
+      if (returnPath.domain && from.domain && !isAligned(returnPath.domain, from.domain)) addIssue("medium", "Return-Path mismatch", `Return-Path domain ${returnPath.domain} differs from From domain ${from.domain}.`, 10, "spoofing");
+      if (messageIdDomain && from.domain && !isAligned(messageIdDomain, from.domain)) addIssue("low", "Message-ID domain mismatch", `Message-ID domain ${messageIdDomain} does not align with ${from.domain}.`, 6, "spoofing");
+      if (brandHits.length) addIssue("high", "Brand impersonation signal", `${brandHits.length} typosquat, homoglyph, or brand-text mismatch indicator(s) were detected.`, Math.min(30, brandHits.length * 12), "impersonation");
+      if (/phish|credential|password|verify|urgent|suspend|invoice|payment|wire|mfa|2fa|login/i.test(first("subject"))) addIssue("medium", "Phishing language in subject", "Subject contains common social-engineering terms.", 10, "phishing");
+      if (/phpmailer|outlook express|mass|bulk|sendgrid|mailgun|amazonses/i.test(mailer)) addIssue("low", "Mailer fingerprint", `Mailer metadata: ${mailer}.`, 6, "fingerprint");
+      if (hops.some((hop) => !hop.timestampIso && hop.timestamp)) addIssue("low", "Unparseable Received timestamp", "One or more Received timestamps could not be normalized safely.", 5, "routing");
+      if (arc.count && arcResult !== "pass") addIssue("medium", "ARC chain not validated", `ARC result is ${arcResult}; forwarded mail may be less trustworthy.`, 10, "forwarding");
+
+      riskScore = Math.max(0, Math.min(100, riskScore));
+      const verdict = riskScore >= 75 ? "High Risk" : riskScore >= 40 ? "Suspicious" : riskScore >= 15 ? "Needs Review" : "Low Risk";
+      const publicIps = [...new Set(hops.flatMap((hop) => hop.publicIps))];
+
+      return {
+        summary: {
+          verdict,
+          riskScore,
+          from: from.address || "Unknown",
+          fromDomain: from.domain || "Unknown",
+          replyTo: replyTo.address || "",
+          returnPath: returnPath.address || "",
+          sender: sender.address || "",
+          subject: first("subject") || "",
+          date: first("date") || "",
+          messageId: first("message-id") || "",
+          receivedHops: received.length,
+          publicIps,
+          analyzedAt: new Date().toISOString()
+        },
+        authentication: {
+          spf,
+          dkim,
+          dmarc,
+          arcResult,
+          authservId: authentication.authservId,
+          mechanisms: authentication.mechanisms,
+          dkimSignatures,
+          arc,
+          policy: {
+            dmarcPass,
+            spfAligned,
+            dkimAligned,
+            forwardingAware: arc.count > 0 || /forwarded|mailing list|list-id/i.test(normalizedRaw)
+          }
+        },
+        alignment: {
+          fromDomain: from.domain,
+          replyToDomain: replyTo.domain,
+          returnPathDomain: returnPath.domain,
+          senderDomain: sender.domain,
+          messageIdDomain,
+          spfDomain,
+          dkimDomains: dkimSignatures.map((sig) => sig.domain).filter(Boolean)
+        },
+        threat: {
+          brandHits,
+          mailer,
+          phishingTerms: (first("subject").match(/phish|credential|password|verify|urgent|suspend|invoice|payment|wire|mfa|2fa|login/gi) || [])
+        },
+        iocs,
+        issues: issues.sort((a, b) => (b.points || 0) - (a.points || 0)),
+        hops,
+        malformed,
+        fields,
+        ordered: unfolded
+      };
+    }
+
+    function renderRail() {
+      const rail = document.getElementById("toolRail");
+      rail.innerHTML = tools.map((tool) => `
+        <button class="tool-nav-btn ${state.activeTool === tool.key ? "active" : ""}" data-tool="${tool.key}">
+          <span class="h-10 w-10 rounded-2xl border border-indigo-400/20 bg-indigo-500/10 flex items-center justify-center text-indigo-300">
+            ${tool.label.charAt(0)}
+          </span>
+          <span>
+            <span class="block font-semibold text-sm">${tool.label}</span>
+            <span class="block text-xs text-slate-500 dark:text-slate-400 mt-1">${tool.key === "url" ? "Safe Link / Base64 / Hashing / TLS" : "Live output only"}</span>
+          </span>
+        </button>
+      `).join("");
+
+      rail.querySelectorAll("[data-tool]").forEach((button) => {
+        button.addEventListener("click", () => {
+          state.activeTool = button.dataset.tool;
+          renderRail();
+          renderWorkspace();
+        });
+      });
+    }
+
+    function renderHeader() {
+      const active = tools.find((tool) => tool.key === state.activeTool) || tools[0];
+      document.getElementById("toolTitle").textContent = active.label;
+      document.getElementById("toolDescription").textContent = active.desc;
+    }
+
+    function renderWhois() {
+      return `
+        <section class="glass rounded-[1.7rem] p-6 space-y-5">
+          <div class="flex flex-col md:flex-row gap-3">
+            <input id="whoisInput" class="tool-input mono" placeholder="example.com" />
+            <button id="whoisRun" class="action-btn primary">Fetch WHOIS</button>
+            <button id="whoisExport" class="action-btn">Export</button>
+          </div>
+          <div id="whoisResult" class="result-card p-5 min-h-[220px] text-sm text-slate-600 dark:text-slate-300">Run a live WHOIS query to inspect registrar and ownership context.</div>
+        </section>
+      `;
+    }
+
+    function renderDns() {
+      return `
+        <section class="glass rounded-[1.7rem] p-6 space-y-5">
+          <div class="flex flex-col md:flex-row gap-3">
+            <input id="dnsInput" class="tool-input mono" placeholder="example.com" />
+            <button id="dnsRun" class="action-btn primary">Fetch DNS</button>
+            <button id="dnsExport" class="action-btn">Export</button>
+          </div>
+          <div id="dnsResult" class="result-card p-5 min-h-[220px] text-sm text-slate-600 dark:text-slate-300">Pull live A, AAAA, MX, NS, TXT, and CNAME records.</div>
+        </section>
+      `;
+    }
+
+    function renderRdap() {
+      return `
+        <section class="glass rounded-[1.7rem] p-6 space-y-5">
+          <div class="flex flex-col md:flex-row gap-3">
+            <input id="rdapInput" class="tool-input mono" placeholder="example.com or 8.8.8.8" />
+            <button id="rdapRun" class="action-btn primary">Fetch RDAP</button>
+            <button id="rdapExport" class="action-btn">Export</button>
+          </div>
+          <div id="rdapResult" class="result-card p-5 min-h-[220px] text-sm text-slate-600 dark:text-slate-300">Query live RDAP registration data for a domain or IP.</div>
+        </section>
+      `;
+    }
+
+    function renderUptime() {
+      return `
+        <section class="glass rounded-[1.7rem] p-6 space-y-5">
+          <div class="flex flex-col md:flex-row gap-3">
+            <input id="uptimeInput" class="tool-input mono" placeholder="https://example.com" />
+            <button id="uptimeRun" class="action-btn primary">Check Uptime</button>
+            <button id="uptimeExport" class="action-btn">Export</button>
+          </div>
+          <div id="uptimeResult" class="result-card p-5 min-h-[220px] text-sm text-slate-600 dark:text-slate-300">Validate live reachability and HTTP response state.</div>
+        </section>
+      `;
+    }
+
+    function renderIp() {
+      return `
+        <section class="glass rounded-[1.7rem] p-6 space-y-5">
+          <div class="flex flex-col md:flex-row gap-3">
+            <input id="ipInput" class="tool-input mono" placeholder="8.8.8.8" />
+            <button id="ipRun" class="action-btn primary">Lookup IP</button>
+            <button id="ipExport" class="action-btn">Export</button>
+          </div>
+          <div id="ipResult" class="result-card p-5 min-h-[220px] text-sm text-slate-600 dark:text-slate-300">Inspect live geolocation, ASN, org, and network context.</div>
+        </section>
+      `;
+    }
+
+    function renderDomain() {
+      return `
+        <section class="glass rounded-[1.7rem] p-6 space-y-5">
+          <div class="flex flex-col md:flex-row gap-3">
+            <input id="domainInput" class="tool-input mono" placeholder="example.com" />
+            <button id="domainRun" class="action-btn primary">Lookup IP</button>
+            <button id="domainAsnRun" class="action-btn">ASN Details</button>
+            <button id="domainExport" class="action-btn">Export</button>
+          </div>
+          <div id="domainResult" class="result-card p-5 min-h-[220px] text-sm text-slate-600 dark:text-slate-300">Resolve the live IPs behind a domain and pivot into network ownership.</div>
+        </section>
+      `;
+    }
+
+    function renderEmail() {
+      return `
+        <section class="glass rounded-[1.7rem] p-6 space-y-5">
+          <textarea id="emailInput" class="tool-input mono min-h-[220px]" placeholder="Paste raw email headers here"></textarea>
+          <div class="flex flex-wrap gap-3">
+            <button id="emailRun" class="action-btn primary">Analyze Header</button>
+            <button id="emailExportJson" class="action-btn">JSON</button>
+            <button id="emailExportCsv" class="action-btn">CSV</button>
+            <button id="emailExportStix" class="action-btn">STIX</button>
+            <button id="emailExportIoc" class="action-btn">IOCs</button>
+            <button id="emailExportPdf" class="action-btn">PDF</button>
+          </div>
+          <div id="emailResult" class="result-card p-5 min-h-[220px] text-sm text-slate-600 dark:text-slate-300">Parse locally without leaving the current page.</div>
+        </section>
+      `;
+    }
+
+    function renderSecurityUtilities() {
+      return `
+        <section class="glass rounded-[1.7rem] p-6 space-y-6">
+          <div class="flex flex-wrap gap-3">
+            <button class="tool-subtab ${state.securitySubtab === "safe-link" ? "active" : ""}" data-subtab="safe-link">Safe Link</button>
+            <button class="tool-subtab ${state.securitySubtab === "base64" ? "active" : ""}" data-subtab="base64">Base64</button>
+            <button class="tool-subtab ${state.securitySubtab === "hashing" ? "active" : ""}" data-subtab="hashing">File Hashing</button>
+            <button class="tool-subtab ${state.securitySubtab === "tls" ? "active" : ""}" data-subtab="tls">TLS</button>
+          </div>
+          <div id="securitySubtabContent">${renderSecuritySubtabContent()}</div>
+        </section>
+      `;
+    }
+
+    function renderSecuritySubtabContent() {
+      if (state.securitySubtab === "safe-link") {
+        return `
+          <div class="space-y-5">
+            <div class="flex flex-col md:flex-row gap-3">
+              <input id="safeLinkInput" class="tool-input mono" placeholder="https://example.com/login" />
+              <button id="safeLinkRun" class="action-btn primary">Analyze Link</button>
+              <button id="safeLinkExport" class="action-btn">Export</button>
+            </div>
+            <div id="safeLinkResult" class="result-card p-5 min-h-[220px] text-sm text-slate-600 dark:text-slate-300">Run a live URL heuristic analysis in this workspace.</div>
+          </div>
+        `;
+      }
+      if (state.securitySubtab === "base64") {
+        return `
+          <div class="space-y-5">
+            <textarea id="base64Input" class="tool-input mono min-h-[200px]" placeholder="Enter text to encode or decode"></textarea>
+            <div class="flex flex-wrap gap-3">
+              <button id="base64Encode" class="action-btn primary">Encode</button>
+              <button id="base64Decode" class="action-btn">Decode</button>
+              <button id="base64Clear" class="action-btn">Clear</button>
+            </div>
+            <textarea id="base64Output" class="tool-input mono min-h-[180px]" placeholder="Output" readonly></textarea>
+          </div>
+        `;
+      }
+      if (state.securitySubtab === "hashing") {
+        return `
+          <div class="space-y-5">
+            <input id="hashFileInput" type="file" class="tool-input" />
+            <div class="flex flex-wrap gap-3">
+              <button id="hashRun" class="action-btn primary">Generate Hashes</button>
+              <button id="hashExport" class="action-btn">Export</button>
+            </div>
+            <div id="hashResult" class="result-card p-5 min-h-[220px] text-sm text-slate-600 dark:text-slate-300">Generate SHA-based hashes for a selected file.</div>
+          </div>
+        `;
+      }
+      return `
+        <div class="space-y-5">
+          <div class="flex flex-col md:flex-row gap-3">
+            <input id="tlsInput" class="tool-input mono" placeholder="example.com" />
+            <button id="tlsRun" class="action-btn primary">Analyze TLS</button>
+            <button id="tlsExport" class="action-btn">Export</button>
+          </div>
+          <div id="tlsResult" class="result-card p-5 min-h-[220px] text-sm text-slate-600 dark:text-slate-300">Fetch live certificate and TLS scan data.</div>
+        </div>
+      `;
+    }
+
+    function renderWorkspace() {
+      renderHeader();
+      const workspace = document.getElementById("toolWorkspace");
+      const map = {
+        whois: renderWhois,
+        dns: renderDns,
+        rdap: renderRdap,
+        uptime: renderUptime,
+        ip: renderIp,
+        domain: renderDomain,
+        email: renderEmail,
+        url: renderSecurityUtilities
+      };
+      workspace.innerHTML = map[state.activeTool]();
+      bindActions();
+    }
+
+    async function runWhois() {
+      const domain = document.getElementById("whoisInput").value.trim();
+      const result = document.getElementById("whoisResult");
+      if (!domain) { result.textContent = "Enter a domain."; return; }
+      result.textContent = "Fetching live WHOIS data...";
+      try {
+        const response = await fetch(`/api/osint/whois?domain=${encodeURIComponent(domain)}`);
+        const data = await safeJson(response);
+        if (!response.ok) throw new Error([data.error, data.details].filter(Boolean).join(" - ") || "WHOIS lookup failed.");
+        state.reports.whois = { tool: "whois", query: domain, fetchedAt: new Date().toISOString(), report: data };
+        saveLocalReport(state.reports.whois);
+        const whoisData = data.whoisData || {};
+        const domainName = data.ldhName || data.domainName || whoisData.domainName || domain;
+        const registrar = getRdapRegistrar(data) || whoisData.registrar?.name || data.registrar || data.registrarName || "Unknown";
+        const createdRaw = getRdapEvent(data, "registration") || whoisData.createdDate || data.creationDate || data.createdDate || "Unknown";
+        const expiresRaw = getRdapEvent(data, "expiration") || whoisData.expiresDate || data.registryExpiryDate || data.expirationDate || "Unknown";
+        const changedRaw = getRdapEvent(data, "last changed") || whoisData.updatedDate || "Unknown";
+        const created = formatDateValue(createdRaw);
+        const expires = formatDateValue(expiresRaw);
+        const changed = formatDateValue(changedRaw);
+        const rawWhoisFields = whoisData.rawWhois?.fields || {};
+        const registrarProfile = getRegistrarProfile(data);
+        let registrantProfile = getEntityContactProfile(getRdapEntityByRole(data, "registrant"));
+        const adminProfile = getEntityContactProfile(getRdapEntityByRole(data, "administrative"));
+        let technicalProfile = getEntityContactProfile(getRdapEntityByRole(data, "technical"));
+        const abuseProfile = getEntityContactProfile(getRdapEntityByRole(data, "abuse"));
+        const nameservers = (data.nameservers || []).map((entry) => entry.ldhName || entry.unicodeName).filter(Boolean);
+        const whoisNameservers = whoisData.nameServers || [];
+        const allNameservers = [...new Set([...nameservers, ...whoisNameservers].filter(Boolean))];
+        const statusValues = Array.isArray(data.status) && data.status.length
+          ? data.status
+          : whoisData.domainStatus || [];
+        if (!hasProfileValue(registrantProfile)) {
+          registrantProfile = {
+            organization: rawWhoisFields["Registrant Organization"],
+            country: rawWhoisFields["Registrant Country"],
+            email: rawWhoisFields["Registrant Email"]
+          };
+        }
+        if (!hasProfileValue(technicalProfile)) {
+          technicalProfile = {
+            email: rawWhoisFields["Tech Email"],
+            country: rawWhoisFields["Tech Country"]
+          };
+        }
+        const overview = [
+          ["Domain", domainName],
+          ["Registered On", created],
+          ["Expires On", expires],
+          ["Updated On", changed],
+          ["Status", Array.isArray(statusValues) ? statusValues.join(", ") : statusValues],
+          ["Registry Domain ID", data.handle || rawWhoisFields["Registry Domain ID"]],
+          ["WHOIS Source", whoisData.rawWhois?.registrarServer || whoisData.rawWhois?.registryServer || data.source || "RDAP"]
+        ];
+        result.innerHTML = `
+          <div class="intel-grid">
+            <div class="intel-metrics">
+              ${metricCard("Target", domainName)}
+              ${metricCard("Registrar", registrar)}
+              ${metricCard("Created", created)}
+              ${metricCard("Expiry", expires, "warn")}
+            </div>
+            <div class="grid lg:grid-cols-2 gap-4">
+              <div class="intel-section">
+                <p class="section-label m-0">Domain Information</p>
+                <div class="intel-list">${detailRows(overview)}</div>
+              </div>
+              <div class="intel-section">
+                <p class="section-label m-0">Registrar Information</p>
+                <div class="intel-list">${detailRows([
+                  ["Registrar", normalizeFieldValue(registrarProfile.name)],
+                  ["IANA ID", normalizeFieldValue(registrarProfile.ianaId)],
+                  ["Email / URL", normalizeFieldValue(registrarProfile.email)],
+                  ["Abuse Email", normalizeFieldValue(registrarProfile.abuseEmail)],
+                  ["Abuse Phone", normalizeFieldValue(registrarProfile.abusePhone)]
+                ])}</div>
+              </div>
+            </div>
+            <div class="grid lg:grid-cols-2 gap-4">
+              ${contactSection("Registrant Contact", registrantProfile, [
+                ["Name", "name"],
+                ["Organization", "organization"],
+                ["Street", "street"],
+                ["City", "city"],
+                ["State", "state"],
+                ["Postal Code", "postalCode"],
+                ["Country", "country"],
+                ["Phone", "phone"],
+                ["Fax", "fax"],
+                ["Email / URL", "email"]
+              ])}
+              ${contactSection("Administrative Contact", adminProfile, [
+                ["Name", "name"],
+                ["Organization", "organization"],
+                ["Phone", "phone"],
+                ["Email / URL", "email"],
+                ["Roles", "roles"],
+                ["Handle", "handle"]
+              ])}
+            </div>
+            <div class="grid lg:grid-cols-2 gap-4">
+              ${contactSection("Technical Contact", technicalProfile, [
+                ["Name", "name"],
+                ["Organization", "organization"],
+                ["Phone", "phone"],
+                ["Email / URL", "email"],
+                ["Roles", "roles"],
+                ["Handle", "handle"]
+              ])}
+              ${contactSection("Abuse Contact", abuseProfile, [
+                ["Name", "name"],
+                ["Organization", "organization"],
+                ["Phone", "phone"],
+                ["Email / URL", "email"],
+                ["Roles", "roles"],
+                ["Handle", "handle"]
+              ])}
+            </div>
+            <div class="grid lg:grid-cols-2 gap-4">
+              ${arraySection("Name Servers", allNameservers, "No name servers returned.")}
+              <div class="intel-section">
+                <p class="section-label m-0">Lifecycle Signals</p>
+                <div class="intel-list">${detailRows([
+                  ["Last Changed", changed],
+                  ["Secure DNS", data.secureDNS?.delegationSigned ? "Signed" : "Unsigned"],
+                  ["Object Class", data.objectClassName || "domain"],
+                  ["Handle", data.handle],
+                  ["Registrar WHOIS Server", whoisData.rawWhois?.registrarServer],
+                  ["Registry WHOIS Server", whoisData.rawWhois?.registryServer]
+                ])}</div>
+              </div>
+            </div>
+            <div class="intel-section">
+              <p class="section-label m-0">Original WHOIS Fields</p>
+              <div class="intel-list">${detailRows([
+                ["Registrar", rawWhoisFields.Registrar],
+                ["Registrar URL", rawWhoisFields["Registrar URL"]],
+                ["Registrar Abuse Contact", rawWhoisFields["Registrar Abuse Contact Email"] || rawWhoisFields["Registrar Abuse Contact"]],
+                ["Registrar Abuse Phone", rawWhoisFields["Registrar Abuse Contact Phone"]],
+                ["DNSSEC", rawWhoisFields.DNSSEC],
+                ["Updated Date", formatDateValue(rawWhoisFields["Updated Date"])],
+                ["Creation Date", formatDateValue(rawWhoisFields["Creation Date"])],
+                ["Registry Expiry Date", formatDateValue(rawWhoisFields["Registry Expiry Date"])]
+              ])}</div>
+            </div>
+            <details class="intel-section">
+              <summary class="cursor-pointer font-semibold">Raw WHOIS Payload</summary>
+              <pre class="mono whitespace-pre-wrap text-xs mt-4">${escapeHtml(JSON.stringify(data, null, 2))}</pre>
+            </details>
+          </div>
+        `;
+      } catch (error) {
+        result.innerHTML = `<p class="text-red-500">${escapeHtml(error.message)}</p>`;
+      }
+    }
+
+    async function runDns() {
+      const domain = document.getElementById("dnsInput").value.trim();
+      const result = document.getElementById("dnsResult");
+      if (!domain) { result.textContent = "Enter a domain."; return; }
+      result.textContent = "Resolving live DNS records...";
+      try {
+        const response = await fetch(`/api/osint/dns?domain=${encodeURIComponent(domain)}`);
+        const data = await safeJson(response);
+        if (!response.ok) throw new Error(data.error || "DNS lookup failed.");
+        state.reports.dns = { tool: "dns", query: domain, fetchedAt: new Date().toISOString(), report: data };
+        saveLocalReport(state.reports.dns);
+        const grouped = groupDnsRecords(data.records || []);
+        const recordEntries = Object.entries(grouped);
+        const populatedTypes = recordEntries.length;
+        const rows = recordEntries.map(([type, values]) => `
+          <div class="intel-section">
+            <p class="section-label m-0">${escapeHtml(type)}</p>
+            <div class="mt-3 text-sm space-y-2">${(values || []).length ? values.map((value) => `<div class="mono break-all">${escapeHtml(value.data)} <span class="text-slate-500">TTL ${escapeHtml(value.ttl)}</span></div>`).join("") : `<span class="text-slate-500">No records.</span>`}</div>
+          </div>
+        `).join("");
+        result.innerHTML = `
+          <div class="intel-grid">
+            <div class="intel-metrics">
+              ${metricCard("Target", domain)}
+              ${metricCard("Record Types", populatedTypes)}
+              ${metricCard("Total Records", (data.records || []).length)}
+              ${metricCard("Populated Types", populatedTypes, populatedTypes ? "safe" : "warn")}
+              ${metricCard("Resolver Mode", "Live DNS", "info")}
+            </div>
+            <div class="grid md:grid-cols-2 gap-4">${rows || `<div class="intel-section">No DNS records returned.</div>`}</div>
+          </div>
+        `;
+      } catch (error) {
+        result.innerHTML = `<p class="text-red-500">${escapeHtml(error.message)}</p>`;
+      }
+    }
+
+    async function runRdap() {
+      const query = document.getElementById("rdapInput").value.trim();
+      const result = document.getElementById("rdapResult");
+      if (!query) { result.textContent = "Enter a domain or IP."; return; }
+      result.textContent = "Fetching live RDAP data...";
+      try {
+        const response = await fetch(`/api/osint/rdap?query=${encodeURIComponent(query)}`);
+        const data = await safeJson(response);
+        if (!response.ok) throw new Error(data.error || "RDAP lookup failed.");
+        const payload = data.data || data;
+        state.reports.rdap = { tool: "rdap", query, fetchedAt: new Date().toISOString(), report: data };
+        saveLocalReport(state.reports.rdap);
+        const events = (payload.events || []).map((event) => `${event.eventAction || "event"}: ${event.eventDate || "Unknown"}`);
+        const nameservers = (payload.nameservers || []).map((item) => item.ldhName || item.unicodeName).filter(Boolean);
+        const registrar = getRdapRegistrar(payload) || "Unknown";
+        result.innerHTML = `
+          <div class="intel-grid">
+            <div class="intel-metrics">
+              ${metricCard("Object Class", payload.objectClassName || "Unknown")}
+              ${metricCard("Handle", payload.handle || "Unknown")}
+              ${metricCard("LDH Name", payload.ldhName || query)}
+              ${metricCard("Secure DNS", payload.secureDNS?.delegationSigned ? "Signed" : "Unsigned", payload.secureDNS?.delegationSigned ? "safe" : "warn")}
+            </div>
+            <div class="grid lg:grid-cols-2 gap-4">
+              <div class="intel-section">
+                <p class="section-label m-0">Registration Summary</p>
+                <div class="intel-list">
+                  ${detailRows([
+                    ["Query", query],
+                    ["Registrar", registrar],
+                    ["Primary Link", payload.links?.[0]?.href || "N/A"],
+                    ["Statuses", (payload.status || []).join(", ") || "N/A"],
+                    ["Conformance", (payload.rdapConformance || []).join(", ") || "N/A"]
+                  ])}
+                </div>
+              </div>
+              ${arraySection("Lifecycle Events", events, "No lifecycle events returned.")}
+            </div>
+            ${arraySection("Name Servers", nameservers, "No nameservers returned.")}
+            <details class="intel-section">
+              <summary class="cursor-pointer font-semibold">Raw RDAP Payload</summary>
+              <pre class="mono whitespace-pre-wrap text-xs mt-4">${escapeHtml(JSON.stringify(data, null, 2))}</pre>
+            </details>
+          </div>
+        `;
+      } catch (error) {
+        result.innerHTML = `<p class="text-red-500">${escapeHtml(error.message)}</p>`;
+      }
+    }
+
+    async function runUptime() {
+      const url = document.getElementById("uptimeInput").value.trim();
+      const result = document.getElementById("uptimeResult");
+      if (!url) { result.textContent = "Enter a URL."; return; }
+      result.textContent = "Checking live uptime...";
+      try {
+        const response = await fetch(`/api/osint/uptime?url=${encodeURIComponent(url)}`);
+        const data = await safeJson(response);
+        if (!response.ok) throw new Error(data.error || "Uptime check failed.");
+        state.reports.uptime = { tool: "uptime", query: url, fetchedAt: new Date().toISOString(), report: data };
+        saveLocalReport(state.reports.uptime);
+        const reachable = Boolean(data.reachable ?? data.ok);
+        result.innerHTML = `
+          <div class="intel-grid">
+            <div class="intel-metrics">
+              ${metricCard("URL", data.url)}
+              ${metricCard("HTTP Status", data.status ?? "N/A", reachable ? "safe" : "danger")}
+              ${metricCard("Status Text", data.statusText ?? "N/A")}
+              ${metricCard("Reachable", reachable ? "Yes" : "No", reachable ? "safe" : "danger")}
+            </div>
+            <div class="intel-section">
+              <p class="section-label m-0">Availability Summary</p>
+              <div class="intel-list">
+                ${detailRows([
+                  ["Target", data.url],
+                  ["Reachability", reachable ? "Endpoint responded" : "No successful response"],
+                  ["HTTP Code", data.status ?? "N/A"],
+                  ["Observation Time", new Date().toISOString()]
+                ])}
+              </div>
+            </div>
+          </div>
+        `;
+      } catch (error) {
+        result.innerHTML = `<p class="text-red-500">${escapeHtml(error.message)}</p>`;
+      }
+    }
+
+    async function runIpLookup() {
+      const ip = document.getElementById("ipInput").value.trim();
+      const result = document.getElementById("ipResult");
+      if (!ip) { result.textContent = "Enter an IP address."; return; }
+      result.textContent = "Fetching live IP intelligence...";
+      try {
+        const response = await fetch(`/api/threat/ip/${encodeURIComponent(ip)}`);
+        const data = await safeJson(response);
+        if (!response.ok) throw new Error(data.error || "IP lookup failed.");
+        state.reports.ip = { tool: "ip", query: ip, fetchedAt: new Date().toISOString(), report: data };
+        saveLocalReport(state.reports.ip);
+        result.innerHTML = `
+          <div class="intel-grid">
+            <div class="intel-metrics">
+              ${metricCard("IP", data.ip || ip)}
+              ${metricCard("ASN / Org", data.org || "N/A")}
+              ${metricCard("Country", data.country || "N/A")}
+              ${metricCard("Timezone", data.timezone || "N/A")}
+            </div>
+            <div class="grid lg:grid-cols-2 gap-4">
+              <div class="intel-section">
+                <p class="section-label m-0">Network Context</p>
+                <div class="intel-list">${detailRows([
+                  ["Hostname", data.hostname || "N/A"],
+                  ["Organization", data.org || "N/A"],
+                  ["Postal", data.postal || "N/A"],
+                  ["Query Type", "Live IP intelligence"]
+                ])}</div>
+              </div>
+              <div class="intel-section">
+                <p class="section-label m-0">Geolocation Context</p>
+                <div class="intel-list">${detailRows([
+                  ["City", data.city || "N/A"],
+                  ["Region", data.region || "N/A"],
+                  ["Country", data.country || "N/A"],
+                  ["Timezone", data.timezone || "N/A"]
+                ])}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      } catch (error) {
+        result.innerHTML = `<p class="text-red-500">${escapeHtml(error.message)}</p>`;
+      }
+    }
+
+    async function runDomainResolve() {
+      const domain = document.getElementById("domainInput").value.trim();
+      const result = document.getElementById("domainResult");
+      if (!domain) { result.textContent = "Enter a domain."; return; }
+      result.textContent = "Resolving live domain infrastructure...";
+      try {
+        const response = await fetch(`/api/threat/domain/resolve?domain=${encodeURIComponent(domain)}`);
+        const data = await safeJson(response);
+        if (!response.ok) throw new Error(data.error || "Domain resolution failed.");
+        state.reports.domain = { tool: "domain-resolve", query: domain, fetchedAt: new Date().toISOString(), report: data };
+        saveLocalReport(state.reports.domain);
+        result.innerHTML = `
+          <div class="intel-grid">
+            <div class="intel-metrics">
+              ${metricCard("Domain", data.domain || domain)}
+              ${metricCard("Resolved IPs", (data.addresses || []).length)}
+              ${metricCard("Resolution Mode", "Live DNS")}
+            </div>
+            ${arraySection("Resolved Addresses", data.addresses || [], "No addresses returned.")}
+          </div>
+        `;
+      } catch (error) {
+        result.innerHTML = `<p class="text-red-500">${escapeHtml(error.message)}</p>`;
+      }
+    }
+
+    async function runDomainAsn() {
+      const domain = document.getElementById("domainInput").value.trim();
+      const result = document.getElementById("domainResult");
+      if (!domain) { result.textContent = "Enter a domain."; return; }
+      result.textContent = "Fetching live ASN context...";
+      try {
+        const response = await fetch(`/api/threat/domain/asn?domain=${encodeURIComponent(domain)}`);
+        const data = await safeJson(response);
+        if (!response.ok) throw new Error(data.error || "ASN lookup failed.");
+        state.reports.domain = { tool: "domain-asn", query: domain, fetchedAt: new Date().toISOString(), report: data };
+        saveLocalReport(state.reports.domain);
+        result.innerHTML = `
+          <div class="intel-grid">
+            <div class="intel-metrics">
+              ${metricCard("Domain", data.domain || domain)}
+              ${metricCard("Resolved IP", data.ip || "N/A")}
+              ${metricCard("Organization", data.org || "N/A")}
+              ${metricCard("Country", data.country || "N/A")}
+            </div>
+            <div class="grid lg:grid-cols-2 gap-4">
+              <div class="intel-section">
+                <p class="section-label m-0">Ownership Context</p>
+                <div class="intel-list">${detailRows([
+                  ["Hostname", data.hostname || "N/A"],
+                  ["Organization", data.org || "N/A"],
+                  ["Resolved IP", data.ip || "N/A"],
+                  ["Domain", data.domain || domain]
+                ])}</div>
+              </div>
+              <div class="intel-section">
+                <p class="section-label m-0">Location Context</p>
+                <div class="intel-list">${detailRows([
+                  ["City", data.city || "N/A"],
+                  ["Region", data.region || "N/A"],
+                  ["Country", data.country || "N/A"],
+                  ["Timezone", data.timezone || "N/A"]
+                ])}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      } catch (error) {
+        result.innerHTML = `<p class="text-red-500">${escapeHtml(error.message)}</p>`;
+      }
+    }
+
+    async function runEmailAnalysis() {
+      const raw = document.getElementById("emailInput").value.trim();
+      const result = document.getElementById("emailResult");
+      if (!raw) { result.textContent = "Paste a raw email header."; return; }
+      result.textContent = "Parsing RFC 5322 headers, scoring authentication, and enriching IOCs...";
+      const parsed = parseEmailHeaders(raw);
+      parsed.enrichment = await enrichEmailThreatIntel(parsed).catch((error) => ({
+        status: "ENRICHMENT UNAVAILABLE",
+        providerMode: "Best effort",
+        note: error.message,
+        results: [],
+        totals: { queried: 0, malicious: 0, suspicious: 0, failed: 1 }
+      }));
+      if (parsed.enrichment?.totals?.malicious) {
+        parsed.summary.riskScore = Math.min(100, parsed.summary.riskScore + 30);
+        parsed.summary.verdict = "High Risk";
+        parsed.issues.unshift({
+          severity: "high",
+          label: "Threat intelligence hit",
+          detail: `${parsed.enrichment.totals.malicious} IOC(s) matched malicious intelligence.`,
+          category: "threat-intel",
+          points: 30
+        });
+      } else if (parsed.enrichment?.totals?.suspicious) {
+        parsed.summary.riskScore = Math.min(100, parsed.summary.riskScore + 12);
+        if (parsed.summary.verdict === "Low Risk") parsed.summary.verdict = "Needs Review";
+      }
+      state.reports.email = { tool: "email-header", query: parsed.summary.from || "raw-header", fetchedAt: parsed.summary.analyzedAt, report: parsed };
+      saveLocalReport(state.reports.email);
+      const scoreTone = parsed.summary.riskScore >= 70 ? "danger" : parsed.summary.riskScore >= 35 ? "warn" : "safe";
+      result.innerHTML = `
+        <div class="intel-grid">
+          <div class="intel-metrics">
+            ${metricCard("Verdict", parsed.summary.verdict, scoreTone)}
+            ${metricCard("Risk Score", `${parsed.summary.riskScore}/100`, scoreTone)}
+            ${metricCard("Received Hops", parsed.summary.receivedHops)}
+            ${metricCard("Public IPs", parsed.summary.publicIps.length, parsed.summary.publicIps.length ? "info" : "warn")}
+            ${metricCard("TI Status", parsed.enrichment?.status || "Not run", parsed.enrichment?.totals?.malicious ? "danger" : parsed.enrichment?.totals?.suspicious ? "warn" : "safe")}
+          </div>
+          <div class="grid lg:grid-cols-2 gap-4">
+            <div class="intel-section">
+              <p class="section-label m-0">Message Identity</p>
+              <div class="intel-list">${detailRows([
+                ["From", parsed.summary.from],
+                ["From Domain", parsed.summary.fromDomain],
+                ["Reply-To", parsed.summary.replyTo],
+                ["Return-Path", parsed.summary.returnPath],
+                ["Subject", parsed.summary.subject],
+                ["Date", parsed.summary.date],
+                ["Message-ID", parsed.summary.messageId]
+              ])}</div>
+            </div>
+            <div class="intel-section">
+              <p class="section-label m-0">Authentication</p>
+              <div class="intel-metrics mt-4">
+                ${metricCard("SPF", parsed.authentication.spf.toUpperCase(), authTone(parsed.authentication.spf))}
+                ${metricCard("DKIM", parsed.authentication.dkim.toUpperCase(), authTone(parsed.authentication.dkim))}
+                ${metricCard("DMARC", parsed.authentication.dmarc.toUpperCase(), authTone(parsed.authentication.dmarc))}
+                ${metricCard("ARC", parsed.authentication.arcResult.toUpperCase(), authTone(parsed.authentication.arcResult))}
+              </div>
+            </div>
+          </div>
+          <div class="grid lg:grid-cols-2 gap-4">
+            <div class="intel-section">
+              <p class="section-label m-0">Domain Alignment</p>
+              <div class="intel-list">${detailRows([
+                ["Header From Domain", parsed.alignment.fromDomain],
+                ["Reply-To Domain", parsed.alignment.replyToDomain],
+                ["Return-Path Domain", parsed.alignment.returnPathDomain],
+                ["Message-ID Domain", parsed.alignment.messageIdDomain]
+              ])}</div>
+            </div>
+            <div class="intel-section">
+              <p class="section-label m-0">Policy Interpretation</p>
+              <div class="intel-list">${detailRows([
+                ["SPF Aligned", parsed.authentication.policy.spfAligned ? "Yes" : "No"],
+                ["DKIM Aligned", parsed.authentication.policy.dkimAligned ? "Yes" : "No"],
+                ["DMARC Pass", parsed.authentication.policy.dmarcPass ? "Yes" : "No"],
+                ["Forwarding Aware", parsed.authentication.policy.forwardingAware ? "Yes" : "No"],
+                ["DKIM Selectors", parsed.authentication.dkimSignatures.map((sig) => sig.selector).filter(Boolean)]
+              ])}</div>
+            </div>
+          </div>
+          <div class="grid lg:grid-cols-2 gap-4">
+            ${arraySection("Public Relay IPs", parsed.summary.publicIps, "No public IP addresses were extracted from Received headers.")}
+            <div class="intel-section">
+              <p class="section-label m-0">Brand + Phishing Signals</p>
+              <div class="intel-list">${renderBrandHits(parsed.threat.brandHits)}</div>
+            </div>
+          </div>
+          <div class="intel-section">
+            <p class="section-label m-0">Findings</p>
+            <div class="intel-list">${renderIssueList(parsed.issues)}</div>
+          </div>
+          <details class="intel-section" open>
+            <summary class="cursor-pointer font-semibold">Threat Intelligence Enrichment</summary>
+            <div class="mt-4">${renderThreatIntel(parsed.enrichment)}</div>
+          </details>
+          <details class="intel-section">
+            <summary class="cursor-pointer font-semibold">DKIM / ARC Forensics</summary>
+            <div class="grid lg:grid-cols-2 gap-4 mt-4">${renderDkimSignatures(parsed.authentication.dkimSignatures)}</div>
+            <div class="intel-list mt-4">${detailRows([
+              ["ARC Seal Count", parsed.authentication.arc.count],
+              ["ARC Authserv-ID", parsed.authentication.arc.authResults?.authservId],
+              ["Authentication Service", parsed.authentication.authservId]
+            ])}</div>
+          </details>
+          <details class="intel-section" open>
+            <summary class="cursor-pointer font-semibold">IOC Inventory</summary>
+            <div class="grid lg:grid-cols-2 gap-4 mt-4">
+              ${arraySection("IP Addresses", parsed.iocs.ips, "No IP IOCs extracted.")}
+              ${arraySection("Domains", parsed.iocs.domains, "No domain IOCs extracted.")}
+              ${arraySection("URLs", parsed.iocs.urls, "No URL IOCs extracted.")}
+              ${arraySection("Email Addresses", parsed.iocs.emails, "No email IOCs extracted.")}
+            </div>
+          </details>
+          <div class="grid lg:grid-cols-2 gap-4">
+            ${renderReceivedTimeline(parsed.hops)}
+          </div>
+          <details class="intel-section">
+            <summary class="cursor-pointer font-semibold">Parsed Header Fields</summary>
+            <pre class="mono whitespace-pre-wrap text-xs mt-4">${escapeHtml(JSON.stringify(parsed.fields, null, 2))}</pre>
+          </details>
+          <details class="intel-section">
+            <summary class="cursor-pointer font-semibold">Parser Recovery + Malformed Lines</summary>
+            <pre class="mono whitespace-pre-wrap text-xs mt-4">${escapeHtml(JSON.stringify(parsed.malformed, null, 2))}</pre>
+          </details>
+        </div>
+      `;
+    }
+
+    function runSafeLink() {
+      const input = document.getElementById("safeLinkInput").value.trim();
+      const result = document.getElementById("safeLinkResult");
+      if (!input) { result.textContent = "Enter a URL."; return; }
+      try {
+        const url = new URL(input);
+        const issues = [];
+        if (url.protocol !== "https:") issues.push("Connection is not using HTTPS.");
+        if (/@|\.\./.test(url.href)) issues.push("URL contains obfuscation patterns.");
+        if (/xn--|bit\.ly|tinyurl|t\.co|goo\.gl/i.test(url.hostname)) issues.push("Shortener or punycode-style hostname detected.");
+        if (url.hostname.split(".").length > 4) issues.push("Deep subdomain chain detected.");
+        const riskScore = Math.min(issues.length * 25, 100);
+        const verdict = riskScore >= 75 ? "Malicious" : riskScore >= 25 ? "Suspicious" : "Safe";
+        const payload = { input, hostname: url.hostname, protocol: url.protocol, path: url.pathname, issues, riskScore, verdict, analyzedAt: new Date().toISOString() };
+        state.reports.safeLink = { tool: "safe-link", query: input, fetchedAt: payload.analyzedAt, report: payload };
+        saveLocalReport(state.reports.safeLink);
+        result.innerHTML = `
+          <div class="grid md:grid-cols-3 gap-4">
+            <div class="result-card p-4"><p class="section-label m-0">Verdict</p><p class="mt-3 font-semibold ${verdict === "Safe" ? "text-emerald-500" : verdict === "Suspicious" ? "text-amber-500" : "text-red-500"}">${escapeHtml(verdict)}</p></div>
+            <div class="result-card p-4"><p class="section-label m-0">Risk Score</p><p class="mt-3 font-semibold">${riskScore}/100</p></div>
+            <div class="result-card p-4"><p class="section-label m-0">Hostname</p><p class="mt-3 font-semibold break-all">${escapeHtml(url.hostname)}</p></div>
+          </div>
+          <div class="result-card p-4 mt-4">
+            <p class="section-label m-0">Indicators</p>
+            <div class="mt-3 space-y-2">${issues.length ? issues.map((issue) => `<div>${escapeHtml(issue)}</div>`).join("") : `<div class="text-emerald-500">No suspicious indicators found from the live URL structure.</div>`}</div>
+          </div>
+        `;
+      } catch (error) {
+        result.innerHTML = `<p class="text-red-500">Enter a valid URL.</p>`;
+      }
+    }
+
+    function runBase64Encode() {
+      const input = document.getElementById("base64Input").value;
+      document.getElementById("base64Output").value = btoa(unescape(encodeURIComponent(input)));
+    }
+
+    function runBase64Decode() {
+      const input = document.getElementById("base64Input").value;
+      try {
+        document.getElementById("base64Output").value = decodeURIComponent(escape(atob(input)));
+      } catch (error) {
+        document.getElementById("base64Output").value = "Invalid Base64 input.";
+      }
+    }
+
+    async function digestHex(buffer, algorithm) {
+      const hashBuffer = await crypto.subtle.digest(algorithm, buffer);
+      return Array.from(new Uint8Array(hashBuffer)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    }
+
+    async function runHashing() {
+      const input = document.getElementById("hashFileInput");
+      const result = document.getElementById("hashResult");
+      const file = input.files?.[0];
+      if (!file) { result.textContent = "Choose a file first."; return; }
+      result.textContent = "Generating SHA hashes...";
+      const buffer = await file.arrayBuffer();
+      const hashes = {
+        sha1: await digestHex(buffer, "SHA-1"),
+        sha256: await digestHex(buffer, "SHA-256"),
+        sha384: await digestHex(buffer, "SHA-384"),
+        sha512: await digestHex(buffer, "SHA-512")
+      };
+      state.reports.hashing = { tool: "file-hashing", query: file.name, fetchedAt: new Date().toISOString(), report: { fileName: file.name, fileSize: file.size, hashes } };
+      saveLocalReport(state.reports.hashing);
+      result.innerHTML = `
+        <div class="result-card p-4 mb-4">
+          <p class="section-label m-0">Artifact</p>
+          <p class="mt-3 font-semibold">${escapeHtml(file.name)} <span class="text-slate-500">(${file.size} bytes)</span></p>
+        </div>
+        <div class="space-y-3">
+          ${Object.entries(hashes).map(([name, value]) => `<div class="result-card p-4"><p class="section-label m-0">${escapeHtml(name.toUpperCase())}</p><p class="mono text-xs break-all mt-3">${escapeHtml(value)}</p></div>`).join("")}
+        </div>
+      `;
+    }
+
+    async function runTls() {
+      const domain = document.getElementById("tlsInput").value.trim();
+      const result = document.getElementById("tlsResult");
+      if (!domain) { result.textContent = "Enter a domain."; return; }
+      result.textContent = "Fetching live TLS intelligence...";
+      try {
+        const response = await fetch(`/api/security/ssl?domain=${encodeURIComponent(domain)}`);
+        const data = await safeJson(response);
+        if (!response.ok) throw new Error(data.error || "TLS lookup failed.");
+        state.reports.tls = { tool: "tls", query: domain, fetchedAt: new Date().toISOString(), report: data };
+        saveLocalReport(state.reports.tls);
+        result.innerHTML = `
+          <div class="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
+            ${[
+              ["Host", data.host || domain],
+              ["Status", data.status || "N/A"],
+              ["Port", data.port || "443"],
+              ["Endpoints", Array.isArray(data.endpoints) ? data.endpoints.length : 0]
+            ].map(([label, value]) => `<div class="result-card p-4"><p class="section-label m-0">${label}</p><p class="mt-3 font-semibold break-all">${escapeHtml(value)}</p></div>`).join("")}
+          </div>
+          <div class="mt-4 space-y-3">
+            ${(data.endpoints || []).map((endpoint) => `<div class="result-card p-4"><p class="section-label m-0">${escapeHtml(endpoint.ipAddress || "Endpoint")}</p><p class="mt-3 text-sm">Grade: <strong>${escapeHtml(endpoint.grade || "N/A")}</strong> | Status: <strong>${escapeHtml(endpoint.statusMessage || "N/A")}</strong></p></div>`).join("") || `<div class="result-card p-4">No live endpoint details returned.</div>`}
+          </div>
+        `;
+      } catch (error) {
+        result.innerHTML = `<p class="text-red-500">${escapeHtml(error.message)}</p>`;
+      }
+    }
+
+    function bindSecuritySubtabActions() {
+      document.querySelectorAll("[data-subtab]").forEach((button) => {
+        button.addEventListener("click", () => {
+          state.securitySubtab = button.dataset.subtab;
+          renderWorkspace();
+        });
+      });
+      if (state.securitySubtab === "safe-link") {
+        document.getElementById("safeLinkRun")?.addEventListener("click", runSafeLink);
+        document.getElementById("safeLinkExport")?.addEventListener("click", () => state.reports.safeLink && exportReport(state.reports.safeLink, "cybershield-safe-link-report.json"));
+      } else if (state.securitySubtab === "base64") {
+        document.getElementById("base64Encode")?.addEventListener("click", runBase64Encode);
+        document.getElementById("base64Decode")?.addEventListener("click", runBase64Decode);
+        document.getElementById("base64Clear")?.addEventListener("click", () => {
+          document.getElementById("base64Input").value = "";
+          document.getElementById("base64Output").value = "";
+        });
+      } else if (state.securitySubtab === "hashing") {
+        document.getElementById("hashRun")?.addEventListener("click", runHashing);
+        document.getElementById("hashExport")?.addEventListener("click", () => state.reports.hashing && exportReport(state.reports.hashing, "cybershield-file-hash-report.json"));
+      } else if (state.securitySubtab === "tls") {
+        document.getElementById("tlsRun")?.addEventListener("click", runTls);
+        document.getElementById("tlsExport")?.addEventListener("click", () => state.reports.tls && exportReport(state.reports.tls, "cybershield-tls-report.json"));
+      }
+    }
+
+    function bindActions() {
+      const bindings = {
+        whois: () => {
+          document.getElementById("whoisRun")?.addEventListener("click", runWhois);
+          document.getElementById("whoisExport")?.addEventListener("click", () => state.reports.whois && exportReport(state.reports.whois, "cybershield-whois-report.json"));
+        },
+        dns: () => {
+          document.getElementById("dnsRun")?.addEventListener("click", runDns);
+          document.getElementById("dnsExport")?.addEventListener("click", () => state.reports.dns && exportReport(state.reports.dns, "cybershield-dns-report.json"));
+        },
+        rdap: () => {
+          document.getElementById("rdapRun")?.addEventListener("click", runRdap);
+          document.getElementById("rdapExport")?.addEventListener("click", () => state.reports.rdap && exportReport(state.reports.rdap, "cybershield-rdap-report.json"));
+        },
+        uptime: () => {
+          document.getElementById("uptimeRun")?.addEventListener("click", runUptime);
+          document.getElementById("uptimeExport")?.addEventListener("click", () => state.reports.uptime && exportReport(state.reports.uptime, "cybershield-uptime-report.json"));
+        },
+        ip: () => {
+          document.getElementById("ipRun")?.addEventListener("click", runIpLookup);
+          document.getElementById("ipExport")?.addEventListener("click", () => state.reports.ip && exportReport(state.reports.ip, "cybershield-ip-report.json"));
+        },
+        domain: () => {
+          document.getElementById("domainRun")?.addEventListener("click", runDomainResolve);
+          document.getElementById("domainAsnRun")?.addEventListener("click", runDomainAsn);
+          document.getElementById("domainExport")?.addEventListener("click", () => state.reports.domain && exportReport(state.reports.domain, "cybershield-domain-report.json"));
+        },
+        email: () => {
+          document.getElementById("emailRun")?.addEventListener("click", runEmailAnalysis);
+          document.getElementById("emailExportJson")?.addEventListener("click", () => exportEmailReport("json"));
+          document.getElementById("emailExportCsv")?.addEventListener("click", () => exportEmailReport("csv"));
+          document.getElementById("emailExportStix")?.addEventListener("click", () => exportEmailReport("stix"));
+          document.getElementById("emailExportIoc")?.addEventListener("click", () => exportEmailReport("ioc"));
+          document.getElementById("emailExportPdf")?.addEventListener("click", () => exportEmailReport("pdf"));
+        },
+        url: bindSecuritySubtabActions
+      };
+      bindings[state.activeTool]?.();
+    }
+
+    document.getElementById("themeToggle").addEventListener("click", () => {
+      applyTheme(!document.documentElement.classList.contains("dark"));
+    });
+
+    applyTheme(localStorage.theme ? localStorage.theme === "dark" : true);
+    renderRail();
+    renderWorkspace();
+  </script>
+  <script src="ai-assistant.js"></script>
+  <script src="responsive-nav.js?v=20260429b"></script>
+</body>
+</html>

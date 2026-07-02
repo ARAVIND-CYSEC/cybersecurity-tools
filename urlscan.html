@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CyberShield - URLScan Intelligence</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' };</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg:#f3f7fb; --surface:rgba(255,255,255,.86); --surface2:rgba(255,255,255,.94); --line:rgba(148,163,184,.22); --text:#0f172a; --muted:#475569; }
+    .dark { --bg:#0b1220; --surface:rgba(17,24,39,.78); --surface2:rgba(15,23,42,.92); --line:rgba(99,102,241,.16); --text:#f8fafc; --muted:#94a3b8; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Inter",sans-serif; background:radial-gradient(circle at 14% 12%,rgba(99,102,241,.16),transparent 22%),radial-gradient(circle at 84% 20%,rgba(34,211,238,.1),transparent 18%),var(--bg); color:var(--text); }
+    body::before { content:""; position:fixed; inset:0; pointer-events:none; background-image:linear-gradient(rgba(148,163,184,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(148,163,184,.05) 1px,transparent 1px); background-size:36px 36px; opacity:.44; }
+    .glass { background:var(--surface); border:1px solid var(--line); backdrop-filter:blur(18px); box-shadow:0 18px 40px rgba(2,6,23,.16); }
+    .glass-strong { background:var(--surface2); border:1px solid var(--line); backdrop-filter:blur(16px); }
+    .nav-link { color:var(--muted); text-decoration:none; padding:.55rem .9rem; border-radius:999px; transition:all .2s ease; }
+    .nav-link:hover,.nav-link.active { color:var(--text); background:rgba(99,102,241,.1); }
+    .section-label { font-size:.74rem; font-weight:700; letter-spacing:.24em; text-transform:uppercase; color:#a5b4fc; }
+    .mono { font-family:"JetBrains Mono",monospace; }
+    .primary-btn { border:0; border-radius:.95rem; padding:.9rem 1.1rem; font-weight:700; background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff; box-shadow:0 14px 28px rgba(99,102,241,.18); }
+    .soft-btn { border:1px solid var(--line); border-radius:.95rem; padding:.85rem 1rem; font-weight:600; background:var(--surface); color:var(--text); }
+    .tool-input, select { width:100%; border-radius:1rem; border:1px solid rgba(99,102,241,.18); background:rgba(255,255,255,.82); color:#0f172a; padding:.95rem 1rem; outline:none; transition:all .2s ease; }
+    .dark .tool-input, .dark select { background:rgba(15,23,42,.84); color:#f8fafc; }
+    .tool-input:focus, select:focus { box-shadow:0 0 0 3px rgba(99,102,241,.18); border-color:rgba(99,102,241,.45); }
+    .badge { display:inline-flex; align-items:center; gap:.4rem; padding:.35rem .65rem; border-radius:999px; font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+    .badge.safe { color:#10b981; background:rgba(16,185,129,.12); }
+    .badge.warn { color:#f59e0b; background:rgba(245,158,11,.12); }
+    .badge.danger { color:#ef4444; background:rgba(239,68,68,.12); }
+    .badge.info { color:#22d3ee; background:rgba(34,211,238,.12); }
+    .tab-btn { padding:.7rem .95rem; border-radius:.9rem; border:1px solid var(--line); background:var(--surface); color:var(--muted); transition:all .2s ease; }
+    .tab-btn.active { color:#fff; background:linear-gradient(135deg,rgba(99,102,241,.28),rgba(34,211,238,.08)); border-color:rgba(99,102,241,.3); }
+    .metric-card, .intel-section { border:1px solid var(--line); border-radius:1.1rem; background:var(--surface); padding:1rem; }
+    .intel-row { display:flex; justify-content:space-between; gap:1rem; padding:.75rem .9rem; border-radius:.9rem; background:rgba(99,102,241,.06); border:1px solid rgba(99,102,241,.08); }
+    .intel-key { color:var(--muted); font-size:.82rem; text-transform:uppercase; letter-spacing:.08em; }
+    .intel-value { font-weight:600; text-align:right; word-break:break-word; }
+    .list-box { display:grid; gap:.75rem; }
+    .list-item { padding:.75rem .9rem; border-radius:.9rem; border:1px solid rgba(99,102,241,.08); background:rgba(99,102,241,.05); }
+    .screenshot-shell { position:relative; overflow:hidden; border-radius:1.2rem; border:1px solid var(--line); background:rgba(15,23,42,.18); min-height:280px; display:flex; align-items:center; justify-content:center; }
+    .spinner { width:18px; height:18px; border-radius:999px; border:2px solid rgba(99,102,241,.22); border-top-color:#6366f1; animation:spin .8s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+  </style>
+  <link rel="stylesheet" href="responsive.css?v=20260429b">
+</head>
+<body>
+  <div class="max-w-[1480px] mx-auto px-4 py-6 relative z-10">
+    <nav class="glass-strong rounded-[1.4rem] px-5 py-4 flex items-center justify-between gap-4 sticky top-4 z-40">
+      <a href="home2.html" class="inline-flex items-center gap-3 no-underline text-inherit">
+        <div class="h-10 w-10 rounded-2xl bg-indigo-500/15 border border-indigo-400/20 flex items-center justify-center text-indigo-300">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l8 4.5v5.2c0 5.3-3.5 10.1-8 11.3-4.5-1.2-8-6-8-11.3V6.5L12 2z"/></svg>
+        </div>
+        <div>
+          <p class="m-0 text-sm font-semibold tracking-[0.2em] uppercase text-indigo-300">CyberShield</p>
+          <p class="m-0 text-xs text-slate-500 dark:text-slate-400">URLScan Intelligence</p>
+        </div>
+      </a>
+      <div class="flex items-center gap-1">
+        <a class="nav-link" href="home2.html">Home</a>
+        <a class="nav-link" href="analysis.html">Analysis</a>
+        <a class="nav-link" href="tools-lab.html">Tools</a>
+        <a class="nav-link" href="threat-intel.html">Threat Intel</a>
+        <a class="nav-link active" href="urlscan.html">URLScan</a>
+        <a class="nav-link" href="cases.html">Cases</a>
+        <a class="nav-link" href="monitoring.html">Monitoring</a>
+        <a class="nav-link" href="reports.html">Reports</a>
+      </div>
+      <button id="themeToggle" class="soft-btn text-sm" title="Toggle theme" aria-label="Toggle theme"><span aria-hidden="true">&#9790;</span></button>
+    </nav>
+
+    <main class="pt-6 space-y-6">
+      <section class="glass rounded-[1.8rem] p-6 md:p-7">
+        <div class="grid lg:grid-cols-[1fr_auto] gap-4 items-start">
+          <div>
+            <p class="section-label m-0">Live URL Behavioral Scan</p>
+            <h1 class="mt-3 text-3xl md:text-5xl font-bold leading-tight">Run `urlscan.io` scans and inspect the real task, page, verdict, request, and infrastructure output.</h1>
+            <p class="mt-4 max-w-3xl text-slate-600 dark:text-slate-300">This page submits a live `urlscan.io` scan through your backend, polls the official result, and surfaces the original scan data in a readable analyst layout.</p>
+          </div>
+          <div class="grid gap-3 w-full lg:w-[26rem]">
+            <select id="visibilitySelect">
+              <option value="unlisted">Unlisted</option>
+              <option value="public">Public</option>
+              <option value="private">Private</option>
+            </select>
+            <input id="tagsInput" class="tool-input" placeholder="phishing, cyber, triage" />
+          </div>
+        </div>
+        <div class="mt-6 grid lg:grid-cols-[1fr_auto_auto] gap-3">
+          <input id="urlscanInput" class="tool-input mono" placeholder="https://example.com/login" />
+          <button id="runScanBtn" class="primary-btn">Run URLScan</button>
+          <button id="exportUrlscanBtn" class="soft-btn">Export JSON</button>
+        </div>
+        <div class="mt-4 flex flex-wrap gap-3 items-center">
+          <span id="scanStatusBadge" class="badge info">idle</span>
+          <span id="scanUuidBadge" class="badge warn">No UUID</span>
+          <a id="scanResultLink" href="#" target="_blank" rel="noopener noreferrer" class="soft-btn no-underline text-sm hidden">Open urlscan.io Result</a>
+        </div>
+      </section>
+
+      <section id="urlscanLoading" class="glass rounded-[1.4rem] p-5 hidden">
+        <div class="flex items-center gap-3">
+          <span class="spinner"></span>
+          <div>
+            <div class="font-semibold">Waiting for live urlscan.io result</div>
+            <div class="text-sm text-slate-500 dark:text-slate-400">The scan is asynchronous, so the page is polling until the result is ready.</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="urlscanError" class="glass rounded-[1.4rem] p-5 hidden"></section>
+
+      <section id="urlscanResult" class="space-y-6 hidden">
+        <div class="grid xl:grid-cols-[1.1fr_.9fr] gap-6">
+          <div class="glass rounded-[1.6rem] p-5 space-y-4">
+            <p class="section-label m-0">Scan Overview</p>
+            <div id="overviewMetrics" class="grid md:grid-cols-2 xl:grid-cols-4 gap-4"></div>
+            <div id="statusRibbon" class="flex flex-wrap gap-2"></div>
+            <div id="overviewRows" class="grid gap-3"></div>
+          </div>
+          <div class="glass rounded-[1.6rem] p-5">
+            <p class="section-label m-0">Live Screenshot</p>
+            <div id="screenshotShell" class="mt-4 screenshot-shell text-sm text-slate-500 dark:text-slate-400">No screenshot yet.</div>
+          </div>
+        </div>
+
+        <section id="tabButtons" class="flex flex-wrap gap-3"></section>
+        <section id="tabContent" class="space-y-6"></section>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const state = { scan: null, activeTab: "verdicts", lastExport: null };
+    const tabs = ["verdicts", "page", "infrastructure", "requests", "links", "raw"];
+
+    function applyTheme(isDark) { document.documentElement.classList.toggle("dark", isDark); localStorage.theme = isDark ? "dark" : "light"; }
+    function escapeHtml(value) { return String(value ?? "").replace(/[&<>\"']/g, (char) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[char])); }
+    async function requestJson(url, options = {}) {
+      const response = await fetch(url, options);
+      const text = await response.text();
+      let data = null;
+      try { data = text ? JSON.parse(text) : null; } catch { throw new Error(text || "Unexpected response."); }
+      if (!response.ok) {
+        const detailText =
+          data?.details?.message ||
+          data?.details?.description ||
+          data?.details?.detail ||
+          (typeof data?.details === "string" ? data.details : "") ||
+          "";
+        throw new Error(detailText ? `${data?.error || "Request failed."} (${detailText})` : (data?.error || "Request failed."));
+      }
+      return data;
+    }
+    function metricCard(label, value) {
+      return `<div class="metric-card"><p class="section-label m-0">${escapeHtml(label)}</p><p class="mt-3 text-lg font-semibold break-all">${escapeHtml(value ?? "N/A")}</p></div>`;
+    }
+    function detailRows(entries) {
+      return entries.map(([label, value]) => `<div class="intel-row"><span class="intel-key">${escapeHtml(label)}</span><span class="intel-value">${escapeHtml(value ?? "N/A")}</span></div>`).join("");
+    }
+    function listSection(title, values, mono = false) {
+      return `<div class="intel-section"><p class="section-label m-0">${escapeHtml(title)}</p><div class="list-box mt-4">${values.length ? values.map((value) => `<div class="list-item ${mono ? "mono" : ""}">${escapeHtml(typeof value === "string" ? value : JSON.stringify(value))}</div>`).join("") : `<div class="text-sm text-slate-500 dark:text-slate-400">No entries returned.</div>`}</div></div>`;
+    }
+    function asDisplayValue(value) {
+      if (value == null || value === "") return "N/A";
+      if (typeof value === "object") {
+        return (
+          value.name ||
+          value.value ||
+          value.asn ||
+          value.number ||
+          value.ip ||
+          value.hostname ||
+          JSON.stringify(value)
+        );
+      }
+      return String(value);
+    }
+    function pickFirst(...values) {
+      for (const value of values) {
+        if (value != null && value !== "") return value;
+      }
+      return null;
+    }
+    function normalizeRequestEntry(entry) {
+      const request = entry?.request || {};
+      const nestedRequest = request?.request || {};
+      const response = entry?.response || {};
+      const enrichment = entry?.enrichment || {};
+      const remote = response?.remoteIPAddressDetails || {};
+      const parsedUrl = (() => {
+        try { return new URL(pickFirst(request?.url, nestedRequest?.url, entry?.url, response?.url, "")); } catch { return null; }
+      })();
+      const inferredMime = (() => {
+        const pathname = parsedUrl?.pathname?.toLowerCase?.() || "";
+        if (pathname.endsWith(".css")) return "text/css (inferred)";
+        if (pathname.endsWith(".js")) return "application/javascript (inferred)";
+        if (pathname.endsWith(".svg")) return "image/svg+xml (inferred)";
+        if (pathname.endsWith(".png")) return "image/png (inferred)";
+        if (pathname.endsWith(".jpg") || pathname.endsWith(".jpeg")) return "image/jpeg (inferred)";
+        if (pathname.endsWith(".webp")) return "image/webp (inferred)";
+        if (pathname.endsWith(".gif")) return "image/gif (inferred)";
+        if (pathname.endsWith(".json")) return "application/json (inferred)";
+        if (pathname.endsWith(".html") || pathname.endsWith(".htm")) return "text/html (inferred)";
+        return null;
+      })();
+      const asnValue = pickFirst(
+        response?.asn,
+        remote?.asn,
+        remote?.autonomousSystemNumber,
+        remote?.autonomous_system_number
+      );
+      const hostnameValue = pickFirst(
+        remote?.hostname,
+        remote?.domain,
+        remote?.host,
+        response?.hostname,
+        response?.domain
+      );
+
+      return {
+        url: pickFirst(request?.url, nestedRequest?.url, entry?.url, response?.url, "Request"),
+        method: pickFirst(request?.method, nestedRequest?.method, entry?.method, "GET"),
+        status: pickFirst(response?.status, entry?.status, enrichment?.status),
+        ip: pickFirst(response?.ip, response?.remoteIPAddress, remote?.ip, remote?.address, enrichment?.ip),
+        mimeType: pickFirst(response?.mimeType, response?.mime_type, entry?.mimeType, enrichment?.mimeType, inferredMime),
+        type: pickFirst(entry?.resourceType, entry?.type, request?.type, nestedRequest?.type, response?.resourceType, "unknown"),
+        asn: asDisplayValue(asnValue),
+        domain: asDisplayValue(pickFirst(hostnameValue, enrichment?.hostname, parsedUrl?.hostname)),
+        headers: enrichment?.headers || {},
+        redirectChain: Array.isArray(enrichment?.redirectChain) ? enrichment.redirectChain : [],
+        sourceTags: Array.isArray(enrichment?.sourceTags) ? enrichment.sourceTags : [],
+        confidence: enrichment?.confidence || { score: 0, level: "low" },
+        tls: enrichment?.tls || null,
+        usedLiveEnrichment: Boolean(enrichment?.ip || enrichment?.status || enrichment?.mimeType || enrichment?.headers?.server)
+      };
+    }
+    function setStatus(text, tone = "info") {
+      const badge = document.getElementById("scanStatusBadge");
+      badge.className = `badge ${tone}`;
+      badge.textContent = text;
+    }
+    function setUuid(uuid) {
+      const badge = document.getElementById("scanUuidBadge");
+      badge.className = "badge warn";
+      badge.textContent = uuid ? `UUID ${uuid}` : "No UUID";
+    }
+    function showError(message) {
+      const root = document.getElementById("urlscanError");
+      root.classList.remove("hidden");
+      root.innerHTML = `
+        <p class="font-semibold text-rose-500 m-0">URLScan request failed</p>
+        <p class="mt-2 mb-0 text-sm text-slate-600 dark:text-slate-300">${escapeHtml(message)}</p>
+        <div class="mt-4 text-xs text-slate-500 dark:text-slate-400">
+          Common causes:
+          invalid API key, public/private visibility restrictions, exhausted submission quota, or a URL rejected by urlscan.io policy.
+        </div>
+      `;
+    }
+    function hideError() { document.getElementById("urlscanError").classList.add("hidden"); }
+    function toggleLoading(show) { document.getElementById("urlscanLoading").classList.toggle("hidden", !show); }
+    function exportCurrent() {
+      if (!state.lastExport) return;
+      const blob = new Blob([JSON.stringify(state.lastExport, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `cybershield-urlscan-${state.scan?.task?.uuid || "result"}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    }
+    function renderTabs() {
+      const root = document.getElementById("tabButtons");
+      root.innerHTML = tabs.map((tab) => `<button class="tab-btn ${state.activeTab === tab ? "active" : ""}" data-tab="${tab}">${tab.charAt(0).toUpperCase() + tab.slice(1)}</button>`).join("");
+      root.querySelectorAll("[data-tab]").forEach((button) => button.addEventListener("click", () => {
+        state.activeTab = button.dataset.tab;
+        renderTabs();
+        renderTabContent();
+      }));
+    }
+    function renderOverview() {
+      const scan = state.scan;
+      const verdicts = scan.verdicts || {};
+      const page = scan.page || {};
+      document.getElementById("overviewMetrics").innerHTML = [
+        ["Submitted URL", scan.task?.url || "N/A"],
+        ["Final URL", page.url || "N/A"],
+        ["Domain", page.domain || "N/A"],
+        ["Primary IP", page.ip || "N/A"],
+        ["ASN / Org", `${page.asn || "N/A"} ${page.asnname || ""}`.trim()],
+        ["Country", page.country || "N/A"],
+        ["Server", page.server || "N/A"],
+        ["Title", page.title || "N/A"]
+      ].map(([label, value]) => metricCard(label, value)).join("");
+
+      const ribbon = [];
+      if (verdicts.overall?.malicious) ribbon.push(`<span class="badge danger">Malicious</span>`);
+      if (verdicts.overall?.score != null) ribbon.push(`<span class="badge warn">Score ${escapeHtml(verdicts.overall.score)}</span>`);
+      if (page.tlsIssuer) ribbon.push(`<span class="badge info">${escapeHtml(page.tlsIssuer)}</span>`);
+      if (scan.stats?.requests != null) ribbon.push(`<span class="badge safe">${escapeHtml(scan.stats.requests)} requests</span>`);
+      ribbon.push(`<span class="badge info">${escapeHtml(scan.task?.visibility || "unlisted")}</span>`);
+      document.getElementById("statusRibbon").innerHTML = ribbon.join("");
+
+      document.getElementById("overviewRows").innerHTML = detailRows([
+        ["Scan Time", scan.task?.time || "N/A"],
+        ["PTR", page.ptr || "N/A"],
+        ["Status", page.status || "N/A"],
+        ["TLS Age Days", page.tlsAgeDays ?? "N/A"],
+        ["TLS Valid Days", page.tlsValidDays ?? "N/A"],
+        ["Result URL", scan.scanUrl || "N/A"]
+      ]);
+
+      const screenshotShell = document.getElementById("screenshotShell");
+      if (scan.screenshotUrl) {
+        screenshotShell.innerHTML = `<img src="${escapeHtml(scan.screenshotUrl)}" alt="URLScan screenshot" class="w-full h-full object-cover rounded-[1rem]" />`;
+      } else {
+        screenshotShell.textContent = "No screenshot returned by urlscan.io.";
+      }
+
+      const link = document.getElementById("scanResultLink");
+      if (scan.scanUrl) {
+        link.href = scan.scanUrl;
+        link.classList.remove("hidden");
+      } else {
+        link.classList.add("hidden");
+      }
+    }
+    function renderTabContent() {
+      const root = document.getElementById("tabContent");
+      const scan = state.scan;
+      const page = scan.page || {};
+      const lists = scan.lists || {};
+      if (state.activeTab === "verdicts") {
+        root.innerHTML = `
+          <div class="grid lg:grid-cols-2 gap-6">
+            <div class="glass rounded-[1.5rem] p-5">
+              <p class="section-label m-0">Verdicts</p>
+              <div class="mt-4 grid gap-3">${detailRows([
+                ["Overall Score", scan.verdicts?.overall?.score ?? "N/A"],
+                ["Overall Malicious", scan.verdicts?.overall?.malicious ?? "N/A"],
+                ["Brands Count", scan.verdicts?.brands?.length ?? 0],
+                ["Categories", (scan.verdicts?.categories || []).join(", ") || "N/A"]
+              ])}</div>
+            </div>
+            <div class="glass rounded-[1.5rem] p-5">
+              <p class="section-label m-0">Meta / Stats</p>
+              <div class="mt-4 grid gap-3">${detailRows([
+                ["Requests", scan.stats?.requests ?? "N/A"],
+                ["Distinct Domains", scan.stats?.uniqDomains ?? scan.lists?.domains?.length ?? "N/A"],
+                ["Distinct IPs", scan.stats?.uniqIPs ?? scan.lists?.ips?.length ?? "N/A"],
+                ["Countries", (scan.lists?.countries || []).join(", ") || "N/A"]
+              ])}</div>
+            </div>
+          </div>
+        `;
+        return;
+      }
+      if (state.activeTab === "page") {
+        root.innerHTML = `
+          <div class="glass rounded-[1.5rem] p-5">
+            <p class="section-label m-0">Page Identity</p>
+            <div class="mt-4 grid md:grid-cols-2 gap-4">
+              <div class="intel-section">${detailRows([
+                ["Title", page.title || "N/A"],
+                ["Final URL", page.url || "N/A"],
+                ["Domain", page.domain || "N/A"],
+                ["MIME Type", page.mimeType || "N/A"]
+              ])}</div>
+              <div class="intel-section">${detailRows([
+                ["IP", page.ip || "N/A"],
+                ["PTR", page.ptr || "N/A"],
+                ["Server", page.server || "N/A"],
+                ["Status", page.status || "N/A"]
+              ])}</div>
+            </div>
+          </div>
+        `;
+        return;
+      }
+      if (state.activeTab === "infrastructure") {
+        root.innerHTML = `
+          <div class="grid lg:grid-cols-2 gap-6">
+            ${listSection("IPs", lists.ips || [], true)}
+            ${listSection("Domains", lists.domains || [], true)}
+            ${listSection("URLs", lists.urls || [], true)}
+            ${listSection("ASNs", (lists.asns || []).map((asn) => `AS${asn}`), true)}
+            ${listSection("Servers", lists.servers || [])}
+            ${listSection("Certificates", lists.certificates || [], true)}
+          </div>
+        `;
+        return;
+      }
+      if (state.activeTab === "requests") {
+        root.innerHTML = `
+          <div class="glass rounded-[1.5rem] p-5">
+            <p class="section-label m-0">Request / Response Stream</p>
+            <div class="mt-4 list-box">
+              ${(scan.requests || []).length ? scan.requests.map((entry) => {
+                const item = normalizeRequestEntry(entry);
+                return `
+                <details class="list-item">
+                  <summary class="list-none cursor-pointer">
+                  <div class="font-semibold break-all">${escapeHtml(item.url)}</div>
+                  <div class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                    Method: ${escapeHtml(item.method)}
+                    | Status: ${escapeHtml(item.status ?? "Not exposed")}
+                    | IP: ${escapeHtml(item.ip ?? "Not exposed")}
+                    | MIME: ${escapeHtml(item.mimeType ?? "Not exposed")}
+                  </div>
+                  <div class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                    Type: ${escapeHtml(item.type)}
+                    | ASN: ${escapeHtml(item.asn)}
+                    | Domain: ${escapeHtml(item.domain)}
+                  </div>
+                  <div class="mt-2 flex flex-wrap gap-2">
+                    ${item.sourceTags.map((tag) => `<span class="badge info">${escapeHtml(tag)}</span>`).join("")}
+                    <span class="badge ${item.confidence.level === "high" ? "safe" : item.confidence.level === "medium" ? "warn" : "danger"}">Confidence ${escapeHtml(item.confidence.score)}</span>
+                  </div>
+                  </summary>
+                  <div class="mt-4 grid md:grid-cols-2 gap-4">
+                    <div class="intel-section">
+                      <p class="section-label m-0">Headers</p>
+                      <div class="mt-4 grid gap-3">
+                        ${detailRows([
+                          ["Server", item.headers.server || "Not captured"],
+                          ["Content-Type", item.headers.contentType || item.mimeType || "Not captured"],
+                          ["CSP", item.headers.contentSecurityPolicy ? "present" : "not present"],
+                          ["HSTS", item.headers.strictTransportSecurity ? "enabled" : "not present"],
+                          ["X-Frame-Options", item.headers.xFrameOptions || "Not captured"]
+                        ])}
+                      </div>
+                    </div>
+                    <div class="intel-section">
+                      <p class="section-label m-0">Redirect Chain</p>
+                      <div class="mt-4 list-box">
+                        ${item.redirectChain.length ? item.redirectChain.map((step) => `<div class="list-item mono">${escapeHtml(step.url)} -> ${escapeHtml(step.status)}${step.location ? ` -> ${escapeHtml(step.location)}` : ""}</div>`).join("") : `<div class="text-sm text-slate-500 dark:text-slate-400">No redirect chain captured.</div>`}
+                      </div>
+                      ${item.tls ? `<div class="mt-4 text-xs text-slate-500 dark:text-slate-400">TLS: ${escapeHtml(item.tls.issuer || "Unknown issuer")} | Valid To: ${escapeHtml(item.tls.validTo || "Unknown")}</div>` : ``}
+                    </div>
+                  </div>
+                </details>
+              `; }).join("") : `<div class="text-sm text-slate-500 dark:text-slate-400">No request stream returned.</div>`}
+            </div>
+          </div>
+        `;
+        return;
+      }
+      if (state.activeTab === "links") {
+        root.innerHTML = `
+          <div class="grid lg:grid-cols-2 gap-6">
+            ${listSection("Extracted Links", (scan.linksData || []).map((entry) => entry.href || entry.url || entry.link || JSON.stringify(entry)), true)}
+            ${listSection("Link Domains", lists.linkDomains || [], true)}
+            ${listSection("Resolved URL List", lists.urls || [], true)}
+            ${listSection("Countries", lists.countries || [])}
+          </div>
+        `;
+        return;
+      }
+      root.innerHTML = `<div class="glass rounded-[1.5rem] p-5"><pre class="whitespace-pre-wrap text-sm overflow-auto">${escapeHtml(JSON.stringify(scan.raw || scan, null, 2))}</pre></div>`;
+    }
+    async function pollResult(uuid, attempts = 25) {
+      for (let i = 0; i < attempts; i += 1) {
+        try {
+          const result = await requestJson(`/api/urlscan/result/${encodeURIComponent(uuid)}`);
+          return result;
+        } catch (error) {
+          if (/not ready/i.test(error.message)) {
+            await new Promise((resolve) => setTimeout(resolve, 3000));
+            continue;
+          }
+          throw error;
+        }
+      }
+      throw new Error("The urlscan.io result is still processing. Please retry in a moment.");
+    }
+    async function runScan() {
+      hideError();
+      document.getElementById("urlscanResult").classList.add("hidden");
+      toggleLoading(true);
+      setStatus("submitting", "warn");
+      setUuid(null);
+      try {
+        const url = document.getElementById("urlscanInput").value.trim();
+        const visibility = document.getElementById("visibilitySelect").value;
+        const tags = document.getElementById("tagsInput").value.split(",").map((item) => item.trim()).filter(Boolean);
+        const submit = await requestJson("/api/urlscan/scan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url, visibility, tags })
+        });
+        setStatus("submitted", "info");
+        setUuid(submit.uuid);
+        const result = await pollResult(submit.uuid);
+        state.scan = result;
+        state.lastExport = result.raw || result;
+        state.activeTab = "verdicts";
+        document.getElementById("urlscanResult").classList.remove("hidden");
+        renderOverview();
+        renderTabs();
+        renderTabContent();
+        setStatus("ready", "safe");
+      } catch (error) {
+        showError(error.message || "URLScan failed.");
+        setStatus("failed", "danger");
+      } finally {
+        toggleLoading(false);
+      }
+    }
+    document.getElementById("runScanBtn").addEventListener("click", runScan);
+    document.getElementById("exportUrlscanBtn").addEventListener("click", exportCurrent);
+    document.getElementById("urlscanInput").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        runScan();
+      }
+    });
+    document.getElementById("themeToggle").addEventListener("click", () => applyTheme(!document.documentElement.classList.contains("dark")));
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    applyTheme(localStorage.theme ? localStorage.theme === "dark" : prefersDark);
+  </script>
+  <script src="ai-assistant.js"></script>
+  <script src="responsive-nav.js?v=20260429b"></script>
+</body>
+</html>
