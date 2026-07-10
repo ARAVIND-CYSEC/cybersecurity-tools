@@ -6,7 +6,7 @@
   <title>CyberShield - Threat Intelligence Lookup</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>tailwind.config = { darkMode: 'class' };</script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">cases.html?
+  <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
@@ -379,14 +379,26 @@
       return Math.min(100, score);
     }
 
+    // ─── Domain Semantic Intelligence ─────────────────────────────────────────
+    const MALWARE_TERMS = ["malware","trojan","botnet","ransomware","stealer","keylogger","loader","backdoor",".rat","c2","exploit","payload","dropper","rootkit","spyware","worm","virus"];
+    const PHISHING_TERMS = ["login","verify","secure","signin","account","update","password","auth","billing","confirm","reset","recover","credential","wallet","bank"];
+
+    function analyzeDomainSemantics(inputDomain) {
+      const lower = inputDomain.toLowerCase();
+      const malwareHits = MALWARE_TERMS.filter(t => lower.includes(t));
+      const phishingHits = PHISHING_TERMS.filter(t => lower.includes(t));
+      return { malwareTerms: malwareHits, phishingTerms: phishingHits };
+    }
+
     // ─── Classification Engine ────────────────────────────────────────────────
-    function classifyDomain(totalScore, typoMatches, keywordHits, homoglyphResult, hasAbuseEvidence) {
+    function classifyDomain(totalScore, typoMatches, keywordHits, homoglyphResult, hasAbuseEvidence, semantics) {
       if (hasAbuseEvidence && totalScore >= 61) return "Phishing Infrastructure";
       if (hasAbuseEvidence) return "Known Malicious";
       if (homoglyphResult?.detected && typoMatches.length > 0) return "Homoglyph Attack";
       if (typoMatches.length > 0 && keywordHits.length > 0) return "Brand Impersonation";
       if (typoMatches.length > 0) return "Typosquatting Domain";
       if (keywordHits.length > 0) return "Brand Abuse";
+      if (semantics?.malwareTerms?.length > 0) return "Suspicious Infrastructure";
       if (totalScore >= 81) return "Known Malicious";
       if (totalScore >= 61) return "Suspicious Infrastructure";
       if (totalScore >= 41) return "Unknown Infrastructure";
@@ -614,44 +626,69 @@
     }
     function renderResult(data) {
       document.getElementById("intelResult").classList.remove("hidden");
-      const summary = data.summary || {};
-      
-      // Calculate enterprise-grade metrics
-      const threatScore = data.scores?.threat ?? 0;
-      const operationalClass = mapOperationalClassification(data.classification);
+
+      // ─── Run client-side detection engine ───
+      const inputDomain = data.normalizedInput || data.input || "";
+      const isDomain = data.type === "domain" || data.type === "url";
+      const typoMatches    = isDomain ? analyzeTyposquatting(inputDomain) : [];
+      const keywordHits    = isDomain ? detectBrandAbuseKeywords(inputDomain) : [];
+      const homoglyphResult = isDomain ? detectHomoglyphs(inputDomain) : null;
+      const regFlags       = analyzeRegistration(data.enrichment || {});
+      const semantics      = isDomain ? analyzeDomainSemantics(inputDomain) : { malwareTerms:[], phishingTerms:[] };
+      const brandRiskScore = calculateBrandRiskScore(typoMatches, keywordHits, homoglyphResult, regFlags);
+
+      // Semantic risk contribution (keyword-only, not verdict-driving)
+      let semanticRisk = 0;
+      if (semantics.malwareTerms.length > 0) semanticRisk += Math.min(20, semantics.malwareTerms.length * 7);
+      if (semantics.phishingTerms.length > 0) semanticRisk += Math.min(15, semantics.phishingTerms.length * 5);
+
+      const hasAbuseEvidence = (data.intel || []).length > 0;
+
+      // Final score: brand engine overrides server score when brand signals exist
+      const serverScore = data.scores?.final ?? data.scores?.threat ?? 0;
+      const combinedScore = Math.min(100, Math.max(serverScore, brandRiskScore) + semanticRisk);
+      const threatScore = combinedScore;
+
+      // Classification driven by client engine — never by hosting provider alone
+      const operationalClass = classifyDomain(threatScore, typoMatches, keywordHits, homoglyphResult, hasAbuseEvidence, semantics);
       const recommendedActions = calculateRecommendedAction(threatScore, operationalClass.toLowerCase());
       const assessmentConf = calculateAssessmentConfidence(data);
       const behavior = determineBehavior(data);
       const riskVariant = threatScore >= 61 ? "danger" : threatScore >= 41 ? "warn" : "success";
       const riskBand = threatScore >= 81 ? "CRITICAL" : threatScore >= 61 ? "HIGH" : threatScore >= 41 ? "MEDIUM" : threatScore >= 21 ? "GUARDED" : "LOW";
-      
-      // CRITICAL: Validate threat status based on actual evidence
-      const hasAbuseEvidence = (data.intel || []).length > 0;
+
       const validatedVerdict = validateVerdict(data, threatScore, hasAbuseEvidence);
       const relationships = countRelationships(data);
       const intelSources = getIntelligenceSources();
       const keyFindings = generateKeyFindings(data, operationalClass, hasAbuseEvidence, behavior);
       const evidenceQuality = calculateEvidenceQuality(data);
-      
-      // Threat status determination - MUST be based on actual evidence only
+      const analystReasoning = generateAnalystReasoning(inputDomain, typoMatches, keywordHits, homoglyphResult, regFlags, threatScore, operationalClass);
+
+      // Show/hide brand intel section
+      const hasBrandSignals = typoMatches.length > 0 || keywordHits.length > 0 || homoglyphResult?.detected || regFlags.length > 0;
+      document.getElementById("brandIntelSection").classList.toggle("hidden", !hasBrandSignals);
+
       const threatStatus = validatedVerdict.threatStatus;
       
       // Executive Summary Metrics
       document.getElementById("summaryMetrics").innerHTML = [
         metric("Operational Classification", operationalClass, badgeTone(operationalClass)),
-        metric("Threat Score", `${threatScore}/100`, riskVariant),
+        metric("Risk Score", `${threatScore}/100`, riskVariant),
         metric("Assessment Confidence", `${assessmentConf.confidence}%`, assessmentConf.confidence >= 75 ? "success" : "warn"),
         metric("Risk Level", riskBand, riskVariant)
       ].join("");
       
-      // Summary ribbons with badges
+      // Summary ribbons
       document.getElementById("summaryRibbon").innerHTML = `
         <span class="badge ${badgeTone(operationalClass)}">${escapeHtml(operationalClass)}</span>
-        <span class="badge ${badgeTone(threatStatus)}">${escapeHtml(threatStatus)}</span>
         <span class="badge ${riskVariant}">${escapeHtml(riskBand)}</span>
         <span class="badge info">${escapeHtml(data.type?.toUpperCase() || "UNKNOWN")}</span>
         <span class="badge info">Sources: ${intelSources.length}</span>
         <span class="badge ${assessmentConf.confidence >= 75 ? "safe" : "warn"}">Confidence: ${assessmentConf.confidence}%</span>
+        ${typoMatches.length > 0 ? `<span class="badge danger">⚠ TYPOSQUATTING</span>` : ""}
+        ${homoglyphResult?.detected ? `<span class="badge danger">⚠ HOMOGLYPH</span>` : ""}
+        ${keywordHits.length > 0 ? `<span class="badge danger">⚠ BRAND IMPERSONATION</span>` : ""}
+        ${semanticBadges}
       `;
       
       // Entity Banner
@@ -680,24 +717,25 @@
         ["Entity Type", data.type?.toUpperCase()],
         ["Operational Classification", operationalClass],
         ["Threat Status", threatStatus],
-        ["Threat Score", `${threatScore}/100`],
-        ["Assessment Confidence", `${assessmentConf.confidence}%`],
+        ["Brand Risk Score", `${brandRiskScore}/100`],
+        ["Semantic Risk", `+${semanticRisk}`],
+        ["Final Risk Score", `${threatScore}/100`],
         ["Risk Level", riskBand],
+        ["Assessment Confidence", `${assessmentConf.confidence}%`],
         ["Recommended Action", recommendedActions.action],
         ["Secondary Action", recommendedActions.secondary],
         ["Analysis Timestamp", data.fetchedAt]
       ]);
       
-      // Evidence-Based Analysis
-      const analysisText = data.explanation || "No detailed analysis available. This assessment is based on available threat intelligence sources, infrastructure context, and behavioral patterns.";
+      // Evidence-Based Analysis — use client-side analyst reasoning
       document.getElementById("explanationBox").innerHTML = `
         <p class="font-semibold text-indigo-400 mb-3">Analyst Reasoning Chain</p>
-        <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">${escapeHtml(analysisText)}</p>
+        <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">${escapeHtml(analystReasoning)}</p>
         <ul class="list-note mt-4 text-xs">
-          <li>All conclusions are evidence-based and traceable to specific intelligence sources</li>
-          <li>Absence of threat intelligence indicates no known malicious activity, not absolute safety</li>
-          <li>Risk scores combine threat intelligence, infrastructure reputation, and behavioral analysis</li>
-          <li>Confidence levels reflect data completeness, source quality, and intelligence recency</li>
+          <li>Trusted hosting (Cloudflare, AWS, Azure, Google Cloud) does not imply a trusted domain</li>
+          <li>Brand similarity, typosquatting, and homoglyph signals override infrastructure reputation</li>
+          <li>Absence of threat feed hits does not guarantee safety when brand abuse is detected</li>
+          <li>Risk scores are traceable to observable evidence, not assumptions</li>
         </ul>
       `;
       
@@ -743,23 +781,31 @@
         </div>
       `;
       
-      // Evidence Matrix
+      // Evidence Matrix — brand signals included
       const riskIncreasing = [];
       const riskReducing = [];
       const neutralEvidence = [];
-      
+
       if (relationships.threats > 0) riskIncreasing.push("Threat Intelligence Matches Detected");
       if (data.intelligence?.malwareCount > 0) riskIncreasing.push("Malware Associations Identified");
+      if (typoMatches.length > 0) riskIncreasing.push(`Typosquatting Detected — ${typoMatches[0].similarityScore}% similarity to ${typoMatches[0].matchedBrand} (${typoMatches[0].attackType.replace(/_/g," ")})`);
+      if (homoglyphResult?.detected) riskIncreasing.push(`Homoglyph Attack — Unicode substitution normalizes to "${homoglyphResult.normalizedForm}"`);
+      if (keywordHits.length > 0) riskIncreasing.push(`Brand Abuse Keywords — "${keywordHits[0].keywords.join(", ")}" with ${keywordHits[0].brandName}`);
+      if (semantics.malwareTerms.length > 0) riskIncreasing.push(`Malware Terminology — "${semantics.malwareTerms.join(", ")}" detected in hostname`);
+      if (semantics.phishingTerms.length > 0) riskIncreasing.push(`Phishing Terminology — "${semantics.phishingTerms.join(", ")}" detected in hostname`);
+      for (const f of regFlags) riskIncreasing.push(`Registration Flag — ${f.label}: ${f.detail}`);
       if (riskIncreasing.length === 0) riskIncreasing.push("None Observed");
-      
-      if (data.entityProfile?.type && ["cloud", "cdn", "enterprise"].some(t => data.entityProfile.type.toLowerCase().includes(t))) riskReducing.push("Trusted Infrastructure Ownership");
-      if (data.enrichment?.tls?.status) riskReducing.push("Valid TLS Configuration");
-      if (relationships.threats === 0) riskReducing.push("No Threat Intelligence Hits");
-      if (behavior.classification === "Legitimate Service") riskReducing.push("Established Enterprise Infrastructure");
-      
-      if (relationships.infrastructure > 0) neutralEvidence.push(`${relationships.infrastructure} Infrastructure Relationship(s)`);
-      if (data.enrichment?.network?.org) neutralEvidence.push("Public Internet Presence");
-      if (data.enrichment?.http?.status) neutralEvidence.push("Standard Web Hosting Configuration");
+
+      if (data.entityProfile?.type && ["cloud","cdn","enterprise"].some(t => data.entityProfile.type.toLowerCase().includes(t))) riskReducing.push("Hosted on Trusted Infrastructure (does not override brand signals)");
+      if (data.enrichment?.tls?.status) riskReducing.push("Valid TLS Certificate (does not override brand signals)");
+      if (relationships.threats === 0) riskReducing.push("No Threat Feed Hits");
+      if (typoMatches.length === 0 && keywordHits.length === 0 && !homoglyphResult?.detected) riskReducing.push("No Brand Impersonation Detected");
+      if (riskReducing.length === 0) riskReducing.push("None Identified");
+
+      if (relationships.infrastructure > 0) neutralEvidence.push(`${relationships.infrastructure} DNS Infrastructure Relationship(s)`);
+      if (data.enrichment?.network?.org) neutralEvidence.push(`Hosting: ${data.enrichment.network.org}`);
+      if (data.enrichment?.http?.status) neutralEvidence.push(`HTTP ${data.enrichment.http.status} Response`);
+      if (neutralEvidence.length === 0) neutralEvidence.push("No neutral evidence collected");
       
       document.getElementById("evidenceMatrixPanel").innerHTML = `
         <div class="signal-panel">
@@ -804,15 +850,21 @@
         <div class="signal-panel">
           <p class="m-0 font-semibold text-indigo-400">Observed Facts</p>
           <ul class="list-note mt-3 text-sm text-slate-600 dark:text-slate-300">
-            ${data.entityProfile?.org ? `<li>${escapeHtml(data.entityProfile.org)}-owned infrastructure</li>` : ""}
-            ${data.enrichment?.network?.hostname ? `<li>Valid DNS records</li>` : ""}
-            ${data.entityProfile?.asn ? `<li>${escapeHtml(behavior.classification)} (${escapeHtml(data.entityProfile.asn)})</li>` : ""}
+            ${data.entityProfile?.org ? `<li>Hosted by ${escapeHtml(data.entityProfile.org)}</li>` : ""}
+            ${data.enrichment?.tls?.status ? `<li>Valid TLS certificate present</li>` : ""}
+            ${typoMatches.length > 0 ? `<li>${escapeHtml(inputDomain)} is ${typoMatches[0].similarityScore}% similar to ${escapeHtml(typoMatches[0].matchedBrand)}</li>` : ""}
+            ${homoglyphResult?.detected ? `<li>Unicode homoglyph substitution detected — normalizes to "${escapeHtml(homoglyphResult.normalizedForm)}"</li>` : ""}
+            ${keywordHits.length > 0 ? `<li>Brand abuse keywords detected: ${escapeHtml(keywordHits[0].keywords.join(", "))}</li>` : ""}
+            ${semantics.malwareTerms.length > 0 ? `<li>Malware-related terms in hostname: ${escapeHtml(semantics.malwareTerms.join(", "))}</li>` : ""}
+            ${semantics.phishingTerms.length > 0 ? `<li>Phishing-related terms in hostname: ${escapeHtml(semantics.phishingTerms.join(", "))}</li>` : ""}
+            ${regFlags.length > 0 ? regFlags.map(f => `<li>${escapeHtml(f.detail)}</li>`).join("") : ""}
+            ${typoMatches.length === 0 && !homoglyphResult?.detected && keywordHits.length === 0 ? `<li>No brand impersonation signals detected</li>` : ""}
           </ul>
         </div>
         <div class="signal-panel mt-3">
           <p class="m-0 font-semibold text-indigo-400">Threat Intelligence Findings</p>
           <ul class="list-note mt-3 text-sm text-slate-600 dark:text-slate-300">
-            <li>${(data.intel || []).length === 0 ? "No abuse.ch detections" : `${(data.intel || []).length} abuse.ch detection(s)`}</li>
+            <li>${hasAbuseEvidence ? `${(data.intel||[]).length} threat feed detection(s)` : "No ThreatFox / URLHaus detections"}</li>
             <li>${data.intelligence?.malwareCount || 0} malware association(s)</li>
             <li>${data.intelligence?.campaigns?.length || 0} campaign correlation(s)</li>
           </ul>
@@ -820,13 +872,14 @@
         <div class="signal-panel mt-3">
           <p class="m-0 font-semibold text-indigo-400">Contextual Analysis</p>
           <ul class="list-note mt-3 text-sm text-slate-600 dark:text-slate-300">
-            <li>${escapeHtml(behavior.classification)}</li>
+            <li>Trusted hosting ≠ trusted domain — brand signals override infrastructure reputation</li>
             <li>Operational stability: ${escapeHtml(behavior.stability)}</li>
+            <li>Brand risk score: ${brandRiskScore}/100 | Semantic risk: +${semanticRisk} | Final: ${threatScore}/100</li>
           </ul>
         </div>
         <div class="outcome-block mt-3">
           <p class="m-0 font-semibold text-indigo-400">Conclusion</p>
-          <p class="mt-2 mb-0 text-sm text-slate-600 dark:text-slate-300">Current evidence supports a ${riskBand.toLowerCase()}-risk assessment with ${assessmentConf.confidence >= 75 ? "high" : "medium"} confidence.</p>
+          <p class="mt-2 mb-0 text-sm text-slate-600 dark:text-slate-300">${escapeHtml(analystReasoning)}</p>
         </div>
       `;
       
@@ -991,7 +1044,78 @@
         </div>
       `;
       
-      // IOC Correlation & Threat Feeds - Show exact relationships
+      // ─── Brand Intelligence Panels ───
+      if (hasBrandSignals) {
+        // Brand Similarity
+        document.getElementById("brandSimilarityPanel").innerHTML = typoMatches.length ? `
+          <div class="grid gap-3">
+            ${typoMatches.slice(0,3).map(m => `
+              <div class="signal-band">
+                <div class="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <p class="m-0 font-bold text-base">${escapeHtml(inputDomain)}</p>
+                    <p class="m-0 text-sm text-slate-400 mt-1">resembles <strong>${escapeHtml(m.matchedBrand)}</strong> (${escapeHtml(m.brandName)})</p>
+                  </div>
+                  <div class="flex gap-2 flex-wrap">
+                    <span class="badge danger">${m.similarityScore}% similarity</span>
+                    <span class="badge warn">${escapeHtml(m.attackType.replace(/_/g," "))}</span>
+                  </div>
+                </div>
+              </div>`).join("")}
+          </div>` : `<p class="text-sm text-slate-500">No brand similarity detected.</p>`;
+
+        // Typosquatting
+        document.getElementById("typosquattingPanel").innerHTML = typoMatches.length ? `
+          ${typoMatches.slice(0,3).map(m => `
+            <div class="signal-panel">
+              ${detailRows([
+                ["Matched Brand", m.matchedBrand],
+                ["Brand Name", m.brandName],
+                ["Similarity", `${m.similarityScore}%`],
+                ["Attack Type", m.attackType.replace(/_/g," ")]
+              ])}
+            </div>`).join("")}
+          <div class="mt-3 flex flex-wrap gap-2">
+            <span class="badge danger">⚠ TYPOSQUATTING DETECTED</span>
+            ${keywordHits.length > 0 ? `<span class="badge danger">⚠ BRAND IMPERSONATION</span>` : ""}
+          </div>` : `<p class="text-sm text-slate-500">No typosquatting detected.</p>`;
+
+        // Homoglyph
+        document.getElementById("homoglyphPanel").innerHTML = homoglyphResult?.detected ? `
+          <div class="signal-panel">
+            ${detailRows([
+              ["Homoglyph Detected", "Yes"],
+              ["Normalized Form", homoglyphResult.normalizedForm],
+              ["Spoofed Brand", homoglyphResult.spoofedBrand || "Unknown"],
+              ["Confidence", `${homoglyphResult.confidence}%`]
+            ])}
+          </div>
+          <div class="mt-3"><span class="badge danger">⚠ HOMOGLYPH ATTACK</span></div>` :
+          `<div class="signal-panel"><p class="m-0 text-sm text-slate-400">No Unicode homoglyph substitution detected. All characters are standard ASCII.</p></div>`;
+
+        // Registration
+        document.getElementById("registrationPanel").innerHTML = regFlags.length ? `
+          ${regFlags.map(f => `
+            <div class="signal-panel">
+              <div class="flex items-center justify-between gap-2">
+                <span class="font-semibold text-sm">${escapeHtml(f.label)}</span>
+                <span class="badge ${f.severity === "critical" ? "danger" : f.severity === "high" ? "warn" : "info"}">${escapeHtml(f.severity)}</span>
+              </div>
+              <p class="mt-2 mb-0 text-xs text-slate-400">${escapeHtml(f.detail)}</p>
+            </div>`).join("")}
+          <div class="mt-3 flex flex-wrap gap-2">
+            ${regFlags.some(f => f.flag === "NEWLY_REGISTERED") ? `<span class="badge danger">⚠ NEWLY REGISTERED</span>` : ""}
+            ${regFlags.some(f => f.flag === "SUSPICIOUS_REGISTRAR") ? `<span class="badge warn">⚠ SUSPICIOUS REGISTRAR</span>` : ""}
+            ${regFlags.some(f => f.flag === "HIDDEN_OWNERSHIP") ? `<span class="badge warn">⚠ HIDDEN OWNERSHIP</span>` : ""}
+          </div>` :
+          `<div class="signal-panel"><p class="m-0 text-sm text-slate-400">No registration intelligence flags. Domain age and registrar appear normal.</p></div>`;
+      }
+
+      // Semantic keywords in summary ribbon
+      const semanticBadges = [
+        ...semantics.malwareTerms.map(t => `<span class="badge danger">⚠ MALWARE TERM: ${escapeHtml(t)}</span>`),
+        ...semantics.phishingTerms.map(t => `<span class="badge warn">⚠ PHISHING TERM: ${escapeHtml(t)}</span>`)
+      ].join("");
       document.getElementById("intelHits").innerHTML = (data.intel || []).length ? data.intel.map((hit) => `
         <div class="glass p-4 rounded-[1.1rem]">
           <div class="flex items-center justify-between gap-3">

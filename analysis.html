@@ -879,6 +879,74 @@
       `;
     }
 
+    function inferStackSummary(items, exposure) {
+      const services = getExposureServices(exposure);
+      const osItems = exposure?.technology?.operatingSystems || [];
+      const allBanners = services.map(s => `${s.banner||""} ${s.product||""} ${s.http?.server||""} ${s.http?.title||""} ${(s.cpe||[]).join(" ")}`).join(" ").toLowerCase();
+      const org = (exposure?.attribution?.hostingProvider || exposure?.attribution?.organization || "").toLowerCase();
+      const headers = services.flatMap(s => Object.entries(s.http?.headers || {})).map(([k,v]) => `${k}:${v}`).join(" ").toLowerCase();
+      const allText = `${allBanners} ${headers} ${items.map(i=>i.name).join(" ").toLowerCase()}`;
+
+      function pick(category, patterns, fallbackPatterns) {
+        const fromItems = items.find(i => new RegExp(category,"i").test(i.category))?.name;
+        if (fromItems) return fromItems;
+        for (const [pattern, label] of patterns) {
+          if (new RegExp(pattern,"i").test(allText)) return label;
+        }
+        if (fallbackPatterns) {
+          for (const [pattern, label] of fallbackPatterns) {
+            if (new RegExp(pattern,"i").test(org)) return label;
+          }
+        }
+        return null;
+      }
+
+      const webServer =
+        pick("web server", [["nginx","Nginx"],["apache","Apache"],["iis|microsoft-iis","Microsoft IIS"],["lighttpd","Lighttpd"],["caddy","Caddy"],["gunicorn","Gunicorn"],["uvicorn","Uvicorn"],["openresty","OpenResty"]]);
+
+      const frontend =
+        pick("frontend", [["next\.js|nextjs|_next","Next.js"],["react|reactdom","React"],["vue","Vue.js"],["angular","Angular"],["svelte","Svelte"],["nuxt","Nuxt.js"],["gatsby","Gatsby"],["wordpress|wp-content","WordPress"],["drupal","Drupal"],["joomla","Joomla"]]);
+
+      const backend =
+        pick("backend|runtime", [["node\.js|express|nodejs","Node.js"],["python|django|flask|fastapi|gunicorn|uvicorn","Python"],["php","PHP"],["ruby|rails|puma","Ruby on Rails"],["java|tomcat|spring","Java"],["asp\.net|dotnet|\.net",".NET"],["go|golang","Go"],["rust","Rust"]]);
+
+      const cdn =
+        pick("cdn|waf", [["cloudflare|cf-ray|cf-cache","Cloudflare"],["cloudfront|amazon cloudfront","Amazon CloudFront"],["akamai","Akamai"],["fastly","Fastly"],["sucuri","Sucuri WAF"],["incapsula|imperva","Imperva"],["azure cdn|azureedge","Azure CDN"]]);
+
+      const security = (() => {
+        const secItem = items.find(i => /security/i.test(i.category))?.name;
+        if (secItem) return secItem;
+        const flags = [];
+        if (/hsts|strict-transport/i.test(allText)) flags.push("HSTS");
+        if (exposure?.tls?.enabled || /tls|ssl/i.test(allText)) flags.push("TLS Enabled");
+        if (/csp|content-security-policy/i.test(allText)) flags.push("CSP");
+        if (/x-frame-options/i.test(allText)) flags.push("X-Frame-Options");
+        return flags.length ? flags.join(", ") : null;
+      })();
+
+      const os = (() => {
+        if (osItems[0]) return osItems[0];
+        const osService = services.find(s => s.os)?.os;
+        if (osService) return osService;
+        if (/ubuntu/i.test(allText)) return "Ubuntu Linux";
+        if (/debian/i.test(allText)) return "Debian Linux";
+        if (/centos/i.test(allText)) return "CentOS Linux";
+        if (/fedora/i.test(allText)) return "Fedora Linux";
+        if (/windows server/i.test(allText)) return "Windows Server";
+        if (/windows/i.test(allText)) return "Windows";
+        if (/freebsd/i.test(allText)) return "FreeBSD";
+        if (/linux/i.test(allText)) return "Linux";
+        // Infer from hosting
+        if (/cloudflare/i.test(org)) return "Linux (Cloudflare Edge)";
+        if (/amazon|aws/i.test(org)) return "Linux (AWS)";
+        if (/google/i.test(org)) return "Linux (GCP)";
+        if (/microsoft|azure/i.test(org)) return "Windows Server (Azure)";
+        return null;
+      })();
+
+      return { webServer, frontend, backend, cdn, security, os };
+    }
+
     function renderTechnologyStackPanel(exposure) {
       const items = technologyItemsFromExposure(exposure);
       const grouped = items.reduce((acc, item) => {
@@ -887,11 +955,19 @@
         acc[key].push(item);
         return acc;
       }, {});
-      const osItems = exposure?.technology?.operatingSystems || [];
       const services = getExposureServices(exposure);
       const faviconHashes = [...new Set(services.map((service) => service.http?.faviconHash).filter(Boolean))];
       const cpes = [...new Set(services.flatMap((service) => service.cpe || []).filter(Boolean))].slice(0, 8);
       const sources = exposure?.technology?.sources || ["Shodan metadata", "service banners", "HTTP headers", "TLS metadata"];
+      const stack = inferStackSummary(items, exposure);
+      const stackRows = [
+        ["Frontend",        stack.frontend],
+        ["Web Server",      stack.webServer],
+        ["Backend",         stack.backend],
+        ["CDN / WAF",       stack.cdn],
+        ["Security",        stack.security],
+        ["Operating System",stack.os]
+      ];
       return `
         <section class="analysis-stage">
           <div class="stream-panel">
@@ -919,14 +995,11 @@
           <div class="flow-panel">
             <p class="section-label m-0">Stack Summary</p>
             <div class="mt-4 space-y-3 text-sm">
-              ${[
-                ["Frontend", items.find((item) => /frontend/i.test(item.category))?.name || "Unknown"],
-                ["Web Server", items.find((item) => /web server/i.test(item.category))?.name || "Unknown"],
-                ["Backend", items.find((item) => /backend|runtime/i.test(item.category))?.name || "Unknown"],
-                ["CDN / WAF", items.find((item) => /cdn|waf/i.test(item.category))?.name || "Unknown"],
-                ["Security", items.find((item) => /security/i.test(item.category))?.name || (exposure?.tls?.enabled ? "TLS Enabled" : "Unknown")],
-                ["Operating System", osItems[0] || "Unknown"]
-              ].map(([label, value]) => `<div class="ip-row"><div class="section-label">${escapeHtml(label)}</div><div class="font-semibold">${escapeHtml(value)}</div></div>`).join("")}
+              ${stackRows.map(([label, value]) => `
+                <div class="ip-row">
+                  <div class="section-label">${escapeHtml(label)}</div>
+                  <div class="font-semibold ${value ? "" : "text-slate-500"}">${escapeHtml(value || "Not Detected")}</div>
+                </div>`).join("")}
             </div>
           </div>
         </section>
