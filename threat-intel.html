@@ -678,6 +678,12 @@
         metric("Risk Level", riskBand, riskVariant)
       ].join("");
       
+      // Semantic badges — computed before use
+      const semanticBadges = [
+        ...semantics.malwareTerms.map(t => `<span class="badge danger">⚠ MALWARE TERM: ${escapeHtml(t)}</span>`),
+        ...semantics.phishingTerms.map(t => `<span class="badge warn">⚠ PHISHING TERM: ${escapeHtml(t)}</span>`)
+      ].join("");
+
       // Summary ribbons
       document.getElementById("summaryRibbon").innerHTML = `
         <span class="badge ${badgeTone(operationalClass)}">${escapeHtml(operationalClass)}</span>
@@ -1111,11 +1117,7 @@
           `<div class="signal-panel"><p class="m-0 text-sm text-slate-400">No registration intelligence flags. Domain age and registrar appear normal.</p></div>`;
       }
 
-      // Semantic keywords in summary ribbon
-      const semanticBadges = [
-        ...semantics.malwareTerms.map(t => `<span class="badge danger">⚠ MALWARE TERM: ${escapeHtml(t)}</span>`),
-        ...semantics.phishingTerms.map(t => `<span class="badge warn">⚠ PHISHING TERM: ${escapeHtml(t)}</span>`)
-      ].join("");
+      // IOC Correlation & Threat Feeds
       document.getElementById("intelHits").innerHTML = (data.intel || []).length ? data.intel.map((hit) => `
         <div class="glass p-4 rounded-[1.1rem]">
           <div class="flex items-center justify-between gap-3">
