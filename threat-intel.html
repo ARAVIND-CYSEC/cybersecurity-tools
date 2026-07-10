@@ -147,6 +147,28 @@
           </section>
         </div>
 
+        <!-- Brand Intelligence Sections -->
+        <div id="brandIntelSection" class="hidden space-y-6">
+          <div class="glass rounded-[1.6rem] p-5">
+            <p class="section-label m-0">Brand Similarity Analysis</p>
+            <div id="brandSimilarityPanel" class="mt-4 space-y-3"></div>
+          </div>
+          <div class="grid xl:grid-cols-3 gap-6">
+            <section class="glass rounded-[1.5rem] p-5">
+              <p class="section-label m-0">Typosquatting Indicators</p>
+              <div id="typosquattingPanel" class="mt-4 space-y-3"></div>
+            </section>
+            <section class="glass rounded-[1.5rem] p-5">
+              <p class="section-label m-0">Homoglyph Detection</p>
+              <div id="homoglyphPanel" class="mt-4 space-y-3"></div>
+            </section>
+            <section class="glass rounded-[1.5rem] p-5">
+              <p class="section-label m-0">Registration Intelligence</p>
+              <div id="registrationPanel" class="mt-4 space-y-3"></div>
+            </section>
+          </div>
+        </div>
+
         <div class="glass rounded-[1.5rem] p-5">
           <p class="section-label m-0">Threat Intelligence Findings</p>
           <div id="intelligencePanel" class="mt-4 space-y-3"></div>
@@ -183,6 +205,222 @@
   </div>
 
   <script>
+    // ─── Brand Intelligence Database ───────────────────────────────────────────
+    const BRAND_DB = {
+      "google.com":    { name:"Google",    keywords:["google","gmail","goog"],    trustedAsns:["AS15169"] },
+      "microsoft.com": { name:"Microsoft", keywords:["microsoft","msft","azure"], trustedAsns:["AS8075"] },
+      "amazon.com":    { name:"Amazon",    keywords:["amazon","amzn","aws"],      trustedAsns:["AS16509"] },
+      "paypal.com":    { name:"PayPal",    keywords:["paypal","paypa"],           trustedAsns:["AS17012"] },
+      "facebook.com":  { name:"Meta",      keywords:["facebook","fb","meta"],     trustedAsns:["AS32934"] },
+      "apple.com":     { name:"Apple",     keywords:["apple","icloud","itunes"],  trustedAsns:["AS714"] },
+      "github.com":    { name:"GitHub",    keywords:["github","ghub"],            trustedAsns:["AS36459"] },
+      "linkedin.com":  { name:"LinkedIn",  keywords:["linkedin","lnkd"],          trustedAsns:["AS14413"] },
+      "netflix.com":   { name:"Netflix",   keywords:["netflix","nflx"],           trustedAsns:["AS2906"] },
+      "adobe.com":     { name:"Adobe",     keywords:["adobe","acrobat"],          trustedAsns:["AS14365"] },
+      "twitter.com":   { name:"Twitter/X", keywords:["twitter","twit"],           trustedAsns:["AS13414"] },
+      "instagram.com": { name:"Instagram", keywords:["instagram","insta"],        trustedAsns:["AS32934"] },
+      "dropbox.com":   { name:"Dropbox",   keywords:["dropbox","dbox"],           trustedAsns:["AS19679"] },
+      "chase.com":     { name:"Chase",     keywords:["chase","jpmorgan"],         trustedAsns:[] },
+      "wellsfargo.com":{ name:"Wells Fargo",keywords:["wellsfargo","wfargo"],      trustedAsns:[] }
+    };
+    const ABUSE_KEYWORDS = ["login","verify","security","support","update","signin","account","auth","password","secure","confirm","reset","recover","help","service","portal","access"];
+    const HOMOGLYPH_MAP = {"а":"a","е":"e","о":"o","р":"p","с":"c","х":"x","і":"i","ο":"o","α":"a","ε":"e","ρ":"p","ν":"v","ω":"w","ι":"i","κ":"k","μ":"m","τ":"t","υ":"u","ζ":"z","ϲ":"c","ꓐ":"p","ꓤ":"r","ꓠ":"n","ꓕ":"t","ꓗ":"k","ꓛ":"c","ꓞ":"q","ꓡ":"l","ꓢ":"s","ꓥ":"v","ꓦ":"h","ꓫ":"x","ꓬ":"y","ꓭ":"b","ꓮ":"o","ꓯ":"o","ꓰ":"c","ꓱ":"e","ꓲ":"i","ꓳ":"o","ꓴ":"u","ꓵ":"v","ꓶ":"w","ꓷ":"d","ꓸ":".","ꓹ":".","ꓺ":".","ꓻ":".","ꓼ":".","ꓽ":".","0":"o","1":"l","3":"e","4":"a","5":"s","6":"g","7":"t","8":"b","@":"a","$":"s"};
+    const KEYBOARD_ADJACENCY = {"q":["w","a"],"w":["q","e","s"],"e":["w","r","d"],"r":["e","t","f"],"t":["r","y","g"],"y":["t","u","h"],"u":["y","i","j"],"i":["u","o","k"],"o":["i","p","l"],"p":["o","l"],"a":["q","s","z"],"s":["a","d","w","x"],"d":["s","f","e","c"],"f":["d","g","r","v"],"g":["f","h","t","b"],"h":["g","j","y","n"],"j":["h","k","u","m"],"k":["j","l","i"],"l":["k","o","p"],"z":["a","x"],"x":["z","c","s"],"c":["x","v","d"],"v":["c","b","f"],"b":["v","n","g"],"n":["b","m","h"],"m":["n","j"]};
+    const SUSPICIOUS_REGISTRARS = ["namecheap","namesilo","dynadot","porkbun","epik","njalla","1api","internet.bs"];
+
+    // ─── Levenshtein Distance ──────────────────────────────────────────────────
+    function levenshtein(a, b) {
+      const m = a.length, n = b.length;
+      const dp = Array.from({length:m+1}, (_,i) => Array.from({length:n+1}, (_,j) => i===0?j:j===0?i:0));
+      for (let i=1;i<=m;i++) for (let j=1;j<=n;j++)
+        dp[i][j] = a[i-1]===b[j-1] ? dp[i-1][j-1] : 1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);
+      return dp[m][n];
+    }
+
+    // ─── Normalize homoglyphs to ASCII ────────────────────────────────────────
+    function normalizeHomoglyphs(str) {
+      return str.split("").map(c => HOMOGLYPH_MAP[c] || c).join("");
+    }
+
+    // ─── Detect homoglyph attack ──────────────────────────────────────────────
+    function detectHomoglyphs(domain) {
+      const normalized = normalizeHomoglyphs(domain);
+      if (normalized === domain) return null;
+      // Find which brand the normalized form matches
+      for (const [brandDomain, brand] of Object.entries(BRAND_DB)) {
+        const brandName = brandDomain.replace(/\.com$|\.net$|\.org$/, "");
+        if (normalized.includes(brandName)) {
+          return { detected: true, normalizedForm: normalized, spoofedBrand: brandDomain, brandName: brand.name, confidence: 99 };
+        }
+      }
+      return { detected: true, normalizedForm: normalized, spoofedBrand: null, brandName: null, confidence: 70 };
+    }
+
+    // ─── Numeric substitution check ───────────────────────────────────────────
+    function numericSubstitution(domain) {
+      const numMap = {"0":"o","1":"i","3":"e","4":"a","5":"s","6":"g","7":"t","8":"b"};
+      return domain.split("").map(c => numMap[c] || c).join("");
+    }
+
+    // ─── Typosquatting Analysis Engine ────────────────────────────────────────
+    function analyzeTyposquatting(inputDomain) {
+      const results = [];
+      const domainPart = inputDomain.split(".")[0].toLowerCase();
+      const homoglyphNorm = normalizeHomoglyphs(domainPart);
+      const numericNorm = numericSubstitution(domainPart);
+
+      for (const [brandDomain, brand] of Object.entries(BRAND_DB)) {
+        const brandName = brandDomain.replace(/\.com$|\.net$|\.org$/, "");
+        if (domainPart === brandName) continue; // exact match = legitimate
+
+        // Test against normalized forms too
+        const candidates = [domainPart, homoglyphNorm, numericNorm];
+        let bestScore = 0, bestType = null;
+
+        for (const candidate of candidates) {
+          const dist = levenshtein(candidate, brandName);
+          const maxLen = Math.max(candidate.length, brandName.length);
+          const similarity = Math.round((1 - dist / maxLen) * 100);
+
+          if (similarity < 60) continue;
+
+          let attackType = "character_substitution";
+          // Character duplication: gooogle
+          if (/(.)(\1{1,})/.test(domainPart) && !(/(.)(\1{1,})/.test(brandName))) attackType = "character_duplication";
+          // Character omission: gogle
+          else if (domainPart.length < brandName.length && dist === 1) attackType = "character_omission";
+          // Character swap: googel
+          else if (domainPart.length === brandName.length && dist === 2) attackType = "character_swap";
+          // Numeric substitution: paypa1
+          else if (numericNorm !== domainPart && numericNorm === brandName) attackType = "numeric_substitution";
+          // Keyboard adjacency
+          else if (dist === 1) {
+            const diffIdx = [...domainPart].findIndex((c,i) => c !== brandName[i]);
+            if (diffIdx >= 0 && KEYBOARD_ADJACENCY[brandName[diffIdx]]?.includes(domainPart[diffIdx])) attackType = "keyboard_adjacency";
+          }
+          // Homoglyph
+          if (candidate === homoglyphNorm && homoglyphNorm !== domainPart) attackType = "homoglyph_substitution";
+
+          if (similarity > bestScore) { bestScore = similarity; bestType = attackType; }
+        }
+
+        if (bestScore >= 60) {
+          results.push({ matchedBrand: brandDomain, brandName: brand.name, similarityScore: bestScore, attackType: bestType });
+        }
+      }
+      // Sort by similarity descending
+      return results.sort((a,b) => b.similarityScore - a.similarityScore);
+    }
+
+    // ─── Brand Abuse Keyword Detection ────────────────────────────────────────
+    function detectBrandAbuseKeywords(inputDomain) {
+      const lower = inputDomain.toLowerCase();
+      const hits = [];
+      for (const [brandDomain, brand] of Object.entries(BRAND_DB)) {
+        const brandName = brandDomain.replace(/\.com$|\.net$|\.org$/, "");
+        if (!lower.includes(brandName)) continue;
+        const foundKeywords = ABUSE_KEYWORDS.filter(kw => lower.includes(kw));
+        if (foundKeywords.length > 0) {
+          hits.push({ brandDomain, brandName: brand.name, keywords: foundKeywords });
+        }
+      }
+      return hits;
+    }
+
+    // ─── Registration Intelligence ────────────────────────────────────────────
+    function analyzeRegistration(enrichment) {
+      const flags = [];
+      const age = enrichment?.domainAge;
+      const registrar = (enrichment?.network?.registrar || "").toLowerCase();
+      const whoisPrivacy = enrichment?.whoisPrivacy;
+
+      if (age) {
+        const days = parseDomainAgeDays(age);
+        if (days !== null && days < 30)  flags.push({ flag:"NEWLY_REGISTERED",  label:"Newly Registered",  detail:`Domain registered ${days} day(s) ago`, severity:"critical" });
+        else if (days !== null && days < 90) flags.push({ flag:"YOUNG_DOMAIN",  label:"Young Domain",      detail:`Domain registered ${days} day(s) ago`, severity:"high" });
+      }
+      if (whoisPrivacy) flags.push({ flag:"HIDDEN_OWNERSHIP", label:"Hidden Ownership", detail:"WHOIS privacy protection enabled", severity:"medium" });
+      if (SUSPICIOUS_REGISTRARS.some(r => registrar.includes(r))) {
+        flags.push({ flag:"SUSPICIOUS_REGISTRAR", label:"Suspicious Registrar", detail:`Registrar associated with high-abuse domains: ${registrar}`, severity:"medium" });
+      }
+      return flags;
+    }
+
+    function parseDomainAgeDays(ageStr) {
+      if (!ageStr) return null;
+      const m = String(ageStr).match(/(\d+)\s*(day|month|year)/i);
+      if (!m) return null;
+      const n = parseInt(m[1]);
+      if (m[2].toLowerCase().startsWith("day"))   return n;
+      if (m[2].toLowerCase().startsWith("month")) return n * 30;
+      if (m[2].toLowerCase().startsWith("year"))  return n * 365;
+      return null;
+    }
+
+    // ─── Risk Scoring Engine ──────────────────────────────────────────────────
+    function calculateBrandRiskScore(typoMatches, keywordHits, homoglyphResult, regFlags) {
+      let score = 0;
+      // Brand Impersonation (0-40)
+      if (typoMatches.length > 0) {
+        const top = typoMatches[0];
+        if (top.similarityScore >= 90) score += 40;
+        else if (top.similarityScore >= 80) score += 32;
+        else if (top.similarityScore >= 70) score += 24;
+        else score += 16;
+      }
+      if (keywordHits.length > 0) score += Math.min(20, keywordHits.length * 10);
+      if (homoglyphResult?.detected) score += 30;
+      // Registration Intelligence (0-10)
+      for (const f of regFlags) {
+        if (f.severity === "critical") score += 10;
+        else if (f.severity === "high") score += 7;
+        else score += 4;
+      }
+      return Math.min(100, score);
+    }
+
+    // ─── Classification Engine ────────────────────────────────────────────────
+    function classifyDomain(totalScore, typoMatches, keywordHits, homoglyphResult, hasAbuseEvidence) {
+      if (hasAbuseEvidence && totalScore >= 61) return "Phishing Infrastructure";
+      if (hasAbuseEvidence) return "Known Malicious";
+      if (homoglyphResult?.detected && typoMatches.length > 0) return "Homoglyph Attack";
+      if (typoMatches.length > 0 && keywordHits.length > 0) return "Brand Impersonation";
+      if (typoMatches.length > 0) return "Typosquatting Domain";
+      if (keywordHits.length > 0) return "Brand Abuse";
+      if (totalScore >= 81) return "Known Malicious";
+      if (totalScore >= 61) return "Suspicious Infrastructure";
+      if (totalScore >= 41) return "Unknown Infrastructure";
+      if (totalScore >= 21) return "Legitimate Enterprise";
+      return "Trusted Infrastructure";
+    }
+
+    // ─── Analyst Reasoning Generator ─────────────────────────────────────────
+    function generateAnalystReasoning(inputDomain, typoMatches, keywordHits, homoglyphResult, regFlags, totalScore, classification) {
+      const lines = [];
+      if (typoMatches.length > 0) {
+        const top = typoMatches[0];
+        lines.push(`The analyzed domain "${inputDomain}" exhibits a ${top.similarityScore}% similarity score to the legitimate domain "${top.matchedBrand}" (${top.brandName}).`);
+        lines.push(`Typosquatting analysis identified ${top.attackType.replace(/_/g," ")} commonly associated with brand impersonation campaigns.`);
+      }
+      if (homoglyphResult?.detected) {
+        lines.push(`Homoglyph analysis detected Unicode character substitution. The domain normalizes to "${homoglyphResult.normalizedForm}", which closely resembles ${homoglyphResult.brandName || "a known brand"}.`);
+      }
+      if (keywordHits.length > 0) {
+        const kh = keywordHits[0];
+        lines.push(`Brand abuse keyword detection identified the presence of "${kh.keywords.join(", ")}" alongside the brand name "${kh.brandName}", a pattern consistent with phishing infrastructure.`);
+      }
+      if (regFlags.length > 0) {
+        const rf = regFlags[0];
+        lines.push(`Registration intelligence flagged: ${rf.detail}.`);
+      }
+      if (lines.length === 0) {
+        lines.push(`The analyzed domain "${inputDomain}" shows no significant brand similarity, typosquatting patterns, or homoglyph substitutions.`);
+      }
+      lines.push(`Operational Classification: ${classification}`);
+      lines.push(`Risk Score: ${totalScore}/100`);
+      return lines.join(" ");
+    }
+
     function applyTheme(isDark) { document.documentElement.classList.toggle("dark", isDark); localStorage.theme = isDark ? "dark" : "light"; }
     function escapeHtml(value) { return String(value ?? "").replace(/[&<>\"']/g, (char) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[char])); }
     async function requestJson(url, options = {}) {
