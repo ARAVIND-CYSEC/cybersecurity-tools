@@ -1835,17 +1835,184 @@
         if (!response.ok) throw new Error(data.error || "TLS lookup failed.");
         state.reports.tls = { tool: "tls", query: domain, fetchedAt: new Date().toISOString(), report: data };
         saveLocalReport(state.reports.tls);
+
+        const labs = data.ssllabs || {};
+        const endpoint = (labs.endpoints || [])[0] || {};
+        const details = endpoint.details || {};
+        const certDetail = details.cert || {};
+        const suites = (details.suites || []).flatMap(s => s.list || []);
+        const protocols = details.protocols || [];
+        const hstsPolicy = details.hstsPolicy || {};
+        const httpTx = details.httpTransactions || [];
+        const headers = httpTx[0]?.responseHeaders || [];
+        const getHeader = (name) => headers.find(h => h.name?.toLowerCase() === name.toLowerCase())?.value || null;
+        const certs = data.recentCertificates || [];
+
+        // Certificate validity
+        const notBefore = certDetail.notBefore ? new Date(certDetail.notBefore * 1000) : null;
+        const notAfter = certDetail.notAfter ? new Date(certDetail.notAfter * 1000) : null;
+        const now = Date.now();
+        const daysRemaining = notAfter ? Math.ceil((notAfter.getTime() - now) / 86400000) : null;
+        const isExpired = daysRemaining !== null && daysRemaining < 0;
+        const isExpiringSoon = daysRemaining !== null && daysRemaining >= 0 && daysRemaining < 30;
+        const certStatus = isExpired ? "Expired" : certDetail.issues > 0 ? "Invalid Chain" : notAfter ? "Valid" : "Unknown";
+        const certStatusColor = certStatus === "Valid" ? "text-emerald-500" : "text-red-500";
+
+        // Grade
+        const grade = endpoint.grade || "";
+        const gradeColor = grade.startsWith("A") ? "text-emerald-500" : grade.startsWith("B") ? "text-amber-500" : grade ? "text-red-500" : "text-slate-400";
+        const riskLevel = grade.startsWith("A") ? "Low" : grade.startsWith("B") ? "Medium" : grade ? "High" : "Unknown";
+        const riskTone = riskLevel === "Low" ? "safe" : riskLevel === "Medium" ? "warn" : "danger";
+
+        // Protocols
+        const INSECURE = ["SSL 2.0","SSL 3.0","TLS 1.0","TLS 1.1"];
+        const protocolRows = protocols.map(p => {
+          const name = p.name ? `${p.name} ${p.version || ""}`.trim() : `Protocol ${p.id}`;
+          const insecure = INSECURE.some(i => name.replace(" ","").includes(i.replace(" ",""))) || p.id <= 769;
+          return `<div class="intel-row"><span class="intel-key">${insecure ? "✗" : "✓"} ${escapeHtml(name)}</span><span class="badge ${insecure ? "danger" : "safe"}">${insecure ? "Insecure" : "Secure"}</span></div>`;
+        }).join("") || `<div class="intel-row"><span class="intel-key">Protocol data unavailable — SSL Labs may still be scanning.</span></div>`;
+
+        // Ciphers
+        const WEAK = ["RC4","DES","3DES","NULL","EXPORT","anon","MD5"];
+        const cipherRows = suites.slice(0, 8).map(s => {
+          const name = s.name || "Unknown";
+          const weak = WEAK.some(w => name.toUpperCase().includes(w));
+          const strong = name.includes("AES_256") || name.includes("CHACHA20") || name.includes("AES_128_GCM");
+          const label = weak ? "Weak" : strong ? "Strong" : "Acceptable";
+          const tone = weak ? "danger" : strong ? "safe" : "warn";
+          return `<div class="intel-row"><span class="intel-key mono text-xs">${escapeHtml(name)}</span><span class="badge ${tone}">${label}</span></div>`;
+        }).join("") || `<div class="intel-row"><span class="intel-key">Cipher data unavailable.</span></div>`;
+
+        // SAN
+        const san = certDetail.altNames || [];
+
+        // Certificate chain
+        const chain = details.chain?.certs || [];
+        const chainHtml = chain.length
+          ? chain.map((c, i) => `<div class="intel-row"><span class="intel-key">${i === 0 ? "Root CA" : i === chain.length - 1 ? "Leaf Certificate" : "Intermediate CA"}</span><span class="intel-value">${escapeHtml(c.subject?.CN || c.subject?.O || "Unknown")} <span class="text-slate-500">← ${escapeHtml(c.issuerLabel || c.issuerSubject?.CN || "Unknown")}</span></span></div>`).join("")
+          : `<div class="intel-row"><span class="intel-key">Chain data unavailable.</span></div>`;
+
+        // Security headers
+        const hsts = hstsPolicy.status === "present" || getHeader("strict-transport-security");
+        const headerChecks = [
+          { name: "HSTS", present: !!hsts },
+          { name: "CSP", present: !!getHeader("content-security-policy") },
+          { name: "X-Frame-Options", present: !!getHeader("x-frame-options") },
+          { name: "X-Content-Type-Options", present: !!getHeader("x-content-type-options") },
+          { name: "Referrer-Policy", present: !!getHeader("referrer-policy") }
+        ];
+        const headerRows = headerChecks.map(h => `<div class="intel-row"><span class="intel-key">${h.present ? "✓" : "✗"} ${h.name}</span><span class="badge ${h.present ? "safe" : "danger"}">${h.present ? "Present" : "Missing"}</span></div>`).join("");
+
+        // CT
+        const ctFirst = data.summary?.firstSeen ? new Date(data.summary.firstSeen).getFullYear() : null;
+        const ctLatest = data.summary?.latestIssued || data.summary?.latestSeen || null;
+        const headerScore = headerChecks.filter(h => h.present).length;
+        const confidence = grade ? Math.min(98, 60 + headerScore * 5 + (grade === "A+" ? 15 : grade === "A" ? 10 : grade === "A-" ? 7 : 0)) : 0;
+
+        // Assessment
+        const assessment = grade.startsWith("A")
+          ? "The target uses a valid certificate issued by a trusted CA. Modern TLS versions are supported, no deprecated protocols were observed, and certificate chain validation completed successfully."
+          : grade.startsWith("B")
+            ? "The target has a valid certificate but some configuration improvements are recommended. Review cipher suites and protocol support to achieve an A rating."
+            : grade
+              ? "The target has significant TLS configuration issues. Immediate remediation is recommended."
+              : "SSL Labs scan is in progress or data is unavailable. Re-run the analysis in a few minutes for full results.";
+
         result.innerHTML = `
-          <div class="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
-            ${[
-              ["Host", data.host || domain],
-              ["Status", data.status || "N/A"],
-              ["Port", data.port || "443"],
-              ["Endpoints", Array.isArray(data.endpoints) ? data.endpoints.length : 0]
-            ].map(([label, value]) => `<div class="result-card p-4"><p class="section-label m-0">${label}</p><p class="mt-3 font-semibold break-all">${escapeHtml(value)}</p></div>`).join("")}
-          </div>
-          <div class="mt-4 space-y-3">
-            ${(data.endpoints || []).map((endpoint) => `<div class="result-card p-4"><p class="section-label m-0">${escapeHtml(endpoint.ipAddress || "Endpoint")}</p><p class="mt-3 text-sm">Grade: <strong>${escapeHtml(endpoint.grade || "N/A")}</strong> | Status: <strong>${escapeHtml(endpoint.statusMessage || "N/A")}</strong></p></div>`).join("") || `<div class="result-card p-4">No live endpoint details returned.</div>`}
+          <div class="intel-grid">
+            <!-- Summary cards -->
+            <div class="intel-metrics">
+              ${metricCard("TLS Status", "Enabled", "safe")}
+              ${metricCard("Certificate", certStatus, certStatus === "Valid" ? "safe" : "danger")}
+              ${metricCard("Security Rating", grade || "—", grade.startsWith("A") ? "safe" : grade.startsWith("B") ? "warn" : grade ? "danger" : "info")}
+              ${metricCard("Risk Level", riskLevel, riskTone)}
+              ${metricCard("Confidence", confidence ? confidence + "%" : "Awaiting", "info")}
+            </div>
+
+            <!-- Certificate Info + Validity -->
+            <div class="grid lg:grid-cols-2 gap-4">
+              <div class="intel-section">
+                <p class="section-label m-0">Certificate Information</p>
+                <div class="intel-list">${detailRows([
+                  ["Common Name (CN)", certDetail.subject?.CN || certDetail.commonNames?.[0]],
+                  ["Issuer", certDetail.issuerLabel || certDetail.issuerSubject?.CN || certDetail.issuerSubject?.O],
+                  ["Organization", certDetail.subject?.O],
+                  ["Serial Number", certDetail.serialNumber],
+                  ["SHA-256 Fingerprint", certDetail.sha256Hash]
+                ])}</div>
+              </div>
+              <div class="intel-section">
+                <p class="section-label m-0">Certificate Validity</p>
+                <div class="intel-list">
+                  ${detailRows([
+                    ["Valid From", notBefore ? notBefore.toISOString().split("T")[0] : null],
+                    ["Valid Until", notAfter ? notAfter.toISOString().split("T")[0] : null]
+                  ])}
+                  <div class="intel-row">
+                    <span class="intel-key">Days Remaining</span>
+                    <span class="intel-value ${isExpired ? "text-red-500" : isExpiringSoon ? "text-amber-500" : "text-emerald-500"}">
+                      ${daysRemaining !== null ? daysRemaining : "N/A"}
+                      ${isExpired ? " <span class='badge danger'>Expired</span>" : isExpiringSoon ? " <span class='badge warn'>⚠ Expiring Soon</span>" : ""}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- TLS Protocols + Cipher Suites -->
+            <div class="grid lg:grid-cols-2 gap-4">
+              <div class="intel-section">
+                <p class="section-label m-0">Supported Protocols</p>
+                <div class="intel-list mt-2">${protocolRows}</div>
+              </div>
+              <div class="intel-section">
+                <p class="section-label m-0">Cipher Suite Analysis</p>
+                <div class="intel-list mt-2">${cipherRows}</div>
+              </div>
+            </div>
+
+            <!-- CT Records + SAN -->
+            <div class="grid lg:grid-cols-2 gap-4">
+              <div class="intel-section">
+                <p class="section-label m-0">Certificate Transparency</p>
+                <div class="intel-list">${detailRows([
+                  ["CT Records", certs.length],
+                  ["First Seen", ctFirst],
+                  ["Latest Certificate", ctLatest ? ctLatest.split("T")[0] : null],
+                  ["Issuers", (data.summary?.issuers || []).slice(0, 3).join(", ")]
+                ])}</div>
+              </div>
+              <div class="intel-section">
+                <p class="section-label m-0">Subject Alternative Names (SAN)</p>
+                <div class="intel-list mt-2 max-h-40 overflow-y-auto">${san.length
+                  ? san.map(name => `<div class="intel-row"><span class="intel-value mono text-left text-xs">${escapeHtml(name)}</span></div>`).join("")
+                  : `<div class="text-sm text-slate-500 mt-2">No SAN data available.</div>`
+                }</div>
+              </div>
+            </div>
+
+            <!-- Certificate Chain -->
+            <div class="intel-section">
+              <p class="section-label m-0">Certificate Chain</p>
+              <div class="intel-list mt-2">${chainHtml}</div>
+            </div>
+
+            <!-- Security Headers -->
+            <div class="intel-section">
+              <p class="section-label m-0">Security Headers</p>
+              <div class="intel-list mt-2">${headerRows}</div>
+            </div>
+
+            <!-- Risk Assessment -->
+            <div class="intel-section">
+              <p class="section-label m-0">TLS Intelligence Assessment</p>
+              <div class="intel-metrics mt-4">
+                ${metricCard("TLS Security Rating", grade || "—", grade.startsWith("A") ? "safe" : grade.startsWith("B") ? "warn" : grade ? "danger" : "info")}
+                ${metricCard("Risk", riskLevel, riskTone)}
+                ${metricCard("Confidence", confidence ? confidence + "%" : "Awaiting", "info")}
+              </div>
+              <div class="intel-row mt-4"><span class="intel-value text-sm leading-7">${escapeHtml(assessment)}</span></div>
+            </div>
           </div>
         `;
       } catch (error) {
