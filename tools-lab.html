@@ -1828,15 +1828,38 @@
       const domain = document.getElementById("tlsInput").value.trim();
       const result = document.getElementById("tlsResult");
       if (!domain) { result.textContent = "Enter a domain."; return; }
-      result.textContent = "Fetching live TLS intelligence...";
+      const btn = document.getElementById("tlsRun");
+      btn.disabled = true;
+      btn.textContent = "Scanning...";
+      let dots = 0;
+      const timer = setInterval(() => {
+        dots = (dots + 1) % 4;
+        result.textContent = `SSL Labs is scanning ${domain}${".".repeat(dots)} (may take 60-90 seconds)`;
+      }, 800);
+
+      async function poll(maxAttempts, intervalMs) {
+        for (let i = 0; i < maxAttempts; i++) {
+          const res = await fetch(`/api/security/ssl?domain=${encodeURIComponent(domain)}`);
+          const d = await safeJson(res);
+          if (!res.ok) throw new Error(d.error || "TLS lookup failed.");
+          const st = d.ssllabs?.status || d.status || "";
+          const eps = d.ssllabs?.endpoints || d.endpoints || [];
+          if (st === "READY" || eps.some(e => e.grade)) return d;
+          if (st === "ERROR") throw new Error(d.ssllabs?.statusMessage || "SSL Labs scan error.");
+          await new Promise(r => setTimeout(r, intervalMs));
+        }
+        throw new Error("SSL Labs scan timed out. Try again in a minute.");
+      }
+
       try {
-        const response = await fetch(`/api/security/ssl?domain=${encodeURIComponent(domain)}`);
-        const data = await safeJson(response);
-        if (!response.ok) throw new Error(data.error || "TLS lookup failed.");
+        const data = await poll(12, 8000);
+        clearInterval(timer);
+        btn.disabled = false;
+        btn.textContent = "Analyze TLS";
         state.reports.tls = { tool: "tls", query: domain, fetchedAt: new Date().toISOString(), report: data };
         saveLocalReport(state.reports.tls);
 
-        const labs = data.ssllabs || {};
+        const labs = data.ssllabs || data;
         const endpoint = (labs.endpoints || [])[0] || {};
         const details = endpoint.details || {};
         const certDetail = details.cert || {};
@@ -2016,6 +2039,9 @@
           </div>
         `;
       } catch (error) {
+        clearInterval(timer);
+        btn.disabled = false;
+        btn.textContent = "Analyze TLS";
         result.innerHTML = `<p class="text-red-500">${escapeHtml(error.message)}</p>`;
       }
     }
