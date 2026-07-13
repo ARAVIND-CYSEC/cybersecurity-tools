@@ -94,6 +94,7 @@
       <button onclick="showTool('rdap')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded">RDAP</button>
       <button onclick="showTool('dns')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded">DNS</button>
       <button onclick="showTool('uptime')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded">Uptime</button>
+      <button onclick="showTool('tls')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded">TLS Cert</button>
     </div>
 
     <div id="whois" class="toolCard hidden bg-white dark:bg-gray-800 shadow-md rounded-xl p-6">
@@ -148,6 +149,19 @@
       <pre id="rawDNS" class="bg-gray-100 dark:bg-gray-900 p-2 rounded-md text-xs overflow-auto mt-2 max-h-48 hidden"></pre>
     </div>
 
+    <div id="tls" class="toolCard hidden bg-white dark:bg-gray-800 shadow-md rounded-xl p-6">
+      <div class="mb-4 p-4 bg-indigo-50 dark:bg-indigo-900 rounded-md">
+        <h2 class="text-xl font-semibold text-indigo-700 dark:text-indigo-300">TLS Certificate</h2>
+        <p class="text-gray-700 dark:text-gray-300">Inspect TLS/SSL certificate details, chain, SAN, cipher, and security headers for a domain.</p>
+      </div>
+      <input id="tlsInput" type="text" placeholder="Enter domain e.g. example.com" class="w-full max-w-lg px-4 py-2 mb-4 rounded-md border bg-white text-black dark:bg-gray-700 dark:text-white">
+      <div class="flex gap-2 flex-wrap">
+        <button onclick="fetchTLS()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded">Fetch TLS</button>
+        <button onclick="exportOsintReport('tls')" class="bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded">Export Report</button>
+      </div>
+      <div id="tlsResult" class="mt-4 space-y-3 text-sm"></div>
+    </div>
+
     <div id="uptime" class="toolCard hidden bg-white dark:bg-gray-800 shadow-md rounded-xl p-6">
       <div class="mb-4 p-4 bg-indigo-50 dark:bg-indigo-900 rounded-md">
         <h2 class="text-xl font-semibold text-indigo-700 dark:text-indigo-300">Uptime Check</h2>
@@ -167,7 +181,8 @@
     whois: null,
     rdap: null,
     dns: null,
-    uptime: null
+    uptime: null,
+    tls: null
   };
 
   function applyTheme(isDark){
@@ -192,12 +207,23 @@
   function saveLocalReport(report){
     const key = "cybershieldSavedReports";
     const reports = JSON.parse(localStorage.getItem(key) || "[]");
-    reports.unshift({
+    // Strip large nested data to avoid localStorage quota errors
+    const slim = {
       id: `${report.tool}-${Date.now()}`,
       savedAt: new Date().toISOString(),
-      ...report
-    });
-    localStorage.setItem(key, JSON.stringify(reports.slice(0, 50)));
+      tool: report.tool,
+      query: report.query,
+      fetchedAt: report.fetchedAt,
+      report: JSON.stringify(report.report || {}).slice(0, 4000)
+    };
+    reports.unshift(slim);
+    try {
+      localStorage.setItem(key, JSON.stringify(reports.slice(0, 20)));
+    } catch(e) {
+      // If still over quota, clear old entries and retry with just the new one
+      localStorage.removeItem(key);
+      try { localStorage.setItem(key, JSON.stringify([slim])); } catch(_) {}
+    }
   }
 
   function exportOsintReport(tool){
@@ -426,6 +452,88 @@
     } catch (error) {
       result.textContent = `Uptime check failed: ${error.message}`;
       console.error(error);
+    }
+  }
+
+  async function fetchTLS(){
+    const domain = document.getElementById("tlsInput").value.trim();
+    const out = document.getElementById("tlsResult");
+    if(!domain){ out.innerHTML = "<p class='text-red-500'>Please enter a domain</p>"; return; }
+    out.innerHTML = "<p class='text-gray-500'>Fetching TLS certificate...</p>";
+
+    try {
+      const res = await fetch(`/api/security/ssl?domain=${encodeURIComponent(domain)}`);
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error || "TLS request failed");
+
+      const tls = data.ssllabs?.endpoints?.[0]?.details?.cert || {};
+      const proto = data.ssllabs?.endpoints?.[0]?.details?.protocols?.[0]?.name || "N/A";
+      const cipher = data.ssllabs?.endpoints?.[0]?.details?.suites?.[0]?.list?.[0]?.name || "N/A";
+      const grade = data.ssllabs?.endpoints?.[0]?.grade || "N/A";
+      const hdrs = data.ssllabs?.endpoints?.[0]?.details?.httpTransactions?.[0]?.responseHeaders || [];
+      const hdrMap = Object.fromEntries(hdrs.map(h => [h.name.toLowerCase(), h.value]));
+      const chain = data.ssllabs?.endpoints?.[0]?.details?.chain?.certs || [];
+      const certs = data.recentCertificates || [];
+
+      const notBefore = tls.notBefore ? new Date(tls.notBefore * 1000).toUTCString() : "N/A";
+      const notAfter  = tls.notAfter  ? new Date(tls.notAfter  * 1000).toUTCString() : "N/A";
+      const daysLeft  = tls.notAfter  ? Math.round((tls.notAfter * 1000 - Date.now()) / 86400000) : null;
+      const expColor  = daysLeft !== null ? (daysLeft < 14 ? "text-red-500" : daysLeft < 30 ? "text-yellow-500" : "text-green-600") : "";
+
+      const row = (label, val) => `<div class="flex gap-2"><span class="font-semibold w-40 shrink-0">${label}:</span><span class="break-all">${val ?? "N/A"}</span></div>`;
+      const badge = (label, val, ok) => `<span class="inline-block px-2 py-0.5 rounded text-xs font-bold ${ok ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-300'}">${label}: ${val}</span>`;
+
+      out.innerHTML = `
+        <div class="p-3 rounded-lg border border-gray-200 dark:border-gray-700 space-y-1">
+          <p class="font-bold text-indigo-600 dark:text-indigo-300 mb-2">Certificate Details</p>
+          ${row("Subject CN", tls.commonNames?.[0] || tls.subject?.CN)}
+          ${row("Issuer", tls.issuerLabel || tls.issuerSubject?.CN)}
+          ${row("Valid From", notBefore)}
+          ${row("Valid To", `<span class="${expColor}">${notAfter}${daysLeft !== null ? ` (${daysLeft} days left)` : ""}</span>`)}
+          ${row("Serial", tls.serialNumber)}
+          ${row("SHA-256", tls.sha256Hash)}
+          ${row("SAN", (tls.altNames || []).join(", ") || "N/A")}
+        </div>
+        <div class="p-3 rounded-lg border border-gray-200 dark:border-gray-700 space-y-1">
+          <p class="font-bold text-indigo-600 dark:text-indigo-300 mb-2">Connection</p>
+          ${row("Protocol", proto)}
+          ${row("Cipher", cipher)}
+          ${row("Grade", grade)}
+        </div>
+        <div class="p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+          <p class="font-bold text-indigo-600 dark:text-indigo-300 mb-2">Security Headers</p>
+          <div class="flex flex-wrap gap-2">
+            ${badge("HSTS", hdrMap["strict-transport-security"] ? "Present" : "Missing", !!hdrMap["strict-transport-security"])}
+            ${badge("CSP", hdrMap["content-security-policy"] ? "Present" : "Missing", !!hdrMap["content-security-policy"])}
+            ${badge("X-Frame", hdrMap["x-frame-options"] ? "Present" : "Missing", !!hdrMap["x-frame-options"])}
+            ${badge("X-CTO", hdrMap["x-content-type-options"] ? "Present" : "Missing", !!hdrMap["x-content-type-options"])}
+            ${badge("Referrer", hdrMap["referrer-policy"] ? "Present" : "Missing", !!hdrMap["referrer-policy"])}
+          </div>
+        </div>
+        ${chain.length ? `<div class="p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+          <p class="font-bold text-indigo-600 dark:text-indigo-300 mb-2">Certificate Chain (${chain.length})</p>
+          ${chain.map((c,i) => `<div class="text-xs mb-1"><span class="font-semibold">#${i+1}</span> ${c.subject?.CN || ""} → issued by ${c.issuerLabel || c.issuerSubject?.CN || ""}</div>`).join("")}
+        </div>` : ""}
+        ${certs.length ? `<div class="p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+          <p class="font-bold text-indigo-600 dark:text-indigo-300 mb-2">Recent crt.sh Certificates (${data.summary?.recordCount || certs.length} total)</p>
+          <div class="overflow-auto max-h-48">
+            <table class="w-full text-xs border-collapse">
+              <thead><tr class="bg-indigo-50 dark:bg-indigo-900"><th class="border px-2 py-1 text-left">Common Name</th><th class="border px-2 py-1 text-left">Issuer</th><th class="border px-2 py-1 text-left">Not Before</th><th class="border px-2 py-1 text-left">Not After</th></tr></thead>
+              <tbody>${certs.slice(0,10).map(c => `<tr><td class="border px-2 py-1">${c.commonName||""}</td><td class="border px-2 py-1">${(c.issuerName||"").slice(0,40)}</td><td class="border px-2 py-1">${c.notBefore?c.notBefore.slice(0,10):""}</td><td class="border px-2 py-1">${c.notAfter?c.notAfter.slice(0,10):""}</td></tr>`).join("")}</tbody>
+            </table>
+          </div>
+        </div>` : ""}
+      `;
+
+      osintReportState.tls = {
+        tool: "tls",
+        query: domain,
+        fetchedAt: new Date().toISOString(),
+        report: data
+      };
+      saveLocalReport(osintReportState.tls);
+    } catch(error) {
+      out.innerHTML = `<p class="text-red-500">TLS lookup failed: ${error.message}</p>`;
     }
   }
 
