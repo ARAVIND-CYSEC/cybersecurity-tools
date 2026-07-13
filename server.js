@@ -3283,6 +3283,59 @@ app.post("/api/ai/chat", async (req, res) => {
   }
 });
 
+app.get("/api/cert-monitor/check", async (req, res) => {
+  const domain = String(req.query.domain || "").trim().toLowerCase();
+  if (!isLikelyDomain(domain)) return badRequest(res, "A valid domain is required.");
+
+  try {
+    const raw = await fetchText(`https://crt.sh/?q=${encodeURIComponent(domain)}&output=json`, { timeoutMs: 10000 });
+    let certs = [];
+    try {
+      const text = raw.trim();
+      certs = JSON.parse(text.startsWith("[") ? text : `[${text.replace(/}\s*{/g, "},{") }]`);
+    } catch { certs = []; }
+
+    const now = Date.now();
+    const normalized = certs
+      .map(e => ({
+        issuer: e.issuer_name || null,
+        commonName: e.common_name || null,
+        nameValue: e.name_value || null,
+        notBefore: e.not_before || null,
+        notAfter: e.not_after || null,
+        loggedAt: e.entry_timestamp || null,
+        serialNumber: e.serial_number || null
+      }))
+      .filter(e => e.commonName || e.nameValue)
+      .sort((a, b) => new Date(b.loggedAt || 0) - new Date(a.loggedAt || 0));
+
+    // Flag certs issued in last 7 days as new
+    const recentThresholdMs = 7 * 24 * 60 * 60 * 1000;
+    const newCerts = normalized.filter(e => e.notBefore && (now - new Date(e.notBefore).getTime()) < recentThresholdMs);
+    const suspiciousCerts = normalized.filter(e => {
+      const name = (e.commonName || e.nameValue || "").toLowerCase();
+      // Flag wildcard certs and certs not matching the exact domain
+      return name.startsWith("*.") || (!name.endsWith(domain) && name !== domain);
+    }).slice(0, 10);
+
+    res.json({
+      domain,
+      checkedAt: new Date().toISOString(),
+      totalCerts: normalized.length,
+      newCerts: newCerts.slice(0, 10),
+      newCertCount: newCerts.length,
+      recentCerts: normalized.slice(0, 10),
+      suspiciousCerts,
+      alert: newCerts.length > 0
+        ? `${newCerts.length} new certificate(s) issued for ${domain} in the last 7 days.`
+        : `No new certificates detected for ${domain} in the last 7 days.`,
+      alertLevel: newCerts.length > 0 ? (suspiciousCerts.length > 0 ? "high" : "medium") : "low"
+    });
+  } catch (error) {
+    res.status(502).json({ error: "Failed to fetch certificate transparency data.", details: error.message });
+  }
+});
+
 app.get("/", (req, res) => {
   res.sendFile(path.resolve(__dirname, "home2.html"));
 });

@@ -62,6 +62,21 @@
       <section class="glass rounded-[1.5rem] p-5">
         <div class="flex items-center justify-between gap-3 flex-wrap">
           <div>
+            <p class="section-label m-0">Certificate Transparency Monitor</p>
+            <p class="mt-2 mb-0 text-sm text-slate-500 dark:text-slate-400">Check crt.sh CT logs for new or suspicious certificates issued for a domain — similar to what ct_monitor does.</p>
+          </div>
+        </div>
+        <div class="mt-4 flex gap-3 flex-wrap">
+          <input id="certMonitorInput" type="text" placeholder="Enter domain e.g. example.com"
+            class="flex-1 min-w-[220px] px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm outline-none" />
+          <button id="certMonitorBtn" class="soft-btn text-sm">Check Certificates</button>
+        </div>
+        <div id="certMonitorResult" class="mt-5"></div>
+      </section>
+
+      <section class="glass rounded-[1.5rem] p-5">
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+          <div>
             <p class="section-label m-0">Active Watch Targets</p>
             <p class="mt-2 mb-0 text-sm text-slate-500 dark:text-slate-400">Indicators promoted from cases or live analysis.</p>
           </div>
@@ -163,6 +178,90 @@
         });
       });
     }
+    document.getElementById("certMonitorBtn").addEventListener("click", async () => {
+      const domain = document.getElementById("certMonitorInput").value.trim();
+      const out = document.getElementById("certMonitorResult");
+      if (!domain) { out.innerHTML = `<p class="text-sm text-red-500">Please enter a domain.</p>`; return; }
+      out.innerHTML = `<p class="text-sm text-slate-500">Checking CT logs for ${escapeHtml(domain)}...</p>`;
+      try {
+        const data = await requestJson(`/api/cert-monitor/check?domain=${encodeURIComponent(domain)}`);
+        const levelClass = data.alertLevel === "high" ? "danger" : data.alertLevel === "medium" ? "warn" : "safe";
+        const row = (label, val) => `<div class="flex gap-2 text-sm"><span class="font-semibold w-36 shrink-0 text-slate-500">${label}:</span><span class="break-all">${escapeHtml(String(val ?? "N/A"))}</span></div>`;
+        out.innerHTML = `
+          <div class="space-y-4">
+            <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+              <div class="flex items-center gap-3">
+                <span class="badge ${levelClass}">${escapeHtml(data.alertLevel?.toUpperCase() || "LOW")}</span>
+                <p class="m-0 text-sm font-semibold">${escapeHtml(data.alert)}</p>
+              </div>
+              ${row("Domain", data.domain)}
+              ${row("Checked At", new Date(data.checkedAt).toLocaleString())}
+              ${row("Total Certs", data.totalCerts)}
+              ${row("New (7 days)", data.newCertCount)}
+            </div>
+            ${data.newCerts?.length ? `
+            <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+              <p class="section-label m-0 mb-3">New Certificates (last 7 days)</p>
+              <div class="overflow-auto max-h-48">
+                <table class="w-full text-xs border-collapse">
+                  <thead><tr class="bg-indigo-50 dark:bg-indigo-900/40">
+                    <th class="border border-slate-200 dark:border-slate-700 px-2 py-1 text-left">Common Name</th>
+                    <th class="border border-slate-200 dark:border-slate-700 px-2 py-1 text-left">Issuer</th>
+                    <th class="border border-slate-200 dark:border-slate-700 px-2 py-1 text-left">Not Before</th>
+                    <th class="border border-slate-200 dark:border-slate-700 px-2 py-1 text-left">Not After</th>
+                  </tr></thead>
+                  <tbody>${data.newCerts.map(c => `<tr>
+                    <td class="border border-slate-200 dark:border-slate-700 px-2 py-1">${escapeHtml(c.commonName || "")}</td>
+                    <td class="border border-slate-200 dark:border-slate-700 px-2 py-1">${escapeHtml((c.issuer||"").slice(0,40))}</td>
+                    <td class="border border-slate-200 dark:border-slate-700 px-2 py-1">${escapeHtml(c.notBefore ? c.notBefore.slice(0,10) : "")}</td>
+                    <td class="border border-slate-200 dark:border-slate-700 px-2 py-1">${escapeHtml(c.notAfter ? c.notAfter.slice(0,10) : "")}</td>
+                  </tr>`).join("")}</tbody>
+                </table>
+              </div>
+            </div>` : ""}
+            ${data.suspiciousCerts?.length ? `
+            <div class="p-3 rounded-xl border border-amber-200 dark:border-amber-800/40 bg-amber-50/40 dark:bg-amber-900/10">
+              <p class="section-label m-0 mb-3" style="color:#f59e0b">Suspicious Certificates (wildcard / non-matching domain)</p>
+              <div class="overflow-auto max-h-40">
+                <table class="w-full text-xs border-collapse">
+                  <thead><tr class="bg-amber-50 dark:bg-amber-900/30">
+                    <th class="border border-amber-200 dark:border-amber-800 px-2 py-1 text-left">Common Name</th>
+                    <th class="border border-amber-200 dark:border-amber-800 px-2 py-1 text-left">Issuer</th>
+                    <th class="border border-amber-200 dark:border-amber-800 px-2 py-1 text-left">Not Before</th>
+                  </tr></thead>
+                  <tbody>${data.suspiciousCerts.map(c => `<tr>
+                    <td class="border border-amber-200 dark:border-amber-800 px-2 py-1">${escapeHtml(c.commonName || "")}</td>
+                    <td class="border border-amber-200 dark:border-amber-800 px-2 py-1">${escapeHtml((c.issuer||"").slice(0,40))}</td>
+                    <td class="border border-amber-200 dark:border-amber-800 px-2 py-1">${escapeHtml(c.notBefore ? c.notBefore.slice(0,10) : "")}</td>
+                  </tr>`).join("")}</tbody>
+                </table>
+              </div>
+            </div>` : ""}
+            <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+              <p class="section-label m-0 mb-3">Recent Certificates (all time)</p>
+              <div class="overflow-auto max-h-48">
+                <table class="w-full text-xs border-collapse">
+                  <thead><tr class="bg-indigo-50 dark:bg-indigo-900/40">
+                    <th class="border border-slate-200 dark:border-slate-700 px-2 py-1 text-left">Common Name</th>
+                    <th class="border border-slate-200 dark:border-slate-700 px-2 py-1 text-left">Issuer</th>
+                    <th class="border border-slate-200 dark:border-slate-700 px-2 py-1 text-left">Not Before</th>
+                    <th class="border border-slate-200 dark:border-slate-700 px-2 py-1 text-left">Not After</th>
+                  </tr></thead>
+                  <tbody>${data.recentCerts.map(c => `<tr>
+                    <td class="border border-slate-200 dark:border-slate-700 px-2 py-1">${escapeHtml(c.commonName || "")}</td>
+                    <td class="border border-slate-200 dark:border-slate-700 px-2 py-1">${escapeHtml((c.issuer||"").slice(0,40))}</td>
+                    <td class="border border-slate-200 dark:border-slate-700 px-2 py-1">${escapeHtml(c.notBefore ? c.notBefore.slice(0,10) : "")}</td>
+                    <td class="border border-slate-200 dark:border-slate-700 px-2 py-1">${escapeHtml(c.notAfter ? c.notAfter.slice(0,10) : "")}</td>
+                  </tr>`).join("")}</tbody>
+                </table>
+              </div>
+            </div>
+          </div>`;
+      } catch(e) {
+        out.innerHTML = `<p class="text-sm text-red-500">Check failed: ${escapeHtml(e.message)}</p>`;
+      }
+    });
+
     document.getElementById("refreshWatchBtn").addEventListener("click", loadWatchlist);
     document.getElementById("checkAllBtn").addEventListener("click", checkAll);
     document.getElementById("themeToggle").addEventListener("click", () => applyTheme(!document.documentElement.classList.contains("dark")));
