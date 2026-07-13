@@ -1834,27 +1834,18 @@
       let dots = 0;
       const timer = setInterval(() => {
         dots = (dots + 1) % 4;
-        result.textContent = `SSL Labs is scanning ${domain}${".".repeat(dots)} (may take 60-90 seconds)`;
+        result.textContent = `Scanning TLS for ${domain}${".".repeat(dots)}`;
       }, 800);
 
       async function poll(maxAttempts, intervalMs) {
-        for (let i = 0; i < maxAttempts; i++) {
-          const flag = i === 0 ? "startNew=on" : "fromCache=on";
-          const res = await fetch(`/api/security/ssl?domain=${encodeURIComponent(domain)}&${flag}`);
-          const d = await safeJson(res);
-          if (!res.ok) throw new Error(d.error || "TLS lookup failed.");
-          const st = d.ssllabs?.status || "";
-          const eps = d.ssllabs?.endpoints || [];
-          if (st === "ERROR") throw new Error(d.ssllabs?.statusMessage || "SSL Labs scan error.");
-          if (st === "READY" || eps.some(e => e.grade)) return d;
-          await new Promise(r => setTimeout(r, intervalMs));
-        }
-        const lastRes = await fetch(`/api/security/ssl?domain=${encodeURIComponent(domain)}&fromCache=on`);
-        return safeJson(lastRes);
+        const res = await fetch(`/api/security/ssl?domain=${encodeURIComponent(domain)}`);
+        const d = await safeJson(res);
+        if (!res.ok) throw new Error(d.error || "TLS lookup failed.");
+        return d;
       }
 
       try {
-        const data = await poll(12, 8000);
+        const data = await poll();
         clearInterval(timer);
         btn.disabled = false;
         btn.textContent = "Analyze TLS";

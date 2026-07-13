@@ -2299,65 +2299,147 @@ app.get("/api/infrastructure/exposure", async (req, res) => {
   }
 });
 
+async function fetchTlsFull(hostname) {
+  return new Promise((resolve) => {
+    const socket = tls.connect(443, hostname, { servername: hostname, rejectUnauthorized: false, timeout: 8000 }, () => {
+      const cert = socket.getPeerCertificate(true);
+      const protocol = socket.getProtocol();
+      const cipher = socket.getCipher();
+      socket.end();
+      const san = cert?.subjectaltname
+        ? cert.subjectaltname.split(", ").map(s => s.replace(/^DNS:/, "").trim())
+        : [];
+      const chain = [];
+      let c = cert;
+      const seen = new Set();
+      while (c && c.subject && !seen.has(c.fingerprint)) {
+        seen.add(c.fingerprint);
+        chain.push({
+          subject: { CN: c.subject?.CN, O: c.subject?.O },
+          issuerSubject: { CN: c.issuer?.CN, O: c.issuer?.O },
+          issuerLabel: c.issuer?.CN || c.issuer?.O || null
+        });
+        c = c.issuerCertificate && c.issuerCertificate !== c ? c.issuerCertificate : null;
+      }
+      resolve({
+        ok: true,
+        subject: cert?.subject || {},
+        issuer: cert?.issuer || {},
+        issuerLabel: cert?.issuer?.CN || cert?.issuer?.O || null,
+        validFrom: cert?.valid_from || null,
+        validTo: cert?.valid_to || null,
+        serialNumber: cert?.serialNumber || null,
+        fingerprint256: cert?.fingerprint256 || null,
+        san,
+        chain,
+        protocol,
+        cipher: cipher?.name || null,
+        cipherBits: cipher?.version || null,
+        authorized: socket.authorized
+      });
+    });
+    socket.on("error", (err) => resolve({ ok: false, error: err.message }));
+    socket.on("timeout", () => { socket.destroy(); resolve({ ok: false, error: "TLS connection timed out" }); });
+  });
+}
+
+async function fetchSecurityHeaders(hostname) {
+  try {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 6000);
+    const res = await fetch(`https://${hostname}/`, { method: "HEAD", redirect: "follow", signal: controller.signal });
+    clearTimeout(t);
+    const h = (name) => res.headers.get(name);
+    return {
+      hsts: h("strict-transport-security"),
+      csp: h("content-security-policy"),
+      xframe: h("x-frame-options"),
+      xcto: h("x-content-type-options"),
+      referrer: h("referrer-policy"),
+      server: h("server")
+    };
+  } catch { return {}; }
+}
+
 app.get("/api/security/ssl", async (req, res) => {
   const domain = String(req.query.domain || "").trim();
-
-  if (!isLikelyDomain(domain)) {
-    return badRequest(res, "A valid domain is required.");
-  }
+  if (!isLikelyDomain(domain)) return badRequest(res, "A valid domain is required.");
 
   try {
-    const startNew = req.query.startNew === "on";
-    const cacheFlag = startNew ? "startNew=on" : "fromCache=on";
-    const labsData = await fetchJson(
-      `https://api.ssllabs.com/api/v3/analyze?host=${encodeURIComponent(domain)}&all=done&${cacheFlag}`,
-      { timeoutMs: 25000 }
-    );
+    const [tlsData, headers, crtRaw] = await Promise.allSettled([
+      fetchTlsFull(domain),
+      fetchSecurityHeaders(domain),
+      fetchText(`https://crt.sh/?q=${encodeURIComponent(domain)}&output=json`, { timeoutMs: 8000 })
+    ]);
+
+    const tls_ = tlsData.status === "fulfilled" ? tlsData.value : { ok: false };
+    const hdrs = headers.status === "fulfilled" ? headers.value : {};
 
     let crtData = [];
-    if (labsData.status === "READY" || (labsData.endpoints || []).some(e => e.grade)) {
+    if (crtRaw.status === "fulfilled") {
       try {
-        const crtRaw = await fetchText(`https://crt.sh/?q=${encodeURIComponent(domain)}&output=json`);
-        const safeJson = crtRaw.trim().startsWith("[")
-          ? crtRaw
-          : `[${crtRaw.replace(/}\s*{/g, "},{")}]`;
-        crtData = JSON.parse(safeJson);
-      } catch {
-        crtData = [];
-      }
+        const raw = crtRaw.value.trim();
+        crtData = JSON.parse(raw.startsWith("[") ? raw : `[${raw.replace(/}\s*{/g, "},{")  }]`);
+      } catch { crtData = []; }
     }
 
-    const normalizedCertificates = crtData
-      .map((entry) => ({
-        issuerName: entry.issuer_name || null,
-        commonName: entry.common_name || null,
-        nameValue: entry.name_value || null,
-        entryTimestamp: entry.entry_timestamp || null,
-        notBefore: entry.not_before || null,
-        notAfter: entry.not_after || null,
-        serialNumber: entry.serial_number || null
-      }))
-      .filter((entry) => entry.commonName || entry.nameValue || entry.entryTimestamp);
+    const normalizedCerts = crtData
+      .map(e => ({ issuerName: e.issuer_name || null, commonName: e.common_name || null, nameValue: e.name_value || null, entryTimestamp: e.entry_timestamp || null, notBefore: e.not_before || null, notAfter: e.not_after || null, serialNumber: e.serial_number || null }))
+      .filter(e => e.commonName || e.nameValue || e.entryTimestamp);
+    const certDates = normalizedCerts.flatMap(e => [e.entryTimestamp].filter(Boolean));
+    const issueDates = normalizedCerts.flatMap(e => [e.notBefore].filter(Boolean));
 
-    const certDates = normalizedCertificates.flatMap((entry) => [entry.entryTimestamp].filter(Boolean));
-    const issueDates = normalizedCertificates.flatMap((entry) => [entry.notBefore].filter(Boolean));
+    // Build SSL Labs-compatible shape so frontend rendering works unchanged
+    const notBefore = tls_.validFrom ? new Date(tls_.validFrom).getTime() / 1000 : null;
+    const notAfter = tls_.validTo ? new Date(tls_.validTo).getTime() / 1000 : null;
+    const INSECURE_PROTOCOLS = ["TLSv1", "TLSv1.1", "SSLv2", "SSLv3"];
+    const protocolVersion = tls_.protocol || "";
+    const isInsecure = INSECURE_PROTOCOLS.some(p => protocolVersion.includes(p));
+    const grade = !tls_.ok ? "" : isInsecure ? "C" : tls_.authorized ? "A" : "B";
+
+    const fakeEndpoint = {
+      grade,
+      statusMessage: tls_.ok ? "Ready" : (tls_.error || "TLS scan failed"),
+      details: {
+        cert: {
+          subject: tls_.subject,
+          issuerSubject: tls_.issuer,
+          issuerLabel: tls_.issuerLabel,
+          commonNames: tls_.subject?.CN ? [tls_.subject.CN] : [],
+          altNames: tls_.san || [],
+          notBefore,
+          notAfter,
+          serialNumber: tls_.serialNumber,
+          sha256Hash: tls_.fingerprint256,
+          issues: tls_.authorized ? 0 : 1
+        },
+        protocols: tls_.protocol ? [{ name: protocolVersion.replace(/v/i, " "), id: protocolVersion.includes("1.3") ? 772 : protocolVersion.includes("1.2") ? 771 : 770 }] : [],
+        suites: tls_.cipher ? [{ list: [{ name: tls_.cipher }] }] : [],
+        chain: { certs: tls_.chain || [] },
+        hstsPolicy: { status: hdrs.hsts ? "present" : "absent" },
+        httpTransactions: [{ responseHeaders: [
+          hdrs.hsts && { name: "strict-transport-security", value: hdrs.hsts },
+          hdrs.csp && { name: "content-security-policy", value: hdrs.csp },
+          hdrs.xframe && { name: "x-frame-options", value: hdrs.xframe },
+          hdrs.xcto && { name: "x-content-type-options", value: hdrs.xcto },
+          hdrs.referrer && { name: "referrer-policy", value: hdrs.referrer }
+        ].filter(Boolean) }]
+      }
+    };
 
     res.json({
       domain,
-      ssllabs: labsData,
-      recentCertificates: normalizedCertificates.slice(0, 20),
+      ssllabs: { status: "READY", host: domain, port: 443, endpoints: tls_.ok ? [fakeEndpoint] : [] },
+      recentCertificates: normalizedCerts.slice(0, 20),
       summary: {
         firstSeen: certDates.length ? certDates.sort()[0] : null,
         latestSeen: certDates.length ? certDates.sort().slice(-1)[0] : null,
         latestIssued: issueDates.length ? issueDates.sort().slice(-1)[0] : null,
-        issuers: [...new Set(normalizedCertificates.map((entry) => entry.issuerName).filter(Boolean))].slice(0, 10)
+        issuers: [...new Set(normalizedCerts.map(e => e.issuerName).filter(Boolean))].slice(0, 10)
       }
     });
   } catch (error) {
-    res.status(502).json({
-      error: "Failed to fetch SSL/TLS data.",
-      details: error.payload || error.message
-    });
+    res.status(502).json({ error: "Failed to fetch TLS data.", details: error.message });
   }
 });
 
