@@ -313,11 +313,10 @@
         </div>`;
 
       } catch(e) {
-        const hint = e.hint || "";
         out.innerHTML = `
           <div style="padding:.85rem 1rem;border-radius:.9rem;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.07);">
-            <p style="margin:0;font-size:.875rem;font-weight:600;color:#ef4444;">Check failed: ${escapeHtml(e.message)}</p>
-            ${hint ? `<p style="margin:.4rem 0 0;font-size:.78rem;color:#94a3b8;">${escapeHtml(hint)}</p>` : ""}
+            <p style="margin:0;font-size:.875rem;font-weight:600;color:#ef4444;">CT lookup failed for <strong>${escapeHtml(domain)}</strong></p>
+            <p style="margin:.4rem 0 0;font-size:.78rem;color:#94a3b8;">crt.sh did not respond in time. This is common on free-tier deployments — wait a few seconds and try again.</p>
           </div>`;
       }
     });

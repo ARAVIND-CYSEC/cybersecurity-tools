@@ -3417,6 +3417,13 @@ function buildAnalystAssessment(domain, findings, summary) {
   return { health, confidence, facts, verdict, brandAbuseCount: brandAbuse.length, suspiciousCount: suspicious.length };
 }
 
+async function fetchCrtSh(query, timeoutMs = 18000) {
+  const raw = await fetchText(`https://crt.sh/?q=${encodeURIComponent(query)}&output=json`, { timeoutMs });
+  const text = raw.trim();
+  if (!text || text[0] === "<") throw new Error("crt.sh returned HTML instead of JSON");
+  return JSON.parse(text.startsWith("[") ? text : `[${text.replace(/}\s*{/g, "},{") }]`);
+}
+
 app.get("/api/cert-monitor/check", async (req, res) => {
   const domain = String(req.query.domain || "").trim().toLowerCase();
   if (!isLikelyDomain(domain)) return badRequest(res, "A valid domain is required.");
@@ -3425,28 +3432,29 @@ app.get("/api/cert-monitor/check", async (req, res) => {
   let source = "crt.sh";
   let fetchError = null;
 
-  try {
-    const raw = await fetchText(`https://crt.sh/?q=${encodeURIComponent(domain)}&output=json`, { timeoutMs: 15000 });
-    const text = raw.trim();
-    certs = JSON.parse(text.startsWith("[") ? text : `[${text.replace(/}\s*{/g, "},{") }]`);
-  } catch (err) {
-    fetchError = err.message;
+  // Try exact domain, then wildcard prefix, then percent-wildcard
+  const attempts = [
+    { q: domain, label: "crt.sh" },
+    { q: `%.${domain}`, label: "crt.sh (wildcard fallback)" },
+    { q: `%25.${domain}`, label: "crt.sh (encoded fallback)" }
+  ];
+
+  for (const attempt of attempts) {
     try {
-      const raw2 = await fetchText(`https://crt.sh/?q=%.${encodeURIComponent(domain)}&output=json`, { timeoutMs: 15000 });
-      const text2 = raw2.trim();
-      certs = JSON.parse(text2.startsWith("[") ? text2 : `[${text2.replace(/}\s*{/g, "},{") }]`);
-      source = "crt.sh (wildcard fallback)";
+      certs = await fetchCrtSh(attempt.q, 20000);
+      source = attempt.label;
       fetchError = null;
-    } catch (err2) {
-      fetchError = err2.message;
+      if (certs.length) break;
+    } catch (err) {
+      fetchError = err.message;
     }
   }
 
   if (fetchError && !certs.length) {
     return res.status(502).json({
-      error: "Failed to fetch certificate transparency data.",
+      error: `Certificate transparency lookup failed for ${domain}.`,
       details: fetchError,
-      hint: "crt.sh may be temporarily unavailable. Try again in a moment."
+      hint: `crt.sh did not respond in time. This is common on free-tier deployments. Try again in a moment.`
     });
   }
 
