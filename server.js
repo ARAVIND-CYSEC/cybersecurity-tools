@@ -3283,43 +3283,177 @@ app.post("/api/ai/chat", async (req, res) => {
   }
 });
 
+// --- CT Monitor helpers ---
+const TRUSTED_CAS = new Set([
+  "google trust services", "digicert", "let's encrypt", "sectigo", "globalsign",
+  "comodo", "entrust", "godaddy", "amazon", "microsoft", "cloudflare", "identrust",
+  "usertrust", "geotrust", "rapidssl", "thawte", "baltimore", "verisign", "actalis",
+  "buypass", "certum", "d-trust", "e-tugra", "harica", "isrg", "secom", "swisssign",
+  "trustwave", "zerossl"
+]);
+
+const COMPROMISED_CAS = {
+  "diginotar": "Certificate Authority compromised in 2011. All certificates revoked.",
+  "cnnic": "Removed from trust stores in 2015 due to unauthorized certificate issuance.",
+  "wosign": "Removed from trust stores in 2016 due to misissuance.",
+  "startcom": "Removed from trust stores in 2017."
+};
+
+const KNOWN_BRANDS = [
+  "google", "youtube", "gmail", "microsoft", "azure", "office", "outlook", "live",
+  "amazon", "aws", "apple", "icloud", "facebook", "instagram", "whatsapp", "meta",
+  "twitter", "x", "github", "gitlab", "paypal", "stripe", "netflix", "cloudflare",
+  "openai", "chatgpt", "linkedin", "dropbox", "salesforce", "adobe", "zoom",
+  "slack", "shopify", "wordpress", "godaddy"
+];
+
+function getIssuerReputation(issuerRaw) {
+  const issuer = String(issuerRaw || "").toLowerCase();
+  for (const [ca, note] of Object.entries(COMPROMISED_CAS)) {
+    if (issuer.includes(ca)) return { status: "compromised", note };
+  }
+  for (const ca of TRUSTED_CAS) {
+    if (issuer.includes(ca)) return { status: "trusted", note: null };
+  }
+  return { status: "unknown", note: null };
+}
+
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, (_, i) => Array.from({ length: n + 1 }, (_, j) => i === 0 ? j : j === 0 ? i : 0));
+  for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++)
+    dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+  return dp[m][n];
+}
+
+function detectBrandAbuse(certName, queryDomain) {
+  const name = certName.replace(/^\*\./, "").toLowerCase();
+  const baseDomain = queryDomain.split(".")[0].toLowerCase();
+
+  // Check if it's a subdomain or exact match of the queried domain — not abuse
+  if (name === queryDomain || name.endsWith(`.${queryDomain}`)) return null;
+
+  for (const brand of KNOWN_BRANDS) {
+    if (name.includes(brand) && !name.endsWith(`.${brand}.com`) && name !== `${brand}.com`) {
+      const dist = levenshtein(name.split(".")[0], brand);
+      const similarity = Math.round((1 - dist / Math.max(name.split(".")[0].length, brand.length)) * 100);
+      if (similarity >= 70 && name !== queryDomain && !name.endsWith(`.${queryDomain}`)) {
+        return { brand, similarity, type: dist === 0 ? "impersonation" : "typosquatting" };
+      }
+    }
+    // Homoglyph: check if brand name appears with lookalike chars
+    const normalized = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[оаеіΟАЕІ]/g, c => ({ о:"o",а:"a",е:"e",і:"i",Ο:"o",А:"a",Е:"e",І:"i" }[c] || c));
+    if (normalized !== name && normalized.includes(brand)) {
+      return { brand, similarity: 95, type: "homoglyph" };
+    }
+  }
+
+  // Check if queried domain's brand is being impersonated
+  const dist = levenshtein(name.split(".")[0], baseDomain);
+  const similarity = Math.round((1 - dist / Math.max(name.split(".")[0].length, baseDomain.length)) * 100);
+  if (similarity >= 80 && similarity < 100 && name !== queryDomain) {
+    return { brand: queryDomain, similarity, type: "typosquatting" };
+  }
+  return null;
+}
+
+function classifyCert(cert, queryDomain) {
+  const name = (cert.commonName || cert.nameValue || "").toLowerCase().replace(/^\*\./, "");
+  const issuerRep = getIssuerReputation(cert.issuer);
+  const now = Date.now();
+  const isExpired = cert.notAfter && new Date(cert.notAfter).getTime() < now;
+  const isWildcard = (cert.commonName || "").startsWith("*.");
+  const isOwned = name === queryDomain || name.endsWith(`.${queryDomain}`);
+  const brandAbuse = detectBrandAbuse(cert.commonName || cert.nameValue || "", queryDomain);
+
+  // Compromised CA — historical context
+  if (issuerRep.status === "compromised") {
+    return { category: "historical", label: "Historical Certificate", risk: "historical", issuerNote: issuerRep.note, brandAbuse: null };
+  }
+  // Owned by queried domain
+  if (isOwned) {
+    return { category: isWildcard ? "wildcard" : "legitimate", label: isWildcard ? "Wildcard Certificate" : "Legitimate Certificate", risk: "low", issuerNote: null, brandAbuse: null };
+  }
+  // Brand abuse
+  if (brandAbuse) {
+    return { category: "brand_abuse", label: brandAbuse.type === "homoglyph" ? "Homoglyph Certificate" : brandAbuse.type === "impersonation" ? "Brand Impersonation" : "Typosquatting Certificate", risk: "high", issuerNote: null, brandAbuse };
+  }
+  // Expired historical
+  if (isExpired) {
+    return { category: "historical", label: "Expired Certificate", risk: "historical", issuerNote: null, brandAbuse: null };
+  }
+  return { category: "suspicious", label: "Suspicious Certificate", risk: "medium", issuerNote: null, brandAbuse: null };
+}
+
+function scoreRisk(findings) {
+  const brandAbuseCount = findings.filter(f => f.classification.category === "brand_abuse").length;
+  const suspiciousCount = findings.filter(f => f.classification.category === "suspicious").length;
+  const newCount = findings.filter(f => f.isNew).length;
+  if (brandAbuseCount > 0) return "high";
+  if (suspiciousCount > 2 || newCount > 5) return "medium";
+  return "low";
+}
+
+function buildAnalystAssessment(domain, findings, summary) {
+  const brandAbuse = findings.filter(f => f.classification.category === "brand_abuse");
+  const suspicious = findings.filter(f => f.classification.category === "suspicious");
+  const newCerts = findings.filter(f => f.isNew);
+  const confidence = brandAbuse.length === 0 && suspicious.length === 0 ? 98 : suspicious.length > 0 ? 72 : 85;
+  const health = brandAbuse.length > 0 ? "At Risk" : suspicious.length > 0 ? "Needs Review" : "Healthy";
+
+  const facts = [
+    `${summary.total} certificate(s) observed for ${domain}.`,
+    newCerts.length > 0 ? `${newCerts.length} new certificate(s) issued in the last 7 days.` : `No new certificates issued within the last 7 days.`,
+    summary.wildcard > 0 ? `${summary.wildcard} wildcard certificate(s) observed — consistent with enterprise infrastructure.` : null,
+    summary.legitimate > 0 ? `All observed certificates align with known ${domain}-owned infrastructure.` : null
+  ].filter(Boolean);
+
+  const verdict = brandAbuse.length > 0
+    ? `Brand abuse detected. ${brandAbuse.length} certificate(s) show impersonation or typosquatting patterns targeting ${domain}. Immediate investigation recommended.`
+    : suspicious.length > 0
+      ? `${suspicious.length} certificate(s) could not be attributed to known ${domain} infrastructure. Further investigation recommended.`
+      : `No suspicious certificate issuance activity was identified. Observed certificate transparency records are consistent with legitimate ${domain}-owned infrastructure and normal enterprise certificate lifecycle management.`;
+
+  return { health, confidence, facts, verdict, brandAbuseCount: brandAbuse.length, suspiciousCount: suspicious.length };
+}
+
 app.get("/api/cert-monitor/check", async (req, res) => {
   const domain = String(req.query.domain || "").trim().toLowerCase();
   if (!isLikelyDomain(domain)) return badRequest(res, "A valid domain is required.");
 
+  let certs = [];
+  let source = "crt.sh";
+  let fetchError = null;
+
   try {
-    // Try crt.sh with a longer timeout
-    let certs = [];
-    let source = "crt.sh";
-    let fetchError = null;
-
+    const raw = await fetchText(`https://crt.sh/?q=${encodeURIComponent(domain)}&output=json`, { timeoutMs: 15000 });
+    const text = raw.trim();
+    certs = JSON.parse(text.startsWith("[") ? text : `[${text.replace(/}\s*{/g, "},{") }]`);
+  } catch (err) {
+    fetchError = err.message;
     try {
-      const raw = await fetchText(`https://crt.sh/?q=${encodeURIComponent(domain)}&output=json`, { timeoutMs: 15000 });
-      const text = raw.trim();
-      certs = JSON.parse(text.startsWith("[") ? text : `[${text.replace(/}\s*{/g, "},{") }]`);
-    } catch (err) {
-      fetchError = err.message;
-      // Fallback: try with wildcard query
-      try {
-        const raw2 = await fetchText(`https://crt.sh/?q=%.${encodeURIComponent(domain)}&output=json`, { timeoutMs: 15000 });
-        const text2 = raw2.trim();
-        certs = JSON.parse(text2.startsWith("[") ? text2 : `[${text2.replace(/}\s*{/g, "},{") }]`);
-        source = "crt.sh (wildcard fallback)";
-        fetchError = null;
-      } catch (err2) {
-        fetchError = err2.message;
-      }
+      const raw2 = await fetchText(`https://crt.sh/?q=%.${encodeURIComponent(domain)}&output=json`, { timeoutMs: 15000 });
+      const text2 = raw2.trim();
+      certs = JSON.parse(text2.startsWith("[") ? text2 : `[${text2.replace(/}\s*{/g, "},{") }]`);
+      source = "crt.sh (wildcard fallback)";
+      fetchError = null;
+    } catch (err2) {
+      fetchError = err2.message;
     }
+  }
 
-    if (fetchError && !certs.length) {
-      return res.status(502).json({
-        error: "Failed to fetch certificate transparency data.",
-        details: fetchError,
-        hint: "crt.sh may be temporarily unavailable. Try again in a moment."
-      });
-    }
+  if (fetchError && !certs.length) {
+    return res.status(502).json({
+      error: "Failed to fetch certificate transparency data.",
+      details: fetchError,
+      hint: "crt.sh may be temporarily unavailable. Try again in a moment."
+    });
+  }
 
+  try {
     const now = Date.now();
+    const recentMs = 7 * 24 * 60 * 60 * 1000;
+
     const normalized = certs
       .map(e => ({
         issuer: e.issuer_name || null,
@@ -3333,30 +3467,49 @@ app.get("/api/cert-monitor/check", async (req, res) => {
       .filter(e => e.commonName || e.nameValue)
       .sort((a, b) => new Date(b.loggedAt || 0) - new Date(a.loggedAt || 0));
 
-    const recentThresholdMs = 7 * 24 * 60 * 60 * 1000;
-    const newCerts = normalized.filter(e => e.notBefore && (now - new Date(e.notBefore).getTime()) < recentThresholdMs);
-    const suspiciousCerts = normalized.filter(e => {
-      const name = (e.commonName || e.nameValue || "").toLowerCase();
-      return name.startsWith("*.") || (!name.endsWith(domain) && name !== domain);
-    }).slice(0, 10);
+    const findings = normalized.map(cert => ({
+      ...cert,
+      isNew: !!(cert.notBefore && (now - new Date(cert.notBefore).getTime()) < recentMs),
+      isExpired: !!(cert.notAfter && new Date(cert.notAfter).getTime() < now),
+      isWildcard: !!(cert.commonName || "").startsWith("*."),
+      issuerReputation: getIssuerReputation(cert.issuer),
+      classification: classifyCert(cert, domain)
+    }));
+
+    const summary = {
+      total: findings.length,
+      active: findings.filter(f => !f.isExpired).length,
+      historical: findings.filter(f => f.classification.category === "historical" || f.isExpired).length,
+      newCount: findings.filter(f => f.isNew).length,
+      wildcard: findings.filter(f => f.isWildcard).length,
+      legitimate: findings.filter(f => f.classification.category === "legitimate").length,
+      brandAbuse: findings.filter(f => f.classification.category === "brand_abuse").length,
+      suspicious: findings.filter(f => f.classification.category === "suspicious").length
+    };
+
+    const overallRisk = scoreRisk(findings);
+    const assessment = buildAnalystAssessment(domain, findings, summary);
 
     res.json({
       domain,
       source,
       checkedAt: new Date().toISOString(),
-      totalCerts: normalized.length,
-      newCerts: newCerts.slice(0, 10),
-      newCertCount: newCerts.length,
-      recentCerts: normalized.slice(0, 10),
-      suspiciousCerts,
-      alert: newCerts.length > 0
-        ? `${newCerts.length} new certificate(s) issued for ${domain} in the last 7 days.`
-        : `No new certificates detected for ${domain} in the last 7 days.`,
-      alertLevel: newCerts.length > 0 ? (suspiciousCerts.length > 0 ? "high" : "medium") : "low"
+      overallRisk,
+      summary,
+      assessment,
+      findings: {
+        newCerts: findings.filter(f => f.isNew).slice(0, 10),
+        legitimate: findings.filter(f => f.classification.category === "legitimate").slice(0, 10),
+        wildcard: findings.filter(f => f.classification.category === "wildcard").slice(0, 10),
+        brandAbuse: findings.filter(f => f.classification.category === "brand_abuse").slice(0, 10),
+        suspicious: findings.filter(f => f.classification.category === "suspicious").slice(0, 10),
+        historical: findings.filter(f => f.classification.category === "historical").slice(0, 10),
+        recent: findings.slice(0, 15)
+      }
     });
   } catch (error) {
     res.status(502).json({
-      error: "Failed to fetch certificate transparency data.",
+      error: "Failed to process certificate transparency data.",
       details: error.message,
       hint: "crt.sh may be temporarily unavailable. Try again in a moment."
     });
