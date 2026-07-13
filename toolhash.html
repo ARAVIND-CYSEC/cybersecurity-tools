@@ -487,9 +487,232 @@
     document.getElementById("exportFileReportBtn").addEventListener("click", () => state.latestFileAnalysis ? exportReport(state.latestFileAnalysis.report, "cybershield-file-analysis-report.json") : showToast("Generate hashes before exporting.", "danger"));
   }
 
+  function buildTlsIntelligenceHtml(report) {
+    if (!report) return `<div class="glass rounded-[1.3rem] p-5 text-sm text-slate-600 dark:text-slate-300">No TLS intelligence result yet. Enter a domain and click Analyze TLS.</div>`;
+
+    const d = report.report.report;
+    const labs = d.ssllabs || {};
+    const certs = d.recentCertificates || [];
+    const endpoint = (labs.endpoints || [])[0] || {};
+    const endpointDetails = endpoint.details || {};
+    const certDetail = endpointDetails.cert || {};
+    const suites = (endpointDetails.suites || []).flatMap(s => s.list || []);
+    const protocols = endpointDetails.protocols || [];
+    const hstsPolicy = endpointDetails.hstsPolicy || {};
+    const httpTransactions = endpointDetails.httpTransactions || [];
+    const headers = httpTransactions[0]?.responseHeaders || [];
+    const getHeader = (name) => headers.find(h => h.name?.toLowerCase() === name.toLowerCase())?.value || null;
+
+    // Certificate validity
+    const notBefore = certDetail.notBefore ? new Date(certDetail.notBefore * 1000) : null;
+    const notAfter = certDetail.notAfter ? new Date(certDetail.notAfter * 1000) : null;
+    const now = Date.now();
+    const daysRemaining = notAfter ? Math.ceil((notAfter.getTime() - now) / 86400000) : null;
+    const isExpired = daysRemaining !== null && daysRemaining < 0;
+    const isExpiringSoon = daysRemaining !== null && daysRemaining >= 0 && daysRemaining < 30;
+    const certStatus = isExpired ? "Expired" : certDetail.issues > 0 ? "Invalid Chain" : notAfter ? "Valid" : "Unknown";
+    const certStatusColor = certStatus === "Valid" ? "text-emerald-400" : "text-rose-400";
+
+    // TLS protocol analysis
+    const INSECURE_PROTOCOLS = ["SSL 2.0", "SSL 3.0", "TLS 1.0", "TLS 1.1"];
+    const SECURE_PROTOCOLS = ["TLS 1.2", "TLS 1.3"];
+    const protocolRows = protocols.map(p => {
+      const name = p.name ? `${p.name} ${p.version || ""}`.trim() : `Protocol ${p.id}`;
+      const insecure = INSECURE_PROTOCOLS.some(i => name.includes(i.replace("SSL ","SSL").replace("TLS ","TLS"))) || p.id <= 769;
+      return `<div class="flex items-center gap-3 py-2 border-b border-[var(--line)] last:border-0">
+        <span class="${insecure ? "text-rose-400" : "text-emerald-400"} text-lg">${insecure ? "✗" : "✓"}</span>
+        <span class="mono text-sm">${escapeHtml(name)}</span>
+        <span class="ml-auto status-tag ${insecure ? "bg-rose-500/10 text-rose-400" : "bg-emerald-500/10 text-emerald-400"}">${insecure ? "Insecure" : "Secure"}</span>
+      </div>`;
+    }).join("") || `<p class="text-sm text-slate-500 dark:text-slate-400">Protocol data unavailable — SSL Labs may still be scanning.</p>`;
+
+    // Cipher suite analysis
+    const WEAK_CIPHERS = ["RC4","DES","3DES","NULL","EXPORT","anon","MD5"];
+    const cipherRows = suites.slice(0, 8).map(s => {
+      const name = s.name || "Unknown";
+      const weak = WEAK_CIPHERS.some(w => name.toUpperCase().includes(w));
+      const strong = name.includes("AES_256") || name.includes("CHACHA20") || name.includes("AES_128_GCM");
+      const label = weak ? "Weak" : strong ? "Strong" : "Acceptable";
+      const color = weak ? "bg-rose-500/10 text-rose-400" : strong ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400";
+      return `<div class="flex items-center gap-3 py-2 border-b border-[var(--line)] last:border-0">
+        <span class="mono text-xs flex-1 break-all">${escapeHtml(name)}</span>
+        <span class="status-tag ${color}">${label}</span>
+      </div>`;
+    }).join("") || `<p class="text-sm text-slate-500 dark:text-slate-400">Cipher data unavailable.</p>`;
+
+    // Certificate Transparency
+    const ctFirst = d.summary?.firstSeen ? new Date(d.summary.firstSeen).getFullYear() : null;
+    const ctLatest = d.summary?.latestIssued || d.summary?.latestSeen || null;
+    const ctIssuers = (d.summary?.issuers || []).slice(0, 3);
+
+    // SAN
+    const san = certDetail.altNames || [];
+
+    // Certificate chain
+    const chain = endpointDetails.chain?.certs || [];
+    const chainHtml = chain.length
+      ? chain.map((c, i) => `<div class="flex items-start gap-3">${i > 0 ? `<div class="ml-4 w-px h-5 bg-indigo-400/40 mt-0 mb-0"></div>` : ""}<div class="${i > 0 ? "ml-4" : ""} rounded-xl border border-[var(--line)] p-3 flex-1"><p class="m-0 text-xs uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">${i === 0 ? "Root CA" : i === chain.length - 1 ? "Leaf Certificate" : "Intermediate CA"}</p><p class="mt-1 mb-0 text-sm font-semibold">${escapeHtml(c.subject?.CN || c.subject?.O || "Unknown")}</p><p class="mt-1 mb-0 text-xs text-slate-500 dark:text-slate-400">Issuer: ${escapeHtml(c.issuerLabel || c.issuerSubject?.CN || "Unknown")}</p></div></div>`).join("")
+      : `<p class="text-sm text-slate-500 dark:text-slate-400">Chain data unavailable.</p>`;
+
+    // Security headers
+    const hsts = hstsPolicy.status === "present" || getHeader("strict-transport-security");
+    const csp = getHeader("content-security-policy");
+    const xframe = getHeader("x-frame-options");
+    const xcto = getHeader("x-content-type-options");
+    const rp = getHeader("referrer-policy");
+    const headerChecks = [
+      { name: "HSTS", present: !!hsts },
+      { name: "CSP", present: !!csp },
+      { name: "X-Frame-Options", present: !!xframe },
+      { name: "X-Content-Type-Options", present: !!xcto },
+      { name: "Referrer-Policy", present: !!rp }
+    ];
+    const headerHtml = headerChecks.map(h => `<div class="flex items-center gap-3 py-2 border-b border-[var(--line)] last:border-0">
+      <span class="${h.present ? "text-emerald-400" : "text-rose-400"} text-lg">${h.present ? "✓" : "✗"}</span>
+      <span class="text-sm">${h.name}</span>
+      <span class="ml-auto status-tag ${h.present ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"}">${h.present ? "Present" : "Missing"}</span>
+    </div>`).join("");
+
+    // Risk rating
+    const grade = endpoint.grade || "";
+    const gradeColor = grade.startsWith("A") ? "text-emerald-400" : grade.startsWith("B") ? "text-amber-400" : grade ? "text-rose-400" : "text-slate-400";
+    const riskLevel = grade.startsWith("A") ? "Low" : grade.startsWith("B") ? "Medium" : grade ? "High" : "Unknown";
+    const riskColor = riskLevel === "Low" ? "bg-emerald-500/10 text-emerald-400" : riskLevel === "Medium" ? "bg-amber-500/10 text-amber-400" : "bg-rose-500/10 text-rose-400";
+    const headerScore = headerChecks.filter(h => h.present).length;
+    const confidence = grade ? Math.min(98, 60 + headerScore * 5 + (grade === "A+" ? 15 : grade === "A" ? 10 : grade === "A-" ? 7 : 0)) : 0;
+
+    // Assessment text
+    const assessment = grade.startsWith("A")
+      ? `The target uses a valid certificate issued by a trusted certificate authority. Modern TLS versions are supported, no deprecated protocols were observed, and certificate chain validation completed successfully.`
+      : grade.startsWith("B")
+        ? `The target has a valid certificate but some configuration improvements are recommended. Review cipher suites and protocol support to achieve an A rating.`
+        : grade
+          ? `The target has significant TLS configuration issues. Immediate remediation is recommended to prevent potential interception or downgrade attacks.`
+          : `SSL Labs scan is in progress or data is unavailable. Re-run the analysis in a few minutes for full results.`;
+
+    return `
+      <!-- Top summary cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="glass rounded-[1.3rem] p-4">
+          <p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">TLS Status</p>
+          <p class="mt-2 mb-0 text-xl font-bold text-emerald-400">Enabled</p>
+        </div>
+        <div class="glass rounded-[1.3rem] p-4">
+          <p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Certificate</p>
+          <p class="mt-2 mb-0 text-xl font-bold ${certStatusColor}">${certStatus}</p>
+        </div>
+        <div class="glass rounded-[1.3rem] p-4">
+          <p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Security Rating</p>
+          <p class="mt-2 mb-0 text-3xl font-extrabold ${gradeColor}">${grade || "—"}</p>
+        </div>
+        <div class="glass rounded-[1.3rem] p-4">
+          <p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Risk Level</p>
+          <span class="mt-2 inline-block status-tag ${riskColor}">${riskLevel}</span>
+        </div>
+      </div>
+
+      <!-- Certificate Info + Validity -->
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="glass rounded-[1.3rem] p-5">
+          <p class="m-0 text-xs uppercase tracking-[0.22em] text-indigo-300">Certificate Information</p>
+          <div class="mt-4 space-y-3 text-sm">
+            <div><span class="text-slate-500 dark:text-slate-400">Common Name (CN):</span> <span class="font-semibold">${escapeHtml(certDetail.subject?.CN || certDetail.commonNames?.[0] || "—")}</span></div>
+            <div><span class="text-slate-500 dark:text-slate-400">Issuer:</span> <span class="font-semibold">${escapeHtml(certDetail.issuerLabel || certDetail.issuerSubject?.CN || certDetail.issuerSubject?.O || "—")}</span></div>
+            <div><span class="text-slate-500 dark:text-slate-400">Organization:</span> <span class="font-semibold">${escapeHtml(certDetail.subject?.O || "—")}</span></div>
+            <div><span class="text-slate-500 dark:text-slate-400">Serial Number:</span> <span class="mono text-xs break-all">${escapeHtml(certDetail.serialNumber || "—")}</span></div>
+            <div><span class="text-slate-500 dark:text-slate-400">SHA-256 Fingerprint:</span> <span class="mono text-xs break-all">${escapeHtml(certDetail.sha256Hash || "—")}</span></div>
+          </div>
+        </div>
+        <div class="glass rounded-[1.3rem] p-5">
+          <p class="m-0 text-xs uppercase tracking-[0.22em] text-cyan-300">Certificate Validity</p>
+          <div class="mt-4 space-y-3 text-sm">
+            <div><span class="text-slate-500 dark:text-slate-400">Valid From:</span> <span class="font-semibold">${notBefore ? notBefore.toISOString().split("T")[0] : "—"}</span></div>
+            <div><span class="text-slate-500 dark:text-slate-400">Valid Until:</span> <span class="font-semibold">${notAfter ? notAfter.toISOString().split("T")[0] : "—"}</span></div>
+            <div class="flex items-center gap-3">
+              <span class="text-slate-500 dark:text-slate-400">Days Remaining:</span>
+              <span class="font-bold ${isExpired ? "text-rose-400" : isExpiringSoon ? "text-amber-400" : "text-emerald-400"}">${daysRemaining !== null ? daysRemaining : "—"}</span>
+              ${isExpired ? `<span class="status-tag bg-rose-500/10 text-rose-400">Expired</span>` : isExpiringSoon ? `<span class="status-tag bg-amber-500/10 text-amber-400">⚠ Expiring Soon</span>` : ""}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TLS Protocols + Cipher Suites -->
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="glass rounded-[1.3rem] p-5">
+          <p class="m-0 text-xs uppercase tracking-[0.22em] text-emerald-300">Supported Protocols</p>
+          <div class="mt-4">${protocolRows}</div>
+        </div>
+        <div class="glass rounded-[1.3rem] p-5">
+          <p class="m-0 text-xs uppercase tracking-[0.22em] text-amber-300">Cipher Suite Analysis</p>
+          <div class="mt-4">${cipherRows}</div>
+        </div>
+      </div>
+
+      <!-- CT Records + SAN -->
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="glass rounded-[1.3rem] p-5">
+          <p class="m-0 text-xs uppercase tracking-[0.22em] text-indigo-300">Certificate Transparency</p>
+          <div class="mt-4 space-y-3 text-sm">
+            <div><span class="text-slate-500 dark:text-slate-400">CT Records:</span> <span class="font-bold text-2xl">${certs.length}</span></div>
+            ${ctFirst ? `<div><span class="text-slate-500 dark:text-slate-400">First Seen:</span> <span class="font-semibold">${ctFirst}</span></div>` : ""}
+            ${ctLatest ? `<div><span class="text-slate-500 dark:text-slate-400">Latest Certificate:</span> <span class="font-semibold">${escapeHtml(ctLatest.split("T")[0])}</span></div>` : ""}
+            ${ctIssuers.length ? `<div><span class="text-slate-500 dark:text-slate-400">Issuers:</span><ul class="mt-1 space-y-1 pl-4">${ctIssuers.map(i => `<li class="text-xs">${escapeHtml(i)}</li>`).join("")}</ul></div>` : ""}
+          </div>
+        </div>
+        <div class="glass rounded-[1.3rem] p-5">
+          <p class="m-0 text-xs uppercase tracking-[0.22em] text-cyan-300">Subject Alternative Names (SAN)</p>
+          <div class="mt-4 max-h-40 overflow-y-auto space-y-1">${san.length
+            ? san.map(name => `<div class="mono text-xs py-1 px-3 rounded-lg border border-[var(--line)] bg-slate-500/5">${escapeHtml(name)}</div>`).join("")
+            : `<p class="text-sm text-slate-500 dark:text-slate-400">No SAN data available.</p>`
+          }</div>
+        </div>
+      </div>
+
+      <!-- Certificate Chain -->
+      <div class="glass rounded-[1.3rem] p-5">
+        <p class="m-0 text-xs uppercase tracking-[0.22em] text-rose-300">Certificate Chain</p>
+        <div class="mt-4 space-y-2">${chainHtml}</div>
+      </div>
+
+      <!-- Security Headers -->
+      <div class="glass rounded-[1.3rem] p-5">
+        <p class="m-0 text-xs uppercase tracking-[0.22em] text-amber-300">Security Headers</p>
+        <div class="mt-4">${headerHtml}</div>
+      </div>
+
+      <!-- Risk Assessment -->
+      <div class="glass rounded-[1.3rem] p-5">
+        <div class="flex flex-wrap items-center gap-4 mb-4">
+          <div><p class="m-0 text-xs uppercase tracking-[0.22em] text-emerald-300">TLS Security Rating</p><p class="mt-1 mb-0 text-5xl font-extrabold ${gradeColor}">${grade || "—"}</p></div>
+          <div class="flex flex-col gap-2">
+            <span class="status-tag ${riskColor}">Risk: ${riskLevel}</span>
+            <span class="status-tag bg-indigo-500/10 text-indigo-300">Confidence: ${confidence ? confidence + "%" : "Awaiting"}</span>
+          </div>
+        </div>
+        <p class="m-0 text-sm text-slate-700 dark:text-slate-200 leading-7">${escapeHtml(assessment)}</p>
+      </div>`;
+  }
+
   function renderTlsIntelligence() {
     const report = state.latestTlsAnalysis;
-    workspaceContent.innerHTML = `<section class="glass rounded-[1.7rem] p-6"><div class="flex flex-col xl:flex-row gap-5"><div class="xl:w-[23rem]"><p class="m-0 text-xs uppercase tracking-[0.22em] text-emerald-300">TLS Intelligence</p><h1 class="mt-2 mb-0 text-3xl font-bold">Certificate posture and exposure view</h1><p class="mt-4 text-slate-600 dark:text-slate-300">Inspect a domain for SSL Labs posture, endpoint grades, and recently observed certificate records.</p><div class="mt-5 space-y-3"><input id="tlsDomainInput" class="input-shell w-full rounded-2xl px-4 py-3 mono" placeholder="example.com" value="${escapeHtml(report?.query || "")}" /><div class="grid sm:grid-cols-2 gap-3"><button id="runTlsBtn" class="action-button primary">Analyze TLS</button><button id="exportTlsBtn" class="action-button">Export Report</button></div></div></div><div class="flex-1 space-y-4">${report ? `<div class="grid md:grid-cols-3 gap-4"><div class="glass rounded-[1.3rem] p-4"><p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Status</p><p class="mt-2 mb-0 text-xl font-semibold">${escapeHtml(report.report.report.ssllabs?.status || "Unknown")}</p></div><div class="glass rounded-[1.3rem] p-4"><p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Endpoints</p><p class="mt-2 mb-0 text-xl font-semibold">${(report.report.report.ssllabs?.endpoints || []).length}</p></div><div class="glass rounded-[1.3rem] p-4"><p class="m-0 text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Recent Certs</p><p class="mt-2 mb-0 text-xl font-semibold">${(report.report.report.recentCertificates || []).length}</p></div></div>` : `<div class="glass rounded-[1.3rem] p-5 text-sm text-slate-600 dark:text-slate-300">No TLS intelligence result yet.</div>`}</div></div></section>`;
+    workspaceContent.innerHTML = `<section class="glass rounded-[1.7rem] p-6">
+      <div class="flex flex-col xl:flex-row gap-5">
+        <div class="xl:w-[23rem]">
+          <p class="m-0 text-xs uppercase tracking-[0.22em] text-emerald-300">TLS Intelligence</p>
+          <h1 class="mt-2 mb-0 text-3xl font-bold">Certificate posture and exposure view</h1>
+          <p class="mt-4 text-slate-600 dark:text-slate-300">Inspect a domain for certificate status, TLS versions, cipher suites, CT records, SAN, security headers, and risk rating.</p>
+          <div class="mt-5 space-y-3">
+            <input id="tlsDomainInput" class="input-shell w-full rounded-2xl px-4 py-3 mono" placeholder="example.com" value="${escapeHtml(report?.query || "")}" />
+            <div class="grid sm:grid-cols-2 gap-3">
+              <button id="runTlsBtn" class="action-button primary">Analyze TLS</button>
+              <button id="exportTlsBtn" class="action-button">Export Report</button>
+            </div>
+          </div>
+        </div>
+        <div class="flex-1 space-y-4">${buildTlsIntelligenceHtml(report)}</div>
+      </div>
+    </section>`;
     document.getElementById("runTlsBtn").addEventListener("click", analyzeTls);
     document.getElementById("exportTlsBtn").addEventListener("click", () => state.latestTlsAnalysis ? exportReport(state.latestTlsAnalysis.report, "cybershield-tls-intelligence-report.json") : showToast("Run TLS analysis before exporting.", "danger"));
   }
