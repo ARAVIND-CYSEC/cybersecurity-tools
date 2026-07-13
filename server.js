@@ -2311,18 +2311,20 @@ app.get("/api/security/ssl", async (req, res) => {
     const cacheFlag = startNew ? "startNew=on" : "fromCache=on";
     const labsData = await fetchJson(
       `https://api.ssllabs.com/api/v3/analyze?host=${encodeURIComponent(domain)}&all=done&${cacheFlag}`,
-      { timeoutMs: 15000 }
+      { timeoutMs: 25000 }
     );
 
     let crtData = [];
-    try {
-      const crtRaw = await fetchText(`https://crt.sh/?q=${encodeURIComponent(domain)}&output=json`);
-      const safeJson = crtRaw.trim().startsWith("[")
-        ? crtRaw
-        : `[${crtRaw.replace(/}\s*{/g, "},{")}]`;
-      crtData = JSON.parse(safeJson);
-    } catch {
-      crtData = [];
+    if (labsData.status === "READY" || (labsData.endpoints || []).some(e => e.grade)) {
+      try {
+        const crtRaw = await fetchText(`https://crt.sh/?q=${encodeURIComponent(domain)}&output=json`);
+        const safeJson = crtRaw.trim().startsWith("[")
+          ? crtRaw
+          : `[${crtRaw.replace(/}\s*{/g, "},{")}]`;
+        crtData = JSON.parse(safeJson);
+      } catch {
+        crtData = [];
+      }
     }
 
     const normalizedCertificates = crtData

@@ -1843,13 +1843,14 @@
           const res = await fetch(`/api/security/ssl?domain=${encodeURIComponent(domain)}&${flag}`);
           const d = await safeJson(res);
           if (!res.ok) throw new Error(d.error || "TLS lookup failed.");
-          const st = d.ssllabs?.status || d.status || "";
-          const eps = d.ssllabs?.endpoints || d.endpoints || [];
-          if (st === "READY" || eps.some(e => e.grade)) return d;
+          const st = d.ssllabs?.status || "";
+          const eps = d.ssllabs?.endpoints || [];
           if (st === "ERROR") throw new Error(d.ssllabs?.statusMessage || "SSL Labs scan error.");
+          if (st === "READY" || eps.some(e => e.grade)) return d;
           await new Promise(r => setTimeout(r, intervalMs));
         }
-        throw new Error("SSL Labs scan timed out. Try again in a minute.");
+        const lastRes = await fetch(`/api/security/ssl?domain=${encodeURIComponent(domain)}&fromCache=on`);
+        return safeJson(lastRes);
       }
 
       try {
