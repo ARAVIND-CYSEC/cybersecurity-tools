@@ -2130,6 +2130,7 @@
         const endpoint = (labs.endpoints || [])[0] || {};
         const details = endpoint.details || {};
         const certDetail = details.cert || {};
+        const diagnosticError = data.tlsDiagnostics?.error || labs.statusMessage || endpoint.statusMessage || "";
         const suites = (details.suites || []).flatMap(group => group.list || []);
         const protocols = details.protocols || [];
         const hstsPolicy = details.hstsPolicy || {};
@@ -2152,7 +2153,8 @@
         const invalidChain = Number(certDetail.issues || 0) > 0 || /invalid|chain|unable/i.test(endpoint.statusMessage || "");
         const certStatus = isExpired ? "Expired" : revoked ? "Revoked" : selfSigned ? "Self-Signed" : invalidChain ? "Invalid Chain" : notAfter ? "Valid" : "Unknown";
         const certTone = certStatus === "Valid" ? "safe" : certStatus === "Unknown" ? "info" : "danger";
-        const tlsEnabled = !!(endpoint.details || Object.keys(certDetail).length);
+        const hasCertificateData = !!(certDetail.notAfter || certDetail.sha256Hash || certDetail.serialNumber || certDetail.subject?.CN);
+        const tlsEnabled = !!(data.tlsDiagnostics?.ok || hasCertificateData);
 
         const normalizeProtocolName = (protocol) => {
           const raw = protocol.name ? `${protocol.name} ${protocol.version || ""}`.trim() : `Protocol ${protocol.id || ""}`.trim();
@@ -2232,11 +2234,22 @@
         const riskLevel = certStatus !== "Valid" || observedInsecure.length || weakCipherCount ? "High" : deprecatedCipherCount || headerScore < 3 || isExpiringSoon ? "Medium" : "Low";
         const riskTone = riskLevel === "Low" ? "safe" : riskLevel === "Medium" ? "warn" : "danger";
         const confidence = Math.min(98, 55 + (certStatus !== "Unknown" ? 15 : 0) + (protocols.length ? 10 : 0) + (suites.length ? 8 : 0) + Math.min(10, headerScore * 2) + (ctRecordCount ? 10 : 0));
-        const assessment = strongPosture
+        const assessment = !tlsEnabled
+          ? `TLS endpoint collection did not complete: ${diagnosticError || "no certificate details were returned"}. CT records and HTTP security headers may still be useful, but certificate trust could not be verified from this scan.`
+          : strongPosture
           ? "The target uses a valid certificate issued by a trusted certificate authority. Modern TLS versions are supported, no deprecated protocols were observed, and certificate chain validation completed successfully."
           : riskLevel === "Medium"
             ? "The target has a usable TLS deployment, but configuration improvements are recommended. Review expiring certificates, missing security headers, deprecated cipher suites, or incomplete protocol visibility."
             : "The target has material TLS trust or configuration issues. Review certificate validity, chain status, deprecated protocols, and weak cipher exposure before trusting the endpoint.";
+        const diagnosticPanel = !tlsEnabled
+          ? `<div class="intel-section"><p class="section-label m-0">Collection Status</p><div class="intel-list mt-2">${detailRows([
+              ["Scanner Status", labs.status || "ERROR"],
+              ["Failure Reason", diagnosticError || "No live certificate endpoint details returned"],
+              ["Host", labs.host || data.domain || domain],
+              ["Port", labs.port || 443],
+              ["CT Records Available", ctRecordCount]
+            ])}</div></div>`
+          : "";
 
         result.innerHTML = `
           <div class="intel-grid">
@@ -2248,6 +2261,7 @@
               ${metricCard("Risk", riskLevel, riskTone)}
               ${metricCard("Confidence", confidence + "%", "info")}
             </div>
+            ${diagnosticPanel}
 
             <div class="grid lg:grid-cols-2 gap-4">
               <div class="intel-section">

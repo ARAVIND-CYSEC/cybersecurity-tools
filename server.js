@@ -2429,9 +2429,21 @@ app.get("/api/security/ssl", async (req, res) => {
 
     res.json({
       domain,
-      ssllabs: { status: "READY", host: domain, port: 443, endpoints: tls_.ok ? [fakeEndpoint] : [] },
+      tlsDiagnostics: {
+        ok: !!tls_.ok,
+        source: "node_tls_socket",
+        error: tls_.ok ? null : (tls_.error || "TLS scan failed")
+      },
+      ssllabs: {
+        status: tls_.ok ? "READY" : "ERROR",
+        statusMessage: tls_.ok ? "Ready" : (tls_.error || "TLS scan failed"),
+        host: domain,
+        port: 443,
+        endpoints: [fakeEndpoint]
+      },
       recentCertificates: normalizedCerts.slice(0, 20),
       summary: {
+        recordCount: normalizedCerts.length,
         firstSeen: certDates.length ? certDates.sort()[0] : null,
         latestSeen: certDates.length ? certDates.sort().slice(-1)[0] : null,
         latestIssued: issueDates.length ? issueDates.sort().slice(-1)[0] : null,
