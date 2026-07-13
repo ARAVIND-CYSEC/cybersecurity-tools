@@ -111,7 +111,11 @@
       const response = await fetch(url, options);
       const text = await response.text();
       const data = text ? JSON.parse(text) : null;
-      if (!response.ok) throw new Error(data?.error || "Request failed.");
+      if (!response.ok) {
+        const err = new Error(data?.error || "Request failed.");
+        err.hint = data?.hint || "";
+        throw err;
+      }
       return data;
     }
     function badgeClass(level) {
@@ -275,7 +279,12 @@
             </div>
           </div>`;
       } catch(e) {
-        out.innerHTML = `<p class="text-sm text-red-500">Check failed: ${escapeHtml(e.message)}</p>`;
+        const hint = e.hint || "";
+        out.innerHTML = `
+          <div style="padding:.85rem 1rem;border-radius:.9rem;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.07);">
+            <p class="m-0 text-sm font-semibold" style="color:#ef4444;">Check failed: ${escapeHtml(e.message)}</p>
+            ${hint ? `<p class="m-0 mt-1 text-xs" style="color:#94a3b8;">${escapeHtml(hint)}</p>` : ""}
+          </div>`;
       }
     });
 

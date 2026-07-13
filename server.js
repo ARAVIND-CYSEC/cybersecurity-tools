@@ -3288,12 +3288,36 @@ app.get("/api/cert-monitor/check", async (req, res) => {
   if (!isLikelyDomain(domain)) return badRequest(res, "A valid domain is required.");
 
   try {
-    const raw = await fetchText(`https://crt.sh/?q=${encodeURIComponent(domain)}&output=json`, { timeoutMs: 10000 });
+    // Try crt.sh with a longer timeout
     let certs = [];
+    let source = "crt.sh";
+    let fetchError = null;
+
     try {
+      const raw = await fetchText(`https://crt.sh/?q=${encodeURIComponent(domain)}&output=json`, { timeoutMs: 15000 });
       const text = raw.trim();
       certs = JSON.parse(text.startsWith("[") ? text : `[${text.replace(/}\s*{/g, "},{") }]`);
-    } catch { certs = []; }
+    } catch (err) {
+      fetchError = err.message;
+      // Fallback: try with wildcard query
+      try {
+        const raw2 = await fetchText(`https://crt.sh/?q=%.${encodeURIComponent(domain)}&output=json`, { timeoutMs: 15000 });
+        const text2 = raw2.trim();
+        certs = JSON.parse(text2.startsWith("[") ? text2 : `[${text2.replace(/}\s*{/g, "},{") }]`);
+        source = "crt.sh (wildcard fallback)";
+        fetchError = null;
+      } catch (err2) {
+        fetchError = err2.message;
+      }
+    }
+
+    if (fetchError && !certs.length) {
+      return res.status(502).json({
+        error: "Failed to fetch certificate transparency data.",
+        details: fetchError,
+        hint: "crt.sh may be temporarily unavailable. Try again in a moment."
+      });
+    }
 
     const now = Date.now();
     const normalized = certs
@@ -3309,17 +3333,16 @@ app.get("/api/cert-monitor/check", async (req, res) => {
       .filter(e => e.commonName || e.nameValue)
       .sort((a, b) => new Date(b.loggedAt || 0) - new Date(a.loggedAt || 0));
 
-    // Flag certs issued in last 7 days as new
     const recentThresholdMs = 7 * 24 * 60 * 60 * 1000;
     const newCerts = normalized.filter(e => e.notBefore && (now - new Date(e.notBefore).getTime()) < recentThresholdMs);
     const suspiciousCerts = normalized.filter(e => {
       const name = (e.commonName || e.nameValue || "").toLowerCase();
-      // Flag wildcard certs and certs not matching the exact domain
       return name.startsWith("*.") || (!name.endsWith(domain) && name !== domain);
     }).slice(0, 10);
 
     res.json({
       domain,
+      source,
       checkedAt: new Date().toISOString(),
       totalCerts: normalized.length,
       newCerts: newCerts.slice(0, 10),
@@ -3332,7 +3355,11 @@ app.get("/api/cert-monitor/check", async (req, res) => {
       alertLevel: newCerts.length > 0 ? (suspiciousCerts.length > 0 ? "high" : "medium") : "low"
     });
   } catch (error) {
-    res.status(502).json({ error: "Failed to fetch certificate transparency data.", details: error.message });
+    res.status(502).json({
+      error: "Failed to fetch certificate transparency data.",
+      details: error.message,
+      hint: "crt.sh may be temporarily unavailable. Try again in a moment."
+    });
   }
 });
 
