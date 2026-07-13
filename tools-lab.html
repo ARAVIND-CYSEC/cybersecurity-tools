@@ -122,10 +122,74 @@
       }[char]));
     }
 
+    function compactReportForStorage(report) {
+      if (report.tool !== "tls") return report;
+      const endpoint = report.report?.ssllabs?.endpoints?.[0] || {};
+      const details = endpoint.details || {};
+      const cert = details.cert || {};
+      return {
+        ...report,
+        report: {
+          domain: report.report?.domain,
+          ssllabs: {
+            status: report.report?.ssllabs?.status,
+            host: report.report?.ssllabs?.host,
+            port: report.report?.ssllabs?.port,
+            endpoints: [{
+              grade: endpoint.grade,
+              statusMessage: endpoint.statusMessage,
+              details: {
+                cert: {
+                  subject: cert.subject,
+                  issuerSubject: cert.issuerSubject,
+                  issuerLabel: cert.issuerLabel,
+                  commonNames: cert.commonNames,
+                  altNames: (cert.altNames || []).slice(0, 50),
+                  notBefore: cert.notBefore,
+                  notAfter: cert.notAfter,
+                  serialNumber: cert.serialNumber,
+                  sha256Hash: cert.sha256Hash,
+                  issues: cert.issues
+                },
+                protocols: details.protocols || [],
+                suites: (details.suites || []).map(group => ({ ...group, list: (group.list || []).slice(0, 12) })),
+                chain: { certs: (details.chain?.certs || []).slice(0, 6) },
+                hstsPolicy: details.hstsPolicy,
+                httpTransactions: details.httpTransactions
+              }
+            }]
+          },
+          recentCertificates: (report.report?.recentCertificates || []).slice(0, 8),
+          summary: report.report?.summary
+        }
+      };
+    }
+
     function saveLocalReport(report) {
-      const existing = JSON.parse(localStorage.getItem("cybershieldSavedReports") || "[]");
-      existing.unshift({ id: `${report.tool}-${Date.now()}`, savedAt: new Date().toISOString(), ...report });
-      localStorage.setItem("cybershieldSavedReports", JSON.stringify(existing.slice(0, 40)));
+      const key = "cybershieldSavedReports";
+      let existing = [];
+      try {
+        existing = JSON.parse(localStorage.getItem(key) || "[]");
+      } catch {
+        existing = [];
+      }
+
+      const entry = { id: `${report.tool}-${Date.now()}`, savedAt: new Date().toISOString(), ...compactReportForStorage(report) };
+      const candidates = [40, 20, 10, 5, 1];
+      for (const limit of candidates) {
+        try {
+          localStorage.setItem(key, JSON.stringify([entry, ...existing].slice(0, limit)));
+          return;
+        } catch (error) {
+          if (!/quota|storage/i.test(String(error?.name || error?.message))) throw error;
+        }
+      }
+      try {
+        localStorage.removeItem(key);
+        localStorage.setItem(key, JSON.stringify([entry]));
+      } catch {
+        console.warn("Saved report history was skipped because browser storage is full.");
+      }
     }
 
     function exportReport(payload, filename) {
