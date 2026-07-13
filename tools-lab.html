@@ -1839,7 +1839,8 @@
 
       async function poll(maxAttempts, intervalMs) {
         for (let i = 0; i < maxAttempts; i++) {
-          const res = await fetch(`/api/security/ssl?domain=${encodeURIComponent(domain)}`);
+          const flag = i === 0 ? "startNew=on" : "fromCache=on";
+          const res = await fetch(`/api/security/ssl?domain=${encodeURIComponent(domain)}&${flag}`);
           const d = await safeJson(res);
           if (!res.ok) throw new Error(d.error || "TLS lookup failed.");
           const st = d.ssllabs?.status || d.status || "";

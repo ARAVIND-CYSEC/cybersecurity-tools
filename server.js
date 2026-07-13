@@ -2307,8 +2307,11 @@ app.get("/api/security/ssl", async (req, res) => {
   }
 
   try {
+    const startNew = req.query.startNew === "on";
+    const cacheFlag = startNew ? "startNew=on" : "fromCache=on";
     const labsData = await fetchJson(
-      `https://api.ssllabs.com/api/v3/analyze?host=${encodeURIComponent(domain)}&all=done&fromCache=on`
+      `https://api.ssllabs.com/api/v3/analyze?host=${encodeURIComponent(domain)}&all=done&${cacheFlag}`,
+      { timeoutMs: 15000 }
     );
 
     let crtData = [];
