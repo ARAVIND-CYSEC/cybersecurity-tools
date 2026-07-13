@@ -1195,7 +1195,7 @@
             <button id="tlsRun" class="action-btn primary">Analyze TLS</button>
             <button id="tlsExport" class="action-btn">Export</button>
           </div>
-          <div id="tlsResult" class="result-card p-5 min-h-[220px] text-sm text-slate-600 dark:text-slate-300">Fetch live certificate and TLS scan data.</div>
+          <div id="tlsResult" class="result-card p-5 min-h-[220px] text-sm text-slate-600 dark:text-slate-300">Assess certificate trust, protocol support, cipher quality, CT history, chain validation, SANs, headers, and risk.</div>
         </div>
       `;
     }
@@ -2039,6 +2039,245 @@
       }
     }
 
+    async function runTlsIntelligence() {
+      const domain = document.getElementById("tlsInput").value.trim();
+      const result = document.getElementById("tlsResult");
+      if (!domain) { result.textContent = "Enter a domain."; return; }
+      const btn = document.getElementById("tlsRun");
+      btn.disabled = true;
+      btn.textContent = "Scanning...";
+      let dots = 0;
+      const timer = setInterval(() => {
+        dots = (dots + 1) % 4;
+        result.textContent = `Building TLS intelligence for ${domain}${".".repeat(dots)}`;
+      }, 800);
+
+      try {
+        const res = await fetch(`/api/security/ssl?domain=${encodeURIComponent(domain)}`);
+        const data = await safeJson(res);
+        if (!res.ok) throw new Error(data.error || "TLS lookup failed.");
+        clearInterval(timer);
+        btn.disabled = false;
+        btn.textContent = "Analyze TLS";
+        state.reports.tls = { tool: "tls", query: domain, fetchedAt: new Date().toISOString(), report: data };
+        saveLocalReport(state.reports.tls);
+
+        const labs = data.ssllabs || data;
+        const endpoint = (labs.endpoints || [])[0] || {};
+        const details = endpoint.details || {};
+        const certDetail = details.cert || {};
+        const suites = (details.suites || []).flatMap(group => group.list || []);
+        const protocols = details.protocols || [];
+        const hstsPolicy = details.hstsPolicy || {};
+        const headers = details.httpTransactions?.[0]?.responseHeaders || [];
+        const getHeader = (name) => headers.find(h => h.name?.toLowerCase() === name.toLowerCase())?.value || null;
+        const certs = data.recentCertificates || [];
+        const ctRecordCount = data.summary?.recordCount ?? certs.length;
+
+        const notBefore = certDetail.notBefore ? new Date(certDetail.notBefore * 1000) : null;
+        const notAfter = certDetail.notAfter ? new Date(certDetail.notAfter * 1000) : null;
+        const daysRemaining = notAfter ? Math.ceil((notAfter.getTime() - Date.now()) / 86400000) : null;
+        const isExpired = daysRemaining !== null && daysRemaining < 0;
+        const isExpiringSoon = daysRemaining !== null && daysRemaining >= 0 && daysRemaining < 30;
+        const subjectCN = certDetail.subject?.CN || certDetail.commonNames?.[0] || "";
+        const issuerCN = certDetail.issuerLabel || certDetail.issuerSubject?.CN || "";
+        const subjectOrg = certDetail.subject?.O || "";
+        const issuerOrg = certDetail.issuerSubject?.O || "";
+        const selfSigned = !!subjectCN && subjectCN === issuerCN && (!subjectOrg || subjectOrg === issuerOrg);
+        const revoked = /revoked/i.test(String(certDetail.revocationStatus || certDetail.revocationInfo || ""));
+        const invalidChain = Number(certDetail.issues || 0) > 0 || /invalid|chain|unable/i.test(endpoint.statusMessage || "");
+        const certStatus = isExpired ? "Expired" : revoked ? "Revoked" : selfSigned ? "Self-Signed" : invalidChain ? "Invalid Chain" : notAfter ? "Valid" : "Unknown";
+        const certTone = certStatus === "Valid" ? "safe" : certStatus === "Unknown" ? "info" : "danger";
+        const tlsEnabled = !!(endpoint.details || Object.keys(certDetail).length);
+
+        const normalizeProtocolName = (protocol) => {
+          const raw = protocol.name ? `${protocol.name} ${protocol.version || ""}`.trim() : `Protocol ${protocol.id || ""}`.trim();
+          return raw.replace(/^TLSv/i, "TLS ").replace(/^SSLv/i, "SSL ").replace(/\s+/g, " ").trim();
+        };
+        const observedProtocols = new Set(protocols.map(normalizeProtocolName).map(name => name.toUpperCase()));
+        const hasProtocol = (name) => observedProtocols.has(name.toUpperCase());
+        const insecureProtocols = ["TLS 1.1", "TLS 1.0", "SSLv3", "SSL 3"];
+        const observedInsecure = protocols
+          .map(normalizeProtocolName)
+          .filter(name => insecureProtocols.some(insecure => name.replace(/\s+/g, "").toUpperCase().includes(insecure.replace(/\s+/g, "").toUpperCase())));
+
+        const headerChecks = [
+          { name: "HSTS", label: "HSTS Enabled", present: hstsPolicy.status === "present" || !!getHeader("strict-transport-security") },
+          { name: "CSP", label: "CSP Configured", present: !!getHeader("content-security-policy") },
+          { name: "X-Frame-Options", label: "X-Frame-Options Present", present: !!getHeader("x-frame-options") },
+          { name: "X-Content-Type-Options", label: "X-Content-Type-Options Present", present: !!getHeader("x-content-type-options") },
+          { name: "Referrer-Policy", label: "Referrer-Policy Present", present: !!getHeader("referrer-policy") }
+        ];
+        const headerScore = headerChecks.filter(h => h.present).length;
+        const headerSummary = headerScore === headerChecks.length ? "Present" : headerScore ? "Partial" : "Missing";
+
+        const classifyCipher = (name) => {
+          const upper = String(name || "").toUpperCase();
+          if (["RC4", "3DES", "DES", "NULL", "EXPORT", "ANON", "MD5"].some(token => upper.includes(token))) return { label: "Weak Cipher", tone: "danger" };
+          if (upper.includes("_CBC_") || upper.includes("RSA_WITH") || /(^|_)SHA($|_)/.test(upper)) return { label: "Deprecated Cipher", tone: "warn" };
+          if (upper.includes("TLS_AES") || upper.includes("CHACHA20_POLY1305") || upper.includes("_GCM_")) return { label: "Strong Cipher", tone: "safe" };
+          return { label: "Acceptable Cipher", tone: "info" };
+        };
+        const cipherFindings = suites.map(suite => ({ name: suite.name || "Unknown", ...classifyCipher(suite.name) }));
+        const weakCipherCount = cipherFindings.filter(cipher => cipher.tone === "danger").length;
+        const deprecatedCipherCount = cipherFindings.filter(cipher => cipher.tone === "warn").length;
+
+        const protocolCatalog = ["TLS 1.3", "TLS 1.2", "TLS 1.1", "TLS 1.0", "SSLv3"];
+        const protocolRows = protocolCatalog.map(name => {
+          const insecure = ["TLS 1.1", "TLS 1.0", "SSLv3"].includes(name);
+          const observed = hasProtocol(name) || (name === "SSLv3" && (hasProtocol("SSL 3.0") || hasProtocol("SSL 3")));
+          const icon = observed && !insecure ? "&#10003;" : "&#10007;";
+          const tone = observed ? (insecure ? "danger" : "safe") : (insecure ? "safe" : "info");
+          const label = observed ? (insecure ? "Insecure" : "Supported") : "Not observed";
+          return `<div class="intel-row"><span class="intel-key">${icon} ${escapeHtml(name)}</span><span class="badge ${tone}">${label}</span></div>`;
+        }).join("");
+        const weakProtocolRows = observedInsecure.length
+          ? observedInsecure.map(name => `<div class="intel-row"><span class="intel-key">&#10007; ${escapeHtml(name)}</span><span class="badge danger">Insecure</span></div>`).join("")
+          : `<div class="intel-row"><span class="intel-key">Weak Protocols</span><span class="badge safe">None</span></div>`;
+        const cipherRows = cipherFindings.slice(0, 10).map(cipher => `
+          <div class="intel-row">
+            <span class="intel-key mono text-xs">${escapeHtml(cipher.name)}</span>
+            <span class="badge ${cipher.tone}">${escapeHtml(cipher.label)}</span>
+          </div>
+        `).join("") || `<div class="intel-row"><span class="intel-key">Cipher data unavailable.</span></div>`;
+
+        const san = certDetail.altNames || [];
+        const chain = details.chain?.certs || [];
+        const chainForDisplay = chain.length > 1 ? [...chain].reverse() : chain;
+        const chainHtml = chainForDisplay.length
+          ? chainForDisplay.map((cert, index) => {
+              const role = index === 0 ? "Root CA" : index === chainForDisplay.length - 1 ? "Leaf Certificate" : "Intermediate CA";
+              const name = cert.subject?.CN || cert.subject?.O || "Unknown";
+              const arrow = index < chainForDisplay.length - 1 ? " <span class=\"text-slate-500\">&#8595;</span>" : "";
+              return `<div class="intel-row"><span class="intel-key">${role}</span><span class="intel-value">${escapeHtml(name)}${arrow}</span></div>`;
+            }).join("")
+          : `<div class="intel-row"><span class="intel-key">Chain data unavailable.</span></div>`;
+        const headerRows = headerChecks.map(header => `
+          <div class="intel-row">
+            <span class="intel-key">${header.present ? "&#10003;" : "&#10007;"} ${escapeHtml(header.label)}</span>
+            <span class="badge ${header.present ? "safe" : "danger"}">${header.present ? "Present" : "Missing"}</span>
+          </div>
+        `).join("");
+
+        const ctFirst = data.summary?.firstSeen ? new Date(data.summary.firstSeen).getFullYear() : null;
+        const ctLatest = data.summary?.latestIssued || data.summary?.latestSeen || null;
+        const baseGrade = endpoint.grade || "";
+        const tls13 = hasProtocol("TLS 1.3");
+        const strongPosture = certStatus === "Valid" && !observedInsecure.length && !weakCipherCount;
+        const grade = baseGrade === "A" && tls13 && headerScore >= 4 ? "A+" : baseGrade || (strongPosture ? "A" : certStatus === "Valid" ? "B" : "C");
+        const riskLevel = certStatus !== "Valid" || observedInsecure.length || weakCipherCount ? "High" : deprecatedCipherCount || headerScore < 3 || isExpiringSoon ? "Medium" : "Low";
+        const riskTone = riskLevel === "Low" ? "safe" : riskLevel === "Medium" ? "warn" : "danger";
+        const confidence = Math.min(98, 55 + (certStatus !== "Unknown" ? 15 : 0) + (protocols.length ? 10 : 0) + (suites.length ? 8 : 0) + Math.min(10, headerScore * 2) + (ctRecordCount ? 10 : 0));
+        const assessment = strongPosture
+          ? "The target uses a valid certificate issued by a trusted certificate authority. Modern TLS versions are supported, no deprecated protocols were observed, and certificate chain validation completed successfully."
+          : riskLevel === "Medium"
+            ? "The target has a usable TLS deployment, but configuration improvements are recommended. Review expiring certificates, missing security headers, deprecated cipher suites, or incomplete protocol visibility."
+            : "The target has material TLS trust or configuration issues. Review certificate validity, chain status, deprecated protocols, and weak cipher exposure before trusting the endpoint.";
+
+        result.innerHTML = `
+          <div class="intel-grid">
+            <div class="intel-metrics">
+              ${metricCard("TLS Status", tlsEnabled ? "Enabled" : "Unavailable", tlsEnabled ? "safe" : "danger")}
+              ${metricCard("Certificate Status", certStatus, certTone)}
+              ${metricCard("Security Headers", headerSummary, headerScore >= 4 ? "safe" : headerScore ? "warn" : "danger")}
+              ${metricCard("TLS Security Rating", grade || "-", grade.startsWith("A") ? "safe" : grade.startsWith("B") ? "warn" : "danger")}
+              ${metricCard("Risk", riskLevel, riskTone)}
+              ${metricCard("Confidence", confidence + "%", "info")}
+            </div>
+
+            <div class="grid lg:grid-cols-2 gap-4">
+              <div class="intel-section">
+                <p class="section-label m-0">Certificate Information</p>
+                <div class="intel-list">${detailRows([
+                  ["Common Name (CN)", subjectCN],
+                  ["Issuer", issuerCN || certDetail.issuerSubject?.O],
+                  ["Organization", subjectOrg],
+                  ["Serial Number", certDetail.serialNumber],
+                  ["Certificate Fingerprint (SHA256)", certDetail.sha256Hash]
+                ])}</div>
+              </div>
+              <div class="intel-section">
+                <p class="section-label m-0">Certificate Validity</p>
+                <div class="intel-list">
+                  ${detailRows([
+                    ["Valid From", notBefore ? notBefore.toISOString().split("T")[0] : null],
+                    ["Valid Until", notAfter ? notAfter.toISOString().split("T")[0] : null]
+                  ])}
+                  <div class="intel-row">
+                    <span class="intel-key">Days Remaining</span>
+                    <span class="intel-value ${isExpired ? "text-red-500" : isExpiringSoon ? "text-amber-500" : "text-emerald-500"}">
+                      ${daysRemaining !== null ? daysRemaining : "N/A"}
+                      ${isExpired ? " <span class='badge danger'>Expired</span>" : isExpiringSoon ? " <span class='badge warn'>&lt; 30 Days Remaining</span>" : ""}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid lg:grid-cols-2 gap-4">
+              <div class="intel-section">
+                <p class="section-label m-0">Supported Protocols</p>
+                <div class="intel-list mt-2">${protocolRows}</div>
+              </div>
+              <div class="intel-section">
+                <p class="section-label m-0">Cipher Suite Analysis</p>
+                <div class="intel-list mt-2">${cipherRows}</div>
+              </div>
+            </div>
+
+            <div class="intel-section">
+              <p class="section-label m-0">Weak Protocols</p>
+              <div class="intel-list mt-2">${weakProtocolRows}</div>
+            </div>
+
+            <div class="grid lg:grid-cols-2 gap-4">
+              <div class="intel-section">
+                <p class="section-label m-0">Certificate Transparency</p>
+                <div class="intel-list">${detailRows([
+                  ["Certificate Transparency Records", ctRecordCount],
+                  ["First Seen", ctFirst],
+                  ["Latest Certificate", ctLatest ? ctLatest.split("T")[0] : null],
+                  ["Issuers", (data.summary?.issuers || []).slice(0, 3).join(", ")]
+                ])}</div>
+              </div>
+              <div class="intel-section">
+                <p class="section-label m-0">Subject Alternative Names (SAN)</p>
+                <div class="intel-list mt-2 max-h-40 overflow-y-auto">${san.length
+                  ? san.map(name => `<div class="intel-row"><span class="intel-value mono text-left text-xs">${escapeHtml(name)}</span></div>`).join("")
+                  : `<div class="text-sm text-slate-500 mt-2">No SAN data available.</div>`
+                }</div>
+              </div>
+            </div>
+
+            <div class="intel-section">
+              <p class="section-label m-0">Certificate Chain Validation</p>
+              <div class="intel-list mt-2">${chainHtml}</div>
+            </div>
+
+            <div class="intel-section">
+              <p class="section-label m-0">Security Headers</p>
+              <div class="intel-list mt-2">${headerRows}</div>
+            </div>
+
+            <div class="intel-section">
+              <p class="section-label m-0">TLS Intelligence Assessment</p>
+              <div class="intel-metrics mt-4">
+                ${metricCard("TLS Security Rating", grade || "-", grade.startsWith("A") ? "safe" : grade.startsWith("B") ? "warn" : "danger")}
+                ${metricCard("Risk", riskLevel, riskTone)}
+                ${metricCard("Confidence", confidence + "%", "info")}
+              </div>
+              <div class="intel-row mt-4"><span class="intel-value text-sm leading-7 text-left">${escapeHtml(assessment)}</span></div>
+            </div>
+          </div>
+        `;
+      } catch (error) {
+        clearInterval(timer);
+        btn.disabled = false;
+        btn.textContent = "Analyze TLS";
+        result.innerHTML = `<p class="text-red-500">${escapeHtml(error.message)}</p>`;
+      }
+    }
+
     function bindSecuritySubtabActions() {
       document.querySelectorAll("[data-subtab]").forEach((button) => {
         button.addEventListener("click", () => {
@@ -2060,7 +2299,7 @@
         document.getElementById("hashRun")?.addEventListener("click", runHashing);
         document.getElementById("hashExport")?.addEventListener("click", () => state.reports.hashing && exportReport(state.reports.hashing, "cybershield-file-hash-report.json"));
       } else if (state.securitySubtab === "tls") {
-        document.getElementById("tlsRun")?.addEventListener("click", runTls);
+        document.getElementById("tlsRun")?.addEventListener("click", runTlsIntelligence);
         document.getElementById("tlsExport")?.addEventListener("click", () => state.reports.tls && exportReport(state.reports.tls, "cybershield-tls-report.json"));
       }
     }
