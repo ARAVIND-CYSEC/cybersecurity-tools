@@ -204,23 +204,50 @@
     URL.revokeObjectURL(url);
   }
 
+  function slimReport(tool, report) {
+    if (tool === "whois") {
+      const w = report.whoisData || {};
+      return { domainName: w.domainName, registrar: w.registrar?.name, createdDate: w.createdDate, expiresDate: w.expiresDate, nameServers: (w.nameServers||[]).slice(0,4) };
+    }
+    if (tool === "rdap") {
+      return { objectClassName: report.data?.objectClassName, ldhName: report.data?.ldhName, handle: report.data?.handle };
+    }
+    if (tool === "dns") {
+      return { records: (report.records||[]).slice(0, 10) };
+    }
+    if (tool === "uptime") {
+      return { ok: report.ok, status: report.status, statusText: report.statusText };
+    }
+    if (tool === "tls") {
+      const cert = report.ssllabs?.endpoints?.[0]?.details?.cert || {};
+      return {
+        grade: report.ssllabs?.endpoints?.[0]?.grade,
+        subject: cert.commonNames?.[0],
+        issuer: cert.issuerLabel,
+        notBefore: cert.notBefore,
+        notAfter: cert.notAfter,
+        protocol: report.ssllabs?.endpoints?.[0]?.details?.protocols?.[0]?.name,
+        recordCount: report.summary?.recordCount
+      };
+    }
+    return {};
+  }
+
   function saveLocalReport(report){
     const key = "cybershieldSavedReports";
-    const reports = JSON.parse(localStorage.getItem(key) || "[]");
-    // Strip large nested data to avoid localStorage quota errors
     const slim = {
       id: `${report.tool}-${Date.now()}`,
       savedAt: new Date().toISOString(),
       tool: report.tool,
       query: report.query,
       fetchedAt: report.fetchedAt,
-      report: JSON.stringify(report.report || {}).slice(0, 4000)
+      report: slimReport(report.tool, report.report)
     };
-    reports.unshift(slim);
     try {
-      localStorage.setItem(key, JSON.stringify(reports.slice(0, 20)));
+      const reports = JSON.parse(localStorage.getItem(key) || "[]");
+      reports.unshift(slim);
+      localStorage.setItem(key, JSON.stringify(reports.slice(0, 15)));
     } catch(e) {
-      // If still over quota, clear old entries and retry with just the new one
       localStorage.removeItem(key);
       try { localStorage.setItem(key, JSON.stringify([slim])); } catch(_) {}
     }
