@@ -253,8 +253,8 @@
               '<thead><tr style="background:rgba(99,102,241,.1);">' +
                 '<th style="border:1px solid var(--line);padding:.3rem .5rem;text-align:left;">Common Name</th>' +
                 '<th style="border:1px solid var(--line);padding:.3rem .5rem;text-align:left;">Issuer</th>' +
-                '<th style="border:1px solid var(--line);padding:.3rem .5rem;text-align:left;">Not Before</th>' +
-                '<th style="border:1px solid var(--line);padding:.3rem .5rem;text-align:left;">Not After</th>' +
+                '<th style="border:1px solid var(--line);padding:.3rem .5rem;text-align:left;">Valid From</th>' +
+                '<th style="border:1px solid var(--line);padding:.3rem .5rem;text-align:left;">Valid Until</th>' +
                 (extraHeader ? '<th style="border:1px solid var(--line);padding:.3rem .5rem;text-align:left;">' + extraHeader + '</th>' : '') +
               '</tr></thead>' +
               '<tbody>' + certs.map(function(c) {
@@ -293,7 +293,7 @@
           '<p style="margin:.3rem 0 0;font-size:.75rem;color:#64748b;">Checked: ' + new Date(d.checkedAt).toLocaleString() + '</p>' +
         '</div>';
 
-        // Stats
+        // Stats (counts only; do not render each cert as an "alert")
         html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:.75rem;">' +
           statBox("Total Certs", s.total || 0) +
           statBox("New (7d)", s.newCount || 0, s.newCount > 0 ? "#f59e0b" : "var(--text)") +
@@ -390,11 +390,13 @@
           '</div>';
         }
 
+        // Certification details (show counts only; prevents "100+ alerts" style explosion)
+        // If you need per-certificate visibility later, re-enable these sections or add pagination.
         // Brand Abuse
         if (d.brandAbuseCerts && d.brandAbuseCerts.length) {
           html += '<div style="padding:1rem;border-radius:1rem;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.06);">' +
-            '<p class="section-label" style="margin:0 0 .6rem;color:#ef4444;">&#9888; Brand Abuse (' + d.brandAbuseCerts.length + ')</p>' +
-            certTable(d.brandAbuseCerts, "Abuse Type", function(c) { return c.brandAbuse ? c.brandAbuse.type + " - " + c.brandAbuse.similarity + "% match" : ""; }) +
+            '<p class="section-label" style="margin:0 0 .6rem;color:#ef4444;">&#9888; Brand Abuse (' + d.brandAbuseCerts.length + ' certificates)</p>' +
+            '<p style="margin:0;font-size:.78rem;color:#64748b;">Certification details are available in the tool view. This monitoring panel keeps the feed count-only.</p>' +
           '</div>';
         }
 
@@ -402,7 +404,7 @@
         if (d.newCerts && d.newCerts.length) {
           html += '<div style="padding:1rem;border-radius:1rem;border:1px solid rgba(245,158,11,.3);">' +
             '<p class="section-label" style="margin:0 0 .6rem;color:#f59e0b;">New Certificates &mdash; Last 7 Days (' + d.newCerts.length + ')</p>' +
-            certTable(d.newCerts) +
+            '<p style="margin:0;font-size:.78rem;color:#64748b;">Use the Tools → CT/TLS views for certificate-level details.</p>' +
           '</div>';
         }
 
@@ -410,7 +412,7 @@
         if (d.wildcardCerts && d.wildcardCerts.length) {
           html += '<div style="padding:1rem;border-radius:1rem;border:1px solid var(--line);">' +
             '<p class="section-label" style="margin:0 0 .6rem;">Wildcard Certificates (' + d.wildcardCerts.length + ')</p>' +
-            certTable(d.wildcardCerts) +
+            '<p style="margin:0;font-size:.78rem;color:#64748b;">Kept as summary count only.</p>' +
           '</div>';
         }
 
@@ -418,14 +420,14 @@
         if (d.suspiciousCerts && d.suspiciousCerts.length) {
           html += '<div style="padding:1rem;border-radius:1rem;border:1px solid var(--line);">' +
             '<p class="section-label" style="margin:0 0 .6rem;">Unattributed Certificates (' + d.suspiciousCerts.length + ')</p>' +
-            certTable(d.suspiciousCerts) +
+            '<p style="margin:0;font-size:.78rem;color:#64748b;">Kept as summary count only.</p>' +
           '</div>';
         }
 
         // Recent
         html += '<div style="padding:1rem;border-radius:1rem;border:1px solid var(--line);">' +
-          '<p class="section-label" style="margin:0 0 .6rem;">Recent Certificates (showing ' + (d.recentCerts ? d.recentCerts.length : 0) + ' of ' + (s.total || 0) + ')</p>' +
-          certTable(d.recentCerts) +
+          '<p class="section-label" style="margin:0 0 .6rem;">Recent Certificates (' + (d.recentCerts ? d.recentCerts.length : 0) + ' shown as summary of ' + (s.total || 0) + ')</p>' +
+          '<p style="margin:0;font-size:.78rem;color:#64748b;">This panel is summary-first; certificate rows are intentionally suppressed.</p>' +
         '</div>';
 
         html += '</div>';
