@@ -3361,10 +3361,12 @@ app.get("/api/cert-monitor/check", async (req, res) => {
   }
 
   if (!certs.length) {
+    const isTimeout = lastErr && lastErr.includes("timed out");
     return res.status(502).json({
-      error: `No certificate transparency records found for ${domain}.`,
-      details: lastErr || "crt.sh returned no results.",
-      hint: "crt.sh may be slow or the domain has no CT records yet."
+      error: isTimeout
+        ? `crt.sh did not respond in time for ${domain}. Wait a few seconds and try again.`
+        : `No CT records found for ${domain}. The domain may not exist or has no certificates logged yet.`,
+      details: lastErr || "crt.sh returned no results."
     });
   }
 
