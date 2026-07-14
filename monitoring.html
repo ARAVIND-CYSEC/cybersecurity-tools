@@ -280,30 +280,27 @@
 
         var html = '<div style="display:grid;gap:1rem;">';
 
-        // Header
+        // Header (plain certification info; no critical/low/high categorization)
         html += '<div style="padding:1.25rem;border-radius:1.1rem;border:1px solid var(--line);background:var(--surface2);">' +
           '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;">' +
             '<div>' +
               '<p style="margin:0;font-size:.72rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#a5b4fc;">CT Intelligence &mdash; ' + escapeHtml(d.source || "crt.sh") + '</p>' +
               '<p style="margin:.3rem 0 0;font-size:1.4rem;font-weight:800;">' + escapeHtml(d.domain) + '</p>' +
             '</div>' +
-            '<span class="badge ' + alertBadge + '">' + escapeHtml((d.alertLevel || "low").toUpperCase()) + ' RISK</span>' +
+            '<span class="badge info">CERTIFICATIONS</span>' +
           '</div>' +
-          '<p style="margin:.85rem 0 0;font-size:.88rem;color:' + alertColor + ';font-weight:600;">' + escapeHtml(d.alert || "") + '</p>' +
-          '<p style="margin:.3rem 0 0;font-size:.75rem;color:#64748b;">Checked: ' + new Date(d.checkedAt).toLocaleString() + '</p>' +
+          '<p style="margin:.85rem 0 0;font-size:.88rem;color:#64748b;font-weight:600;">Checked: ' + new Date(d.checkedAt).toLocaleString() + '</p>' +
         '</div>';
 
-        // Stats (counts only; do not render each cert as an "alert")
+        // Stats (counts only; no risk badges)
         html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:.75rem;">' +
-          statBox("Total Certs", s.total || 0) +
-          statBox("New (7d)", s.newCount || 0, s.newCount > 0 ? "#f59e0b" : "var(--text)") +
-          statBox("Wildcards", s.wildcard || 0, "#22d3ee") +
-          statBox("Brand Abuse", s.brandAbuse || 0, s.brandAbuse > 0 ? "#ef4444" : "#10b981") +
-          statBox("Expired", s.expired || 0, s.expired > 0 ? "#f59e0b" : "#10b981") +
-          statBox("Issuers", s.uniqueIssuers || 0) +
-          statBox("Subdomains", s.subdomainCount || 0, "#a5b4fc") +
-          statBox("Hygiene", (d.hygieneScore != null ? d.hygieneScore : "?") + "/100", d.hygieneScore >= 80 ? "#10b981" : d.hygieneScore >= 50 ? "#f59e0b" : "#ef4444") +
+          statBox("Monitored Domains", 1) +
+          statBox("Subdomains", s.subdomainCount || 0) +
+          statBox("New Assets", s.newCount || 0) +
+          statBox("Brand Abuse", s.brandAbuse || 0) +
+          statBox("High Risk", s.expired || 0) +
         '</div>';
+
 
         // First / Last seen
         if (d.firstSeen || d.lastSeen) {
@@ -402,8 +399,8 @@
 
         // New Certs
         if (d.newCerts && d.newCerts.length) {
-          html += '<div style="padding:1rem;border-radius:1rem;border:1px solid rgba(245,158,11,.3);">' +
-            '<p class="section-label" style="margin:0 0 .6rem;color:#f59e0b;">New Certificates &mdash; Last 7 Days (' + d.newCerts.length + ')</p>' +
+          html += '<div style="padding:1rem;border-radius:1rem;border:1px solid var(--line);">' +
+            '<p class="section-label" style="margin:0 0 .6rem;">New Certificates (Last 7 Days: ' + d.newCerts.length + ')</p>' +
             '<p style="margin:0;font-size:.78rem;color:#64748b;">Use the Tools → CT/TLS views for certificate-level details.</p>' +
           '</div>';
         }
@@ -411,18 +408,19 @@
         // Wildcards
         if (d.wildcardCerts && d.wildcardCerts.length) {
           html += '<div style="padding:1rem;border-radius:1rem;border:1px solid var(--line);">' +
-            '<p class="section-label" style="margin:0 0 .6rem;">Wildcard Certificates (' + d.wildcardCerts.length + ')</p>' +
-            '<p style="margin:0;font-size:.78rem;color:#64748b;">Kept as summary count only.</p>' +
+            '<p class="section-label" style="margin:0 0 .6rem;">Wildcard Certificates: ' + d.wildcardCerts.length + '</p>' +
+            '<p style="margin:0;font-size:.78rem;color:#64748b;">Summary count only.</p>' +
           '</div>';
         }
 
         // Suspicious
         if (d.suspiciousCerts && d.suspiciousCerts.length) {
           html += '<div style="padding:1rem;border-radius:1rem;border:1px solid var(--line);">' +
-            '<p class="section-label" style="margin:0 0 .6rem;">Unattributed Certificates (' + d.suspiciousCerts.length + ')</p>' +
-            '<p style="margin:0;font-size:.78rem;color:#64748b;">Kept as summary count only.</p>' +
+            '<p class="section-label" style="margin:0 0 .6rem;">Unattributed Certificates: ' + d.suspiciousCerts.length + '</p>' +
+            '<p style="margin:0;font-size:.78rem;color:#64748b;">Summary count only.</p>' +
           '</div>';
         }
+
 
         // Recent
         html += '<div style="padding:1rem;border-radius:1rem;border:1px solid var(--line);">' +
