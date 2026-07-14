@@ -260,10 +260,25 @@
           statBox("New (7d)", s.newCount || 0, s.newCount > 0 ? "#f59e0b" : "var(--text)") +
           statBox("Wildcards", s.wildcard || 0, "#22d3ee") +
           statBox("Brand Abuse", s.brandAbuse || 0, s.brandAbuse > 0 ? "#ef4444" : "#10b981") +
-          statBox("Suspicious", s.suspicious || 0, s.suspicious > 0 ? "#f59e0b" : "#10b981") +
+          statBox("Expired", s.expired || 0, s.expired > 0 ? "#f59e0b" : "#10b981") +
           statBox("Issuers", s.uniqueIssuers || 0) +
           statBox("Subdomains", s.subdomainCount || 0, "#a5b4fc") +
+          statBox("Hygiene", (d.hygieneScore != null ? d.hygieneScore : "?") + "/100", d.hygieneScore >= 80 ? "#10b981" : d.hygieneScore >= 50 ? "#f59e0b" : "#ef4444") +
         '</div>';
+
+        // First / Last seen
+        if (d.firstSeen || d.lastSeen) {
+          html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;">' +
+            '<div style="padding:.75rem 1rem;border-radius:.85rem;border:1px solid var(--line);background:rgba(99,102,241,.05);">' +
+              '<p style="margin:0;font-size:.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#a5b4fc;">First Certificate</p>' +
+              '<p style="margin:.3rem 0 0;font-size:.95rem;font-weight:700;">' + escapeHtml(d.firstSeen ? d.firstSeen.slice(0,10) : "Unknown") + '</p>' +
+            '</div>' +
+            '<div style="padding:.75rem 1rem;border-radius:.85rem;border:1px solid var(--line);background:rgba(99,102,241,.05);">' +
+              '<p style="margin:0;font-size:.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#a5b4fc;">Latest Certificate</p>' +
+              '<p style="margin:.3rem 0 0;font-size:.95rem;font-weight:700;">' + escapeHtml(d.lastSeen ? d.lastSeen.slice(0,10) : "Unknown") + '</p>' +
+            '</div>' +
+          '</div>';
+        }
 
         // Subdomains
         if (d.subdomains && d.subdomains.length) {
@@ -281,6 +296,57 @@
             '<p class="section-label" style="margin:0 0 .6rem;">Certificate Authorities (' + d.issuers.length + ')</p>' +
             '<div style="display:flex;flex-wrap:wrap;gap:.4rem;">' +
               d.issuers.map(function(i) { return '<span style="padding:.25rem .6rem;border-radius:999px;background:rgba(34,211,238,.08);font-size:.75rem;">' + escapeHtml(i.slice(0,60)) + '</span>'; }).join("") +
+            '</div>' +
+          '</div>';
+        }
+
+        // CA Distribution
+        if (d.caDistribution && d.caDistribution.length) {
+          html += '<div style="padding:1rem;border-radius:1rem;border:1px solid var(--line);">' +
+            '<p class="section-label" style="margin:0 0 .75rem;">CA Distribution</p>' +
+            d.caDistribution.map(function(ca) {
+              return '<div style="margin-bottom:.5rem;">' +
+                '<div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:.2rem;">' +
+                  '<span>' + escapeHtml(ca.ca.slice(0,50)) + '</span>' +
+                  '<span style="color:#a5b4fc;font-weight:700;">' + ca.pct + '% (' + ca.count + ')</span>' +
+                '</div>' +
+                '<div style="height:6px;border-radius:999px;background:rgba(99,102,241,.15);">' +
+                  '<div style="height:6px;border-radius:999px;background:#6366f1;width:' + ca.pct + '%;transition:width .4s;"></div>' +
+                '</div>' +
+              '</div>';
+            }).join("") +
+          '</div>';
+        }
+
+        // Certificate Timeline
+        if (d.timelineByYear && Object.keys(d.timelineByYear).length) {
+          var years = Object.keys(d.timelineByYear).sort();
+          var maxVal = Math.max.apply(null, years.map(function(y) { return d.timelineByYear[y]; }));
+          html += '<div style="padding:1rem;border-radius:1rem;border:1px solid var(--line);">' +
+            '<p class="section-label" style="margin:0 0 .75rem;">Certificate Timeline</p>' +
+            '<div style="display:grid;gap:.35rem;">' +
+              years.map(function(yr) {
+                var count = d.timelineByYear[yr];
+                var barW = Math.round(count / maxVal * 100);
+                return '<div style="display:grid;grid-template-columns:3rem 1fr 3rem;align-items:center;gap:.5rem;font-size:.75rem;">' +
+                  '<span style="color:#94a3b8;">' + yr + '</span>' +
+                  '<div style="height:8px;border-radius:999px;background:rgba(99,102,241,.12);">' +
+                    '<div style="height:8px;border-radius:999px;background:linear-gradient(90deg,#6366f1,#22d3ee);width:' + barW + '%;transition:width .4s;"></div>' +
+                  '</div>' +
+                  '<span style="color:#a5b4fc;text-align:right;">' + count + '</span>' +
+                '</div>';
+              }).join("") +
+            '</div>' +
+          '</div>';
+        }
+
+        // Suspicious Subdomains (attack surface)
+        if (d.suspiciousSubdomains && d.suspiciousSubdomains.length) {
+          html += '<div style="padding:1rem;border-radius:1rem;border:1px solid rgba(245,158,11,.3);background:rgba(245,158,11,.04);">' +
+            '<p class="section-label" style="margin:0 0 .6rem;color:#f59e0b;">&#9888; Attack Surface Subdomains (' + d.suspiciousSubdomains.length + ')</p>' +
+            '<p style="margin:0 0 .6rem;font-size:.75rem;color:#94a3b8;">Subdomains matching sensitive service keywords (admin, vpn, login, mail, api…)</p>' +
+            '<div style="display:flex;flex-wrap:wrap;gap:.4rem;">' +
+              d.suspiciousSubdomains.map(function(sub) { return '<span style="padding:.25rem .6rem;border-radius:999px;background:rgba(245,158,11,.12);font-size:.75rem;font-family:monospace;color:#f59e0b;">' + escapeHtml(sub) + '</span>'; }).join("") +
             '</div>' +
           '</div>';
         }

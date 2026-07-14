@@ -3286,23 +3286,31 @@ app.post("/api/ai/chat", async (req, res) => {
 // CT Monitor — fetch crt.sh using Node https directly (avoids fetch proxy overhead on Render)
 const https = require("https");
 
-function fetchCrtShDirect(query) {
+function fetchCrtShDirect(query, limitRows) {
   return new Promise((resolve, reject) => {
-    const url = `https://crt.sh/?q=${encodeURIComponent(query)}&output=json&deduplicate=Y`;
-    const req = https.get(url, { timeout: 25000, headers: { "Accept": "application/json", "User-Agent": "CyberShield/1.0" } }, (res) => {
+    const limit = limitRows ? `&limit=${limitRows}` : "";
+    const url = `https://crt.sh/?q=${encodeURIComponent(query)}&output=json&deduplicate=Y${limit}`;
+    let settled = false;
+    const done = (fn) => { if (!settled) { settled = true; clearTimeout(wallClock); fn(); } };
+
+    // Hard wall-clock timeout — fires regardless of socket activity
+    const wallClock = setTimeout(() => {
+      req.destroy();
+      done(() => reject(new Error("crt.sh request timed out")));
+    }, 28000);
+
+    const req = https.get(url, { headers: { "Accept": "application/json", "User-Agent": "CyberShield/1.0" } }, (res) => {
       let data = "";
       res.on("data", chunk => { data += chunk; });
-      res.on("end", () => {
+      res.on("end", () => done(() => {
         const text = data.trim();
-        if (!text || text[0] === "<") return reject(new Error("crt.sh returned HTML"));
+        if (!text || text[0] === "<") return reject(new Error("crt.sh returned HTML — may be rate-limited"));
         try {
-          const parsed = JSON.parse(text.startsWith("[") ? text : `[${text.replace(/}\s*{/g, "},{") }]`);
-          resolve(parsed);
+          resolve(JSON.parse(text.startsWith("[") ? text : `[${text.replace(/}\s*{/g, "},{") }]`));
         } catch(e) { reject(new Error("crt.sh JSON parse failed: " + e.message)); }
-      });
+      }));
     });
-    req.on("timeout", () => { req.destroy(); reject(new Error("crt.sh request timed out")); });
-    req.on("error", reject);
+    req.on("error", (e) => done(() => reject(e)));
   });
 }
 
@@ -3347,15 +3355,16 @@ app.get("/api/cert-monitor/check", async (req, res) => {
   let source = "crt.sh";
 
   // Try wildcard query first (%25 = * in crt.sh), then exact domain
+  // Limit to 2000 rows — enough for full analysis, prevents timeout on huge domains
   const queries = [
-    { q: `%25.${domain}`, label: "crt.sh" },
-    { q: domain, label: "crt.sh (exact)" }
+    { q: `%25.${domain}`, label: "crt.sh", limit: 2000 },
+    { q: domain, label: "crt.sh (exact)", limit: 2000 }
   ];
 
   let lastErr = null;
   for (const q of queries) {
     try {
-      const parsed = await fetchCrtShDirect(q.q);
+      const parsed = await fetchCrtShDirect(q.q, q.limit);
       if (parsed.length) { certs = parsed; source = q.label; break; }
     } catch (err) { lastErr = err.message; }
   }
@@ -3414,6 +3423,45 @@ app.get("/api/cert-monitor/check", async (req, res) => {
   const suspiciousCerts = normalized.filter(e => !e.isOwned && !e.brandAbuse && !e.isExpired);
   const issuers = [...new Set(normalized.map(e => e.issuer).filter(Boolean))];
 
+  // Certificate timeline by year
+  const timelineByYear = {};
+  for (const c of normalized) {
+    const yr = c.notBefore ? new Date(c.notBefore).getFullYear() : null;
+    if (yr && yr > 2000) timelineByYear[yr] = (timelineByYear[yr] || 0) + 1;
+  }
+
+  // CA distribution (top 5)
+  const caCount = {};
+  for (const c of normalized) {
+    if (!c.issuer) continue;
+    // Shorten issuer to CA name only
+    const ca = (c.issuer.match(/O=([^,]+)/) || c.issuer.match(/CN=([^,]+)/) || [null, c.issuer])[1].trim();
+    caCount[ca] = (caCount[ca] || 0) + 1;
+  }
+  const caDistribution = Object.entries(caCount)
+    .sort((a, b) => b[1] - a[1]).slice(0, 5)
+    .map(([ca, count]) => ({ ca, count, pct: Math.round(count / normalized.length * 100) }));
+
+  // Suspicious subdomain keywords (attack surface)
+  const SUSPICIOUS_KEYWORDS = ["vpn","admin","login","mail","owa","remote","internal","dev","staging","test","api","portal","secure","auth","sso","citrix","rdp","ftp","smtp"];
+  const suspiciousSubdomains = subdomains.filter(s => {
+    const label = s.split(".")[0];
+    return SUSPICIOUS_KEYWORDS.some(kw => label === kw || label.startsWith(kw + "-") || label.endsWith("-" + kw));
+  });
+
+  // Certificate hygiene score (0-100)
+  const expiredCount = normalized.filter(e => e.isExpired).length;
+  const hasWeakIssuer = normalized.some(e => e.issuer && /startssl|wosign|symantec/i.test(e.issuer));
+  let hygieneScore = 100;
+  if (expiredCount > 0) hygieneScore -= Math.min(30, expiredCount * 5);
+  if (brandAbuseCerts.length > 0) hygieneScore -= 40;
+  if (hasWeakIssuer) hygieneScore -= 20;
+  if (wildcardCerts.length > 5) hygieneScore -= 10;
+  hygieneScore = Math.max(0, hygieneScore);
+
+  const firstSeen = normalized.map(e => e.notBefore).filter(Boolean).sort()[0] || null;
+  const lastSeen = normalized.map(e => e.loggedAt || e.notBefore).filter(Boolean).sort().slice(-1)[0] || null;
+
   const alertLevel = brandAbuseCerts.length > 0 ? "high" : newCerts.length > 0 ? "medium" : "low";
   const alert = brandAbuseCerts.length > 0
     ? `${brandAbuseCerts.length} certificate(s) show brand abuse targeting ${domain}.`
@@ -3428,17 +3476,25 @@ app.get("/api/cert-monitor/check", async (req, res) => {
     totalCerts: normalized.length,
     alert,
     alertLevel,
+    firstSeen,
+    lastSeen,
+    hygieneScore,
     summary: {
       total: normalized.length,
       newCount: newCerts.length,
       wildcard: wildcardCerts.length,
       brandAbuse: brandAbuseCerts.length,
       suspicious: suspiciousCerts.length,
+      expired: expiredCount,
       uniqueIssuers: issuers.length,
-      subdomainCount: subdomains.length
+      subdomainCount: subdomains.length,
+      suspiciousSubdomainCount: suspiciousSubdomains.length
     },
-    subdomains: subdomains.slice(0, 30),
+    subdomains: subdomains.slice(0, 50),
+    suspiciousSubdomains: suspiciousSubdomains.slice(0, 20),
     issuers: issuers.slice(0, 10),
+    caDistribution,
+    timelineByYear,
     newCerts: newCerts.slice(0, 10),
     wildcardCerts: wildcardCerts.slice(0, 10),
     brandAbuseCerts: brandAbuseCerts.slice(0, 10),
