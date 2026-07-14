@@ -19,7 +19,7 @@
     .nav-link { color:var(--muted); text-decoration:none; padding:.55rem .9rem; border-radius:999px; transition:all .2s ease; }
     .nav-link:hover,.nav-link.active { color:var(--text); background:rgba(99,102,241,.1); }
     .section-label { font-size:.74rem; font-weight:700; letter-spacing:.24em; text-transform:uppercase; color:#a5b4fc; }
-    .soft-btn { border:1px solid var(--line); border-radius:.95rem; padding:.8rem 1rem; font-weight:600; background:var(--surface); color:var(--text); }
+    .soft-btn { border:1px solid var(--line); border-radius:.95rem; padding:.8rem 1rem; font-weight:600; background:var(--surface); color:var(--text); cursor:pointer; }
     .badge { display:inline-flex; align-items:center; gap:.4rem; padding:.35rem .65rem; border-radius:999px; font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
     .badge.info { color:#22d3ee; background:rgba(34,211,238,.12); }
     .badge.safe { color:#10b981; background:rgba(16,185,129,.12); }
@@ -59,11 +59,12 @@
         <h1 class="mt-4 mb-0 text-3xl md:text-4xl font-bold">Track domains, IPs, and evidence targets over time.</h1>
         <p class="mt-4 mb-0 text-slate-600 dark:text-slate-300 max-w-3xl">This is the monitoring handoff layer for the MVP. It stores tracked indicators now, and it is ready for scheduled change-detection jobs next.</p>
       </section>
+
       <section class="glass rounded-[1.5rem] p-5">
         <div class="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <p class="section-label m-0">Certificate Transparency Monitor</p>
-            <p class="mt-2 mb-0 text-sm text-slate-500 dark:text-slate-400">Check crt.sh CT logs for new or suspicious certificates issued for a domain — similar to what ct_monitor does.</p>
+            <p class="mt-2 mb-0 text-sm text-slate-500 dark:text-slate-400">Check crt.sh CT logs for new or suspicious certificates issued for a domain.</p>
           </div>
         </div>
         <div class="mt-4">
@@ -106,217 +107,237 @@
 
   <script>
     function applyTheme(isDark) { document.documentElement.classList.toggle("dark", isDark); localStorage.theme = isDark ? "dark" : "light"; }
-    function escapeHtml(value) { return String(value ?? "").replace(/[&<>\"']/g, (char) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[char])); }
-    async function requestJson(url, options = {}) {
-      const response = await fetch(url, options);
+    function escapeHtml(v) { return String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+    async function requestJson(url, options) {
+      const response = await fetch(url, options || {});
       const text = await response.text();
       const data = text ? JSON.parse(text) : null;
       if (!response.ok) {
-        const err = new Error(data?.error || "Request failed.");
-        err.hint = data?.hint || "";
+        const err = new Error(data && data.error ? data.error : "Request failed.");
+        err.hint = data && data.hint ? data.hint : "";
         throw err;
       }
       return data;
     }
+
     function badgeClass(level) {
-      const value = String(level || "").toLowerCase();
-      if (value.includes("high") || value.includes("malicious")) return "danger";
-      if (value.includes("medium") || value.includes("warn")) return "warn";
-      if (value.includes("clean") || value.includes("low") || value.includes("safe")) return "safe";
+      const v = String(level || "").toLowerCase();
+      if (v.includes("high") || v.includes("malicious")) return "danger";
+      if (v.includes("medium") || v.includes("warn")) return "warn";
+      if (v.includes("clean") || v.includes("low") || v.includes("safe")) return "safe";
       return "info";
     }
+
     async function checkWatch(id) {
-      await requestJson(`/api/watchlists/${encodeURIComponent(id)}/check`, { method: "POST" });
+      await requestJson("/api/watchlists/" + encodeURIComponent(id) + "/check", { method: "POST" });
       await loadWatchlist();
     }
+
     async function checkAll() {
-      const button = document.getElementById("checkAllBtn");
-      button.disabled = true;
-      button.textContent = "Checking...";
-      try {
-        await requestJson("/api/watchlists/check-all", { method: "POST" });
-        await loadWatchlist();
-      } finally {
-        button.disabled = false;
-        button.textContent = "Check All";
-      }
+      const btn = document.getElementById("checkAllBtn");
+      btn.disabled = true; btn.textContent = "Checking...";
+      try { await requestJson("/api/watchlists/check-all", { method: "POST" }); await loadWatchlist(); }
+      finally { btn.disabled = false; btn.textContent = "Check All"; }
     }
+
     async function loadWatchlist() {
       const data = await requestJson("/api/watchlists");
       const root = document.getElementById("watchList");
-      if (!data.items?.length) {
-        root.innerHTML = `<div class="text-sm text-slate-500 dark:text-slate-400">No watch targets yet. Add an indicator from the analysis page.</div>`;
+      if (!data.items || !data.items.length) {
+        root.innerHTML = '<div class="text-sm text-slate-500 dark:text-slate-400">No watch targets yet. Add an indicator from the analysis page.</div>';
         return;
       }
-      root.innerHTML = data.items.map((item) => `
-        <div class="glass p-4 rounded-[1.2rem] watch-card">
-          <div class="flex items-center justify-between gap-3">
-            <p class="m-0 text-lg font-semibold break-all">${escapeHtml(item.indicator)}</p>
-            <span class="badge info">${escapeHtml(item.indicatorType || "unknown")}</span>
-          </div>
-          <div class="mt-3 flex flex-wrap gap-2">
-            <span class="badge ${badgeClass(item.status || "active")}">${escapeHtml(item.status || "active")}</span>
-            <span class="badge ${badgeClass(item.alertLevel || item.latestStatus || "watching")}">${escapeHtml(item.latestStatus || "watching")}</span>
-          </div>
-          <div class="watch-meta">
-            <div>Created: ${escapeHtml(item.createdAt || "")}</div>
-            <div>Updated: ${escapeHtml(item.updatedAt || "")}</div>
-            <div>Last Checked: ${escapeHtml(item.lastCheckedAt || "Never")}</div>
-            <div>Scope: ${escapeHtml((item.scope || []).join(" | ") || "default")}</div>
-          </div>
-          ${item.lastSnapshot ? `
-            <div class="watch-meta">
-              ${item.lastSnapshot.summary?.ips ? `<div>IPs: ${escapeHtml((item.lastSnapshot.summary.ips || []).join(" | ") || "None")}</div>` : ``}
-              ${item.lastSnapshot.summary?.registrar ? `<div>Registrar: ${escapeHtml(item.lastSnapshot.summary.registrar)}</div>` : ``}
-              ${item.lastSnapshot.summary?.host ? `<div>Host: ${escapeHtml(item.lastSnapshot.summary.host)}</div>` : ``}
-              ${item.lastSnapshot.summary?.finalUrl ? `<div>Final URL: ${escapeHtml(item.lastSnapshot.summary.finalUrl)}</div>` : ``}
-              ${item.lastSnapshot.intel?.topThreat ? `<div>Top Threat: ${escapeHtml(item.lastSnapshot.intel.topThreat)}</div>` : `<div>No active abuse.ch hit in latest check.</div>`}
-            </div>
-          ` : `<div class="text-sm text-slate-500 dark:text-slate-400">No snapshot yet. Run a monitoring check.</div>`}
-          <div class="watch-changes">
-            ${(item.lastChanges || []).length ? item.lastChanges.map((change) => `<div class="watch-change">${escapeHtml(change)}</div>`).join("") : `<div class="watch-change">No changes detected yet.</div>`}
-          </div>
-          <div class="flex flex-wrap gap-3">
-            <button class="soft-btn text-sm" data-check-watch="${escapeHtml(item.id)}">Check Now</button>
-            ${item.caseId ? `<a href="cases.html?case=${encodeURIComponent(item.caseId)}" class="soft-btn no-underline text-sm inline-flex">Open Related Case</a>` : ``}
-          </div>
-        </div>
-      `).join("");
-      root.querySelectorAll("[data-check-watch]").forEach((button) => {
-        button.addEventListener("click", async () => {
-          const original = button.textContent;
-          button.disabled = true;
-          button.textContent = "Checking...";
-          try {
-            await checkWatch(button.dataset.checkWatch);
-          } finally {
-            button.disabled = false;
-            button.textContent = original;
-          }
+      root.innerHTML = data.items.map(function(item) {
+        return '<div class="glass p-4 rounded-[1.2rem] watch-card">' +
+          '<div class="flex items-center justify-between gap-3">' +
+            '<p class="m-0 text-lg font-semibold break-all">' + escapeHtml(item.indicator) + '</p>' +
+            '<span class="badge info">' + escapeHtml(item.indicatorType || "unknown") + '</span>' +
+          '</div>' +
+          '<div class="mt-3 flex flex-wrap gap-2">' +
+            '<span class="badge ' + badgeClass(item.status || "active") + '">' + escapeHtml(item.status || "active") + '</span>' +
+            '<span class="badge ' + badgeClass(item.alertLevel || item.latestStatus || "watching") + '">' + escapeHtml(item.latestStatus || "watching") + '</span>' +
+          '</div>' +
+          '<div class="watch-meta">' +
+            '<div>Created: ' + escapeHtml(item.createdAt || "") + '</div>' +
+            '<div>Updated: ' + escapeHtml(item.updatedAt || "") + '</div>' +
+            '<div>Last Checked: ' + escapeHtml(item.lastCheckedAt || "Never") + '</div>' +
+            '<div>Scope: ' + escapeHtml((item.scope || []).join(" | ") || "default") + '</div>' +
+          '</div>' +
+          (item.lastSnapshot ?
+            '<div class="watch-meta">' +
+              (item.lastSnapshot.summary && item.lastSnapshot.summary.ips ? '<div>IPs: ' + escapeHtml((item.lastSnapshot.summary.ips || []).join(" | ") || "None") + '</div>' : '') +
+              (item.lastSnapshot.summary && item.lastSnapshot.summary.registrar ? '<div>Registrar: ' + escapeHtml(item.lastSnapshot.summary.registrar) + '</div>' : '') +
+              (item.lastSnapshot.intel && item.lastSnapshot.intel.topThreat ? '<div>Top Threat: ' + escapeHtml(item.lastSnapshot.intel.topThreat) + '</div>' : '<div>No active abuse.ch hit in latest check.</div>') +
+            '</div>'
+          : '<div class="text-sm text-slate-500 dark:text-slate-400">No snapshot yet. Run a monitoring check.</div>') +
+          '<div class="watch-changes">' +
+            ((item.lastChanges || []).length ? item.lastChanges.map(function(c) { return '<div class="watch-change">' + escapeHtml(c) + '</div>'; }).join("") : '<div class="watch-change">No changes detected yet.</div>') +
+          '</div>' +
+          '<div class="flex flex-wrap gap-3">' +
+            '<button class="soft-btn text-sm" data-check-watch="' + escapeHtml(item.id) + '">Check Now</button>' +
+            (item.caseId ? '<a href="cases.html?case=' + encodeURIComponent(item.caseId) + '" class="soft-btn no-underline text-sm inline-flex">Open Related Case</a>' : '') +
+          '</div>' +
+        '</div>';
+      }).join("");
+
+      root.querySelectorAll("[data-check-watch]").forEach(function(btn) {
+        btn.addEventListener("click", async function() {
+          const orig = btn.textContent;
+          btn.disabled = true; btn.textContent = "Checking...";
+          try { await checkWatch(btn.dataset.checkWatch); }
+          finally { btn.disabled = false; btn.textContent = orig; }
         });
       });
     }
-    document.getElementById("certMonitorInput").addEventListener("keydown", (e) => {
+
+    document.getElementById("certMonitorInput").addEventListener("keydown", function(e) {
       if (e.key === "Enter") document.getElementById("certMonitorBtn").click();
     });
-    document.getElementById("certMonitorBtn").addEventListener("click", async () => {
+
+    document.getElementById("certMonitorBtn").addEventListener("click", async function() {
       const domain = document.getElementById("certMonitorInput").value.trim();
       const out = document.getElementById("certMonitorResult");
-      if (!domain) { out.innerHTML = `<p class="text-sm text-red-500">Please enter a domain.</p>`; return; }
-      out.innerHTML = `<p class="text-sm text-slate-500">Checking CT logs for ${escapeHtml(domain)}...</p>`;
+      if (!domain) { out.innerHTML = '<p style="color:#ef4444;font-size:.875rem;">Please enter a domain.</p>'; return; }
+      out.innerHTML = '<p style="color:#94a3b8;font-size:.875rem;">Checking CT logs for ' + escapeHtml(domain) + '...</p>';
+
       try {
-        const d = await requestJson(`/api/cert-monitor/check?domain=${encodeURIComponent(domain)}`);
+        const d = await requestJson("/api/cert-monitor/check?domain=" + encodeURIComponent(domain));
         const s = d.summary || {};
         const alertColor = d.alertLevel === "high" ? "#ef4444" : d.alertLevel === "medium" ? "#f59e0b" : "#10b981";
         const alertBadge = d.alertLevel === "high" ? "danger" : d.alertLevel === "medium" ? "warn" : "safe";
 
-        const certTable = (certs, extraHeader, extraCell) => !certs?.length ? `<p style="margin:.4rem 0;font-size:.8rem;color:#94a3b8;">None found.</p>` : `
-          <div style="overflow:auto;max-height:220px;">
-            <table style="width:100%;border-collapse:collapse;font-size:.75rem;">
-              <thead><tr style="background:rgba(99,102,241,.1);">
-                <th style="border:1px solid var(--line);padding:.3rem .5rem;text-align:left;">Common Name</th>
-                <th style="border:1px solid var(--line);padding:.3rem .5rem;text-align:left;">Issuer</th>
-                <th style="border:1px solid var(--line);padding:.3rem .5rem;text-align:left;">Not Before</th>
-                <th style="border:1px solid var(--line);padding:.3rem .5rem;text-align:left;">Not After</th>
-                ${extraHeader ? `<th style="border:1px solid var(--line);padding:.3rem .5rem;text-align:left;">${extraHeader}</th>` : ""}
-              </tr></thead>
-              <tbody>${certs.map(c => `<tr>
-                <td style="border:1px solid var(--line);padding:.3rem .5rem;">${escapeHtml(c.commonName||"")}</td>
-                <td style="border:1px solid var(--line);padding:.3rem .5rem;font-size:.7rem;">${escapeHtml((c.issuer||"").slice(0,42))}</td>
-                <td style="border:1px solid var(--line);padding:.3rem .5rem;">${escapeHtml(c.notBefore?c.notBefore.slice(0,10):"")}</td>
-                <td style="border:1px solid var(--line);padding:.3rem .5rem;">${escapeHtml(c.notAfter?c.notAfter.slice(0,10):"")}</td>
-                ${extraCell ? `<td style="border:1px solid var(--line);padding:.3rem .5rem;">${escapeHtml(extraCell(c))}</td>` : ""}
-              </tr>`).join("")}</tbody>
-            </table>
-          </div>`;
+        function certTable(certs, extraHeader, extraCell) {
+          if (!certs || !certs.length) return '<p style="margin:.4rem 0;font-size:.8rem;color:#94a3b8;">None found.</p>';
+          return '<div style="overflow:auto;max-height:220px;">' +
+            '<table style="width:100%;border-collapse:collapse;font-size:.75rem;">' +
+              '<thead><tr style="background:rgba(99,102,241,.1);">' +
+                '<th style="border:1px solid var(--line);padding:.3rem .5rem;text-align:left;">Common Name</th>' +
+                '<th style="border:1px solid var(--line);padding:.3rem .5rem;text-align:left;">Issuer</th>' +
+                '<th style="border:1px solid var(--line);padding:.3rem .5rem;text-align:left;">Not Before</th>' +
+                '<th style="border:1px solid var(--line);padding:.3rem .5rem;text-align:left;">Not After</th>' +
+                (extraHeader ? '<th style="border:1px solid var(--line);padding:.3rem .5rem;text-align:left;">' + extraHeader + '</th>' : '') +
+              '</tr></thead>' +
+              '<tbody>' + certs.map(function(c) {
+                return '<tr>' +
+                  '<td style="border:1px solid var(--line);padding:.3rem .5rem;">' + escapeHtml(c.commonName || "") + '</td>' +
+                  '<td style="border:1px solid var(--line);padding:.3rem .5rem;font-size:.7rem;">' + escapeHtml((c.issuer || "").slice(0,42)) + '</td>' +
+                  '<td style="border:1px solid var(--line);padding:.3rem .5rem;">' + escapeHtml(c.notBefore ? c.notBefore.slice(0,10) : "") + '</td>' +
+                  '<td style="border:1px solid var(--line);padding:.3rem .5rem;">' + escapeHtml(c.notAfter ? c.notAfter.slice(0,10) : "") + '</td>' +
+                  (extraCell ? '<td style="border:1px solid var(--line);padding:.3rem .5rem;">' + escapeHtml(extraCell(c)) + '</td>' : '') +
+                '</tr>';
+              }).join("") +
+              '</tbody>' +
+            '</table>' +
+          '</div>';
+        }
 
-        const statBox = (label, val, color) =>
-          `<div style="padding:.75rem 1rem;border-radius:.85rem;border:1px solid var(--line);background:rgba(99,102,241,.05);text-align:center;">
-            <p style="margin:0;font-size:.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#a5b4fc;">${label}</p>
-            <p style="margin:.4rem 0 0;font-size:1.5rem;font-weight:800;color:${color||"var(--text)"}">${val}</p>
-          </div>`;
+        function statBox(label, val, color) {
+          return '<div style="padding:.75rem 1rem;border-radius:.85rem;border:1px solid var(--line);background:rgba(99,102,241,.05);text-align:center;">' +
+            '<p style="margin:0;font-size:.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#a5b4fc;">' + label + '</p>' +
+            '<p style="margin:.4rem 0 0;font-size:1.5rem;font-weight:800;color:' + (color || "var(--text)") + '">' + val + '</p>' +
+          '</div>';
+        }
 
-        out.innerHTML = `<div style="display:grid;gap:1rem;">
+        var html = '<div style="display:grid;gap:1rem;">';
 
-          <div style="padding:1.25rem;border-radius:1.1rem;border:1px solid var(--line);background:var(--surface2);">
-            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;">
-              <div>
-                <p style="margin:0;font-size:.72rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#a5b4fc;">CT Intelligence — ${escapeHtml(d.source||"crt.sh")}</p>
-                <p style="margin:.3rem 0 0;font-size:1.4rem;font-weight:800;">${escapeHtml(d.domain)}</p>
-              </div>
-              <span class="badge ${alertBadge}">${escapeHtml((d.alertLevel||"low").toUpperCase())} RISK</span>
-            </div>
-            <p style="margin:.85rem 0 0;font-size:.88rem;color:${alertColor};font-weight:600;">${escapeHtml(d.alert||"")}</p>
-            <p style="margin:.3rem 0 0;font-size:.75rem;color:#64748b;">Checked: ${new Date(d.checkedAt).toLocaleString()}</p>
-          </div>
+        // Header
+        html += '<div style="padding:1.25rem;border-radius:1.1rem;border:1px solid var(--line);background:var(--surface2);">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;">' +
+            '<div>' +
+              '<p style="margin:0;font-size:.72rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#a5b4fc;">CT Intelligence &mdash; ' + escapeHtml(d.source || "crt.sh") + '</p>' +
+              '<p style="margin:.3rem 0 0;font-size:1.4rem;font-weight:800;">' + escapeHtml(d.domain) + '</p>' +
+            '</div>' +
+            '<span class="badge ' + alertBadge + '">' + escapeHtml((d.alertLevel || "low").toUpperCase()) + ' RISK</span>' +
+          '</div>' +
+          '<p style="margin:.85rem 0 0;font-size:.88rem;color:' + alertColor + ';font-weight:600;">' + escapeHtml(d.alert || "") + '</p>' +
+          '<p style="margin:.3rem 0 0;font-size:.75rem;color:#64748b;">Checked: ' + new Date(d.checkedAt).toLocaleString() + '</p>' +
+        '</div>';
 
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:.75rem;">
-            ${statBox("Total Certs", s.total||0)}
-            ${statBox("New (7d)", s.newCount||0, s.newCount>0?"#f59e0b":"var(--text)")}
-            ${statBox("Wildcards", s.wildcard||0, "#22d3ee")}
-            ${statBox("Brand Abuse", s.brandAbuse||0, s.brandAbuse>0?"#ef4444":"#10b981")}
-            ${statBox("Suspicious", s.suspicious||0, s.suspicious>0?"#f59e0b":"#10b981")}
-            ${statBox("Issuers", s.uniqueIssuers||0)}
-            ${statBox("Subdomains", s.subdomainCount||0, "#a5b4fc")}
-          </div>
+        // Stats
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:.75rem;">' +
+          statBox("Total Certs", s.total || 0) +
+          statBox("New (7d)", s.newCount || 0, s.newCount > 0 ? "#f59e0b" : "var(--text)") +
+          statBox("Wildcards", s.wildcard || 0, "#22d3ee") +
+          statBox("Brand Abuse", s.brandAbuse || 0, s.brandAbuse > 0 ? "#ef4444" : "#10b981") +
+          statBox("Suspicious", s.suspicious || 0, s.suspicious > 0 ? "#f59e0b" : "#10b981") +
+          statBox("Issuers", s.uniqueIssuers || 0) +
+          statBox("Subdomains", s.subdomainCount || 0, "#a5b4fc") +
+        '</div>';
 
-          ${d.subdomains?.length ? `
-          <div style="padding:1rem;border-radius:1rem;border:1px solid var(--line);">
-            <p class="section-label" style="margin:0 0 .6rem;">Discovered Subdomains (${d.subdomains.length}${s.subdomainCount>d.subdomains.length?" of "+s.subdomainCount:""})</p>
-            <div style="display:flex;flex-wrap:wrap;gap:.4rem;">
-              ${d.subdomains.map(sub=>`<span style="padding:.25rem .6rem;border-radius:999px;background:rgba(99,102,241,.1);font-size:.75rem;font-family:monospace;">${escapeHtml(sub)}</span>`).join("")}
-            </div>
-          </div>` : ""}
+        // Subdomains
+        if (d.subdomains && d.subdomains.length) {
+          html += '<div style="padding:1rem;border-radius:1rem;border:1px solid var(--line);">' +
+            '<p class="section-label" style="margin:0 0 .6rem;">Discovered Subdomains (' + d.subdomains.length + (s.subdomainCount > d.subdomains.length ? " of " + s.subdomainCount : "") + ')</p>' +
+            '<div style="display:flex;flex-wrap:wrap;gap:.4rem;">' +
+              d.subdomains.map(function(sub) { return '<span style="padding:.25rem .6rem;border-radius:999px;background:rgba(99,102,241,.1);font-size:.75rem;font-family:monospace;">' + escapeHtml(sub) + '</span>'; }).join("") +
+            '</div>' +
+          '</div>';
+        }
 
-          ${d.issuers?.length ? `
-          <div style="padding:1rem;border-radius:1rem;border:1px solid var(--line);">
-            <p class="section-label" style="margin:0 0 .6rem;">Certificate Authorities (${d.issuers.length})</p>
-            <div style="display:flex;flex-wrap:wrap;gap:.4rem;">
-              ${d.issuers.map(i=>`<span style="padding:.25rem .6rem;border-radius:999px;background:rgba(34,211,238,.08);font-size:.75rem;">${escapeHtml(i.slice(0,60))}</span>`).join("")}
-            </div>
-          </div>` : ""}
+        // Issuers
+        if (d.issuers && d.issuers.length) {
+          html += '<div style="padding:1rem;border-radius:1rem;border:1px solid var(--line);">' +
+            '<p class="section-label" style="margin:0 0 .6rem;">Certificate Authorities (' + d.issuers.length + ')</p>' +
+            '<div style="display:flex;flex-wrap:wrap;gap:.4rem;">' +
+              d.issuers.map(function(i) { return '<span style="padding:.25rem .6rem;border-radius:999px;background:rgba(34,211,238,.08);font-size:.75rem;">' + escapeHtml(i.slice(0,60)) + '</span>'; }).join("") +
+            '</div>' +
+          '</div>';
+        }
 
-          ${d.brandAbuseCerts?.length ? `
-          <div style="padding:1rem;border-radius:1rem;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.06);">
-            <p class="section-label" style="margin:0 0 .6rem;color:#ef4444;">&#9888; Brand Abuse (${d.brandAbuseCerts.length})</p>
-            ${certTable(d.brandAbuseCerts, "Abuse Type", c => c.brandAbuse ? c.brandAbuse.type+" — "+c.brandAbuse.similarity+"% match" : "")}
-          </div>` : ""}
+        // Brand Abuse
+        if (d.brandAbuseCerts && d.brandAbuseCerts.length) {
+          html += '<div style="padding:1rem;border-radius:1rem;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.06);">' +
+            '<p class="section-label" style="margin:0 0 .6rem;color:#ef4444;">&#9888; Brand Abuse (' + d.brandAbuseCerts.length + ')</p>' +
+            certTable(d.brandAbuseCerts, "Abuse Type", function(c) { return c.brandAbuse ? c.brandAbuse.type + " - " + c.brandAbuse.similarity + "% match" : ""; }) +
+          '</div>';
+        }
 
-          ${d.newCerts?.length ? `
-          <div style="padding:1rem;border-radius:1rem;border:1px solid rgba(245,158,11,.3);">
-            <p class="section-label" style="margin:0 0 .6rem;color:#f59e0b;">New Certificates — Last 7 Days (${d.newCerts.length})</p>
-            ${certTable(d.newCerts)}
-          </div>` : ""}
+        // New Certs
+        if (d.newCerts && d.newCerts.length) {
+          html += '<div style="padding:1rem;border-radius:1rem;border:1px solid rgba(245,158,11,.3);">' +
+            '<p class="section-label" style="margin:0 0 .6rem;color:#f59e0b;">New Certificates &mdash; Last 7 Days (' + d.newCerts.length + ')</p>' +
+            certTable(d.newCerts) +
+          '</div>';
+        }
 
-          ${d.wildcardCerts?.length ? `
-          <div style="padding:1rem;border-radius:1rem;border:1px solid var(--line);">
-            <p class="section-label" style="margin:0 0 .6rem;">Wildcard Certificates (${d.wildcardCerts.length})</p>
-            ${certTable(d.wildcardCerts)}
-          </div>` : ""}
+        // Wildcards
+        if (d.wildcardCerts && d.wildcardCerts.length) {
+          html += '<div style="padding:1rem;border-radius:1rem;border:1px solid var(--line);">' +
+            '<p class="section-label" style="margin:0 0 .6rem;">Wildcard Certificates (' + d.wildcardCerts.length + ')</p>' +
+            certTable(d.wildcardCerts) +
+          '</div>';
+        }
 
-          ${d.suspiciousCerts?.length ? `
-          <div style="padding:1rem;border-radius:1rem;border:1px solid var(--line);">
-            <p class="section-label" style="margin:0 0 .6rem;">Unattributed Certificates (${d.suspiciousCerts.length})</p>
-            ${certTable(d.suspiciousCerts)}
-          </div>` : ""}
+        // Suspicious
+        if (d.suspiciousCerts && d.suspiciousCerts.length) {
+          html += '<div style="padding:1rem;border-radius:1rem;border:1px solid var(--line);">' +
+            '<p class="section-label" style="margin:0 0 .6rem;">Unattributed Certificates (' + d.suspiciousCerts.length + ')</p>' +
+            certTable(d.suspiciousCerts) +
+          '</div>';
+        }
 
-          <div style="padding:1rem;border-radius:1rem;border:1px solid var(--line);">
-            <p class="section-label" style="margin:0 0 .6rem;">Recent Certificates (showing ${d.recentCerts?.length||0} of ${s.total})</p>
-            ${certTable(d.recentCerts)}
-          </div>
-        </div>`;
+        // Recent
+        html += '<div style="padding:1rem;border-radius:1rem;border:1px solid var(--line);">' +
+          '<p class="section-label" style="margin:0 0 .6rem;">Recent Certificates (showing ' + (d.recentCerts ? d.recentCerts.length : 0) + ' of ' + (s.total || 0) + ')</p>' +
+          certTable(d.recentCerts) +
+        '</div>';
+
+        html += '</div>';
+        out.innerHTML = html;
+
       } catch(e) {
-        out.innerHTML = `
-          <div style="padding:.85rem 1rem;border-radius:.9rem;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.07);">
-            <p style="margin:0;font-size:.875rem;font-weight:600;color:#ef4444;">CT lookup failed for <strong>${escapeHtml(domain)}</strong></p>
-            <p style="margin:.4rem 0 0;font-size:.78rem;color:#94a3b8;">crt.sh did not respond in time. Wait a few seconds and try again.</p>
-          </div>`;
+        out.innerHTML = '<div style="padding:.85rem 1rem;border-radius:.9rem;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.07);">' +
+          '<p style="margin:0;font-size:.875rem;font-weight:600;color:#ef4444;">CT lookup failed for <strong>' + escapeHtml(domain) + '</strong></p>' +
+          '<p style="margin:.4rem 0 0;font-size:.78rem;color:#94a3b8;">crt.sh did not respond in time. Wait a few seconds and try again.</p>' +
+        '</div>';
+      }
     });
 
     document.getElementById("refreshWatchBtn").addEventListener("click", loadWatchlist);
     document.getElementById("checkAllBtn").addEventListener("click", checkAll);
-    document.getElementById("themeToggle").addEventListener("click", () => applyTheme(!document.documentElement.classList.contains("dark")));
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    document.getElementById("themeToggle").addEventListener("click", function() { applyTheme(!document.documentElement.classList.contains("dark")); });
+    var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     applyTheme(localStorage.theme ? localStorage.theme === "dark" : prefersDark);
     loadWatchlist();
   </script>
