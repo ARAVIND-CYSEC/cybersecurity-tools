@@ -3283,6 +3283,29 @@ app.post("/api/ai/chat", async (req, res) => {
   }
 });
 
+// CT Monitor — fetch crt.sh using Node https directly (avoids fetch proxy overhead on Render)
+const https = require("https");
+
+function fetchCrtShDirect(query) {
+  return new Promise((resolve, reject) => {
+    const url = `https://crt.sh/?q=${encodeURIComponent(query)}&output=json&deduplicate=Y`;
+    const req = https.get(url, { timeout: 25000, headers: { "Accept": "application/json", "User-Agent": "CyberShield/1.0" } }, (res) => {
+      let data = "";
+      res.on("data", chunk => { data += chunk; });
+      res.on("end", () => {
+        const text = data.trim();
+        if (!text || text[0] === "<") return reject(new Error("crt.sh returned HTML"));
+        try {
+          const parsed = JSON.parse(text.startsWith("[") ? text : `[${text.replace(/}\s*{/g, "},{") }]`);
+          resolve(parsed);
+        } catch(e) { reject(new Error("crt.sh JSON parse failed: " + e.message)); }
+      });
+    });
+    req.on("timeout", () => { req.destroy(); reject(new Error("crt.sh request timed out")); });
+    req.on("error", reject);
+  });
+}
+
 // CT Monitor helpers
 const KNOWN_BRANDS_CT = ["google","youtube","gmail","microsoft","azure","office","outlook","amazon","aws","apple","icloud","facebook","instagram","whatsapp","meta","twitter","github","paypal","stripe","netflix","cloudflare","openai","chatgpt","linkedin","dropbox","salesforce","adobe","zoom","slack","shopify"];
 
@@ -3325,17 +3348,14 @@ app.get("/api/cert-monitor/check", async (req, res) => {
 
   // Try wildcard query first (%25 = * in crt.sh), then exact domain
   const queries = [
-    { url: `https://crt.sh/?q=%25.${encodeURIComponent(domain)}&output=json`, label: "crt.sh" },
-    { url: `https://crt.sh/?q=${encodeURIComponent(domain)}&output=json`, label: "crt.sh (exact)" }
+    { q: `%25.${domain}`, label: "crt.sh" },
+    { q: domain, label: "crt.sh (exact)" }
   ];
 
   let lastErr = null;
   for (const q of queries) {
     try {
-      const raw = await fetchText(q.url, { timeoutMs: 20000 });
-      const text = raw.trim();
-      if (!text || text[0] === "<") continue;
-      const parsed = JSON.parse(text.startsWith("[") ? text : `[${text.replace(/}\s*{/g, "},{") }]`);
+      const parsed = await fetchCrtShDirect(q.q);
       if (parsed.length) { certs = parsed; source = q.label; break; }
     } catch (err) { lastErr = err.message; }
   }
