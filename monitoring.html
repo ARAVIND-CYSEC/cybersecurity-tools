@@ -205,87 +205,112 @@
       if (!domain) { out.innerHTML = `<p class="text-sm text-red-500">Please enter a domain.</p>`; return; }
       out.innerHTML = `<p class="text-sm text-slate-500">Checking CT logs for ${escapeHtml(domain)}...</p>`;
       try {
-        const data = await requestJson(`/api/cert-monitor/check?domain=${encodeURIComponent(domain)}`);
-        const levelClass = data.alertLevel === "high" ? "danger" : data.alertLevel === "medium" ? "warn" : "safe";
-        const row = (label, val) => `<div class="flex gap-2 text-sm"><span class="font-semibold w-36 shrink-0 text-slate-500">${label}:</span><span class="break-all">${escapeHtml(String(val ?? "N/A"))}</span></div>`;
-        out.innerHTML = `
-          <div class="space-y-4">
-            <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
-              <div class="flex items-center gap-3">
-                <span class="badge ${levelClass}">${escapeHtml(data.alertLevel?.toUpperCase() || "LOW")}</span>
-                <p class="m-0 text-sm font-semibold">${escapeHtml(data.alert)}</p>
-              </div>
-              ${row("Domain", data.domain)}
-              ${row("Checked At", new Date(data.checkedAt).toLocaleString())}
-              ${row("Total Certs", data.totalCerts)}
-              ${row("New (7 days)", data.newCertCount)}
-            </div>
-            ${data.newCerts?.length ? `
-            <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-700">
-              <p class="section-label m-0 mb-3">New Certificates (last 7 days)</p>
-              <div class="overflow-auto max-h-48">
-                <table class="w-full text-xs border-collapse">
-                  <thead><tr class="bg-indigo-50 dark:bg-indigo-900/40">
-                    <th class="border border-slate-200 dark:border-slate-700 px-2 py-1 text-left">Common Name</th>
-                    <th class="border border-slate-200 dark:border-slate-700 px-2 py-1 text-left">Issuer</th>
-                    <th class="border border-slate-200 dark:border-slate-700 px-2 py-1 text-left">Not Before</th>
-                    <th class="border border-slate-200 dark:border-slate-700 px-2 py-1 text-left">Not After</th>
-                  </tr></thead>
-                  <tbody>${data.newCerts.map(c => `<tr>
-                    <td class="border border-slate-200 dark:border-slate-700 px-2 py-1">${escapeHtml(c.commonName || "")}</td>
-                    <td class="border border-slate-200 dark:border-slate-700 px-2 py-1">${escapeHtml((c.issuer||"").slice(0,40))}</td>
-                    <td class="border border-slate-200 dark:border-slate-700 px-2 py-1">${escapeHtml(c.notBefore ? c.notBefore.slice(0,10) : "")}</td>
-                    <td class="border border-slate-200 dark:border-slate-700 px-2 py-1">${escapeHtml(c.notAfter ? c.notAfter.slice(0,10) : "")}</td>
-                  </tr>`).join("")}</tbody>
-                </table>
-              </div>
-            </div>` : ""}
-            ${data.suspiciousCerts?.length ? `
-            <div class="p-3 rounded-xl border border-amber-200 dark:border-amber-800/40 bg-amber-50/40 dark:bg-amber-900/10">
-              <p class="section-label m-0 mb-3" style="color:#f59e0b">Suspicious Certificates (wildcard / non-matching domain)</p>
-              <div class="overflow-auto max-h-40">
-                <table class="w-full text-xs border-collapse">
-                  <thead><tr class="bg-amber-50 dark:bg-amber-900/30">
-                    <th class="border border-amber-200 dark:border-amber-800 px-2 py-1 text-left">Common Name</th>
-                    <th class="border border-amber-200 dark:border-amber-800 px-2 py-1 text-left">Issuer</th>
-                    <th class="border border-amber-200 dark:border-amber-800 px-2 py-1 text-left">Not Before</th>
-                  </tr></thead>
-                  <tbody>${data.suspiciousCerts.map(c => `<tr>
-                    <td class="border border-amber-200 dark:border-amber-800 px-2 py-1">${escapeHtml(c.commonName || "")}</td>
-                    <td class="border border-amber-200 dark:border-amber-800 px-2 py-1">${escapeHtml((c.issuer||"").slice(0,40))}</td>
-                    <td class="border border-amber-200 dark:border-amber-800 px-2 py-1">${escapeHtml(c.notBefore ? c.notBefore.slice(0,10) : "")}</td>
-                  </tr>`).join("")}</tbody>
-                </table>
-              </div>
-            </div>` : ""}
-            <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-700">
-              <p class="section-label m-0 mb-3">Recent Certificates (all time)</p>
-              <div class="overflow-auto max-h-48">
-                <table class="w-full text-xs border-collapse">
-                  <thead><tr class="bg-indigo-50 dark:bg-indigo-900/40">
-                    <th class="border border-slate-200 dark:border-slate-700 px-2 py-1 text-left">Common Name</th>
-                    <th class="border border-slate-200 dark:border-slate-700 px-2 py-1 text-left">Issuer</th>
-                    <th class="border border-slate-200 dark:border-slate-700 px-2 py-1 text-left">Not Before</th>
-                    <th class="border border-slate-200 dark:border-slate-700 px-2 py-1 text-left">Not After</th>
-                  </tr></thead>
-                  <tbody>${data.recentCerts.map(c => `<tr>
-                    <td class="border border-slate-200 dark:border-slate-700 px-2 py-1">${escapeHtml(c.commonName || "")}</td>
-                    <td class="border border-slate-200 dark:border-slate-700 px-2 py-1">${escapeHtml((c.issuer||"").slice(0,40))}</td>
-                    <td class="border border-slate-200 dark:border-slate-700 px-2 py-1">${escapeHtml(c.notBefore ? c.notBefore.slice(0,10) : "")}</td>
-                    <td class="border border-slate-200 dark:border-slate-700 px-2 py-1">${escapeHtml(c.notAfter ? c.notAfter.slice(0,10) : "")}</td>
-                  </tr>`).join("")}</tbody>
-                </table>
-              </div>
-            </div>
+        const d = await requestJson(`/api/cert-monitor/check?domain=${encodeURIComponent(domain)}`);
+        const s = d.summary || {};
+        const alertColor = d.alertLevel === "high" ? "#ef4444" : d.alertLevel === "medium" ? "#f59e0b" : "#10b981";
+        const alertBadge = d.alertLevel === "high" ? "danger" : d.alertLevel === "medium" ? "warn" : "safe";
+
+        const certTable = (certs, extraHeader, extraCell) => !certs?.length ? `<p style="margin:.4rem 0;font-size:.8rem;color:#94a3b8;">None found.</p>` : `
+          <div style="overflow:auto;max-height:220px;">
+            <table style="width:100%;border-collapse:collapse;font-size:.75rem;">
+              <thead><tr style="background:rgba(99,102,241,.1);">
+                <th style="border:1px solid var(--line);padding:.3rem .5rem;text-align:left;">Common Name</th>
+                <th style="border:1px solid var(--line);padding:.3rem .5rem;text-align:left;">Issuer</th>
+                <th style="border:1px solid var(--line);padding:.3rem .5rem;text-align:left;">Not Before</th>
+                <th style="border:1px solid var(--line);padding:.3rem .5rem;text-align:left;">Not After</th>
+                ${extraHeader ? `<th style="border:1px solid var(--line);padding:.3rem .5rem;text-align:left;">${extraHeader}</th>` : ""}
+              </tr></thead>
+              <tbody>${certs.map(c => `<tr>
+                <td style="border:1px solid var(--line);padding:.3rem .5rem;">${escapeHtml(c.commonName||"")}</td>
+                <td style="border:1px solid var(--line);padding:.3rem .5rem;font-size:.7rem;">${escapeHtml((c.issuer||"").slice(0,42))}</td>
+                <td style="border:1px solid var(--line);padding:.3rem .5rem;">${escapeHtml(c.notBefore?c.notBefore.slice(0,10):"")}</td>
+                <td style="border:1px solid var(--line);padding:.3rem .5rem;">${escapeHtml(c.notAfter?c.notAfter.slice(0,10):"")}</td>
+                ${extraCell ? `<td style="border:1px solid var(--line);padding:.3rem .5rem;">${escapeHtml(extraCell(c))}</td>` : ""}
+              </tr>`).join("")}</tbody>
+            </table>
           </div>`;
+
+        const statBox = (label, val, color) =>
+          `<div style="padding:.75rem 1rem;border-radius:.85rem;border:1px solid var(--line);background:rgba(99,102,241,.05);text-align:center;">
+            <p style="margin:0;font-size:.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#a5b4fc;">${label}</p>
+            <p style="margin:.4rem 0 0;font-size:1.5rem;font-weight:800;color:${color||"var(--text)"}">${val}</p>
+          </div>`;
+
+        out.innerHTML = `<div style="display:grid;gap:1rem;">
+
+          <div style="padding:1.25rem;border-radius:1.1rem;border:1px solid var(--line);background:var(--surface2);">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;">
+              <div>
+                <p style="margin:0;font-size:.72rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#a5b4fc;">CT Intelligence — ${escapeHtml(d.source||"crt.sh")}</p>
+                <p style="margin:.3rem 0 0;font-size:1.4rem;font-weight:800;">${escapeHtml(d.domain)}</p>
+              </div>
+              <span class="badge ${alertBadge}">${escapeHtml((d.alertLevel||"low").toUpperCase())} RISK</span>
+            </div>
+            <p style="margin:.85rem 0 0;font-size:.88rem;color:${alertColor};font-weight:600;">${escapeHtml(d.alert||"")}</p>
+            <p style="margin:.3rem 0 0;font-size:.75rem;color:#64748b;">Checked: ${new Date(d.checkedAt).toLocaleString()}</p>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:.75rem;">
+            ${statBox("Total Certs", s.total||0)}
+            ${statBox("New (7d)", s.newCount||0, s.newCount>0?"#f59e0b":"var(--text)")}
+            ${statBox("Wildcards", s.wildcard||0, "#22d3ee")}
+            ${statBox("Brand Abuse", s.brandAbuse||0, s.brandAbuse>0?"#ef4444":"#10b981")}
+            ${statBox("Suspicious", s.suspicious||0, s.suspicious>0?"#f59e0b":"#10b981")}
+            ${statBox("Issuers", s.uniqueIssuers||0)}
+            ${statBox("Subdomains", s.subdomainCount||0, "#a5b4fc")}
+          </div>
+
+          ${d.subdomains?.length ? `
+          <div style="padding:1rem;border-radius:1rem;border:1px solid var(--line);">
+            <p class="section-label" style="margin:0 0 .6rem;">Discovered Subdomains (${d.subdomains.length}${s.subdomainCount>d.subdomains.length?" of "+s.subdomainCount:""})</p>
+            <div style="display:flex;flex-wrap:wrap;gap:.4rem;">
+              ${d.subdomains.map(sub=>`<span style="padding:.25rem .6rem;border-radius:999px;background:rgba(99,102,241,.1);font-size:.75rem;font-family:monospace;">${escapeHtml(sub)}</span>`).join("")}
+            </div>
+          </div>` : ""}
+
+          ${d.issuers?.length ? `
+          <div style="padding:1rem;border-radius:1rem;border:1px solid var(--line);">
+            <p class="section-label" style="margin:0 0 .6rem;">Certificate Authorities (${d.issuers.length})</p>
+            <div style="display:flex;flex-wrap:wrap;gap:.4rem;">
+              ${d.issuers.map(i=>`<span style="padding:.25rem .6rem;border-radius:999px;background:rgba(34,211,238,.08);font-size:.75rem;">${escapeHtml(i.slice(0,60))}</span>`).join("")}
+            </div>
+          </div>` : ""}
+
+          ${d.brandAbuseCerts?.length ? `
+          <div style="padding:1rem;border-radius:1rem;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.06);">
+            <p class="section-label" style="margin:0 0 .6rem;color:#ef4444;">&#9888; Brand Abuse (${d.brandAbuseCerts.length})</p>
+            ${certTable(d.brandAbuseCerts, "Abuse Type", c => c.brandAbuse ? c.brandAbuse.type+" — "+c.brandAbuse.similarity+"% match" : "")}
+          </div>` : ""}
+
+          ${d.newCerts?.length ? `
+          <div style="padding:1rem;border-radius:1rem;border:1px solid rgba(245,158,11,.3);">
+            <p class="section-label" style="margin:0 0 .6rem;color:#f59e0b;">New Certificates — Last 7 Days (${d.newCerts.length})</p>
+            ${certTable(d.newCerts)}
+          </div>` : ""}
+
+          ${d.wildcardCerts?.length ? `
+          <div style="padding:1rem;border-radius:1rem;border:1px solid var(--line);">
+            <p class="section-label" style="margin:0 0 .6rem;">Wildcard Certificates (${d.wildcardCerts.length})</p>
+            ${certTable(d.wildcardCerts)}
+          </div>` : ""}
+
+          ${d.suspiciousCerts?.length ? `
+          <div style="padding:1rem;border-radius:1rem;border:1px solid var(--line);">
+            <p class="section-label" style="margin:0 0 .6rem;">Unattributed Certificates (${d.suspiciousCerts.length})</p>
+            ${certTable(d.suspiciousCerts)}
+          </div>` : ""}
+
+          <div style="padding:1rem;border-radius:1rem;border:1px solid var(--line);">
+            <p class="section-label" style="margin:0 0 .6rem;">Recent Certificates (showing ${d.recentCerts?.length||0} of ${s.total})</p>
+            ${certTable(d.recentCerts)}
+          </div>
+        </div>`;
       } catch(e) {
-        const hint = e.hint || "";
         out.innerHTML = `
           <div style="padding:.85rem 1rem;border-radius:.9rem;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.07);">
-            <p class="m-0 text-sm font-semibold" style="color:#ef4444;">Check failed: ${escapeHtml(e.message)}</p>
-            ${hint ? `<p class="m-0 mt-1 text-xs" style="color:#94a3b8;">${escapeHtml(hint)}</p>` : ""}
+            <p style="margin:0;font-size:.875rem;font-weight:600;color:#ef4444;">CT lookup failed for <strong>${escapeHtml(domain)}</strong></p>
+            <p style="margin:.4rem 0 0;font-size:.78rem;color:#94a3b8;">crt.sh did not respond in time. Wait a few seconds and try again.</p>
           </div>`;
-      }
     });
 
     document.getElementById("refreshWatchBtn").addEventListener("click", loadWatchlist);

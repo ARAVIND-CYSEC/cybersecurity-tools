@@ -3283,84 +3283,146 @@ app.post("/api/ai/chat", async (req, res) => {
   }
 });
 
+// CT Monitor helpers
+const KNOWN_BRANDS_CT = ["google","youtube","gmail","microsoft","azure","office","outlook","amazon","aws","apple","icloud","facebook","instagram","whatsapp","meta","twitter","github","paypal","stripe","netflix","cloudflare","openai","chatgpt","linkedin","dropbox","salesforce","adobe","zoom","slack","shopify"];
+
+function ctLevenshtein(a, b) {
+  const dp = Array.from({length: a.length+1}, (_,i) => Array.from({length: b.length+1}, (_,j) => i===0?j:j===0?i:0));
+  for (let i=1;i<=a.length;i++) for (let j=1;j<=b.length;j++)
+    dp[i][j] = a[i-1]===b[j-1] ? dp[i-1][j-1] : 1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);
+  return dp[a.length][b.length];
+}
+
+function detectCtBrandAbuse(name, queryDomain) {
+  const clean = name.replace(/^\*\./, "").toLowerCase();
+  if (clean === queryDomain || clean.endsWith(`.${queryDomain}`)) return null;
+  const queryBase = queryDomain.split(".")[0];
+  for (const brand of KNOWN_BRANDS_CT) {
+    if (!clean.includes(brand)) continue;
+    const part = clean.split(".")[0];
+    const dist = ctLevenshtein(part, brand);
+    const sim = Math.round((1 - dist / Math.max(part.length, brand.length)) * 100);
+    if (sim >= 70) return { brand, similarity: sim, type: dist === 0 ? "impersonation" : "typosquatting" };
+  }
+  const part = clean.split(".")[0];
+  const dist = ctLevenshtein(part, queryBase);
+  const sim = Math.round((1 - dist / Math.max(part.length, queryBase.length)) * 100);
+  if (sim >= 80 && sim < 100) return { brand: queryDomain, similarity: sim, type: "typosquatting" };
+  return null;
+}
+
+function extractSans(nameValue) {
+  if (!nameValue) return [];
+  return [...new Set(nameValue.split(/\n|,/).map(s => s.trim()).filter(Boolean))];
+}
+
 app.get("/api/cert-monitor/check", async (req, res) => {
   const domain = String(req.query.domain || "").trim().toLowerCase();
   if (!isLikelyDomain(domain)) return badRequest(res, "A valid domain is required.");
 
-  try {
-    // Try crt.sh with a longer timeout
-    let certs = [];
-    let source = "crt.sh";
-    let fetchError = null;
+  let certs = [];
+  let source = "crt.sh";
 
+  // Try wildcard query first (%25 = * in crt.sh), then exact domain
+  const queries = [
+    { url: `https://crt.sh/?q=%25.${encodeURIComponent(domain)}&output=json`, label: "crt.sh" },
+    { url: `https://crt.sh/?q=${encodeURIComponent(domain)}&output=json`, label: "crt.sh (exact)" }
+  ];
+
+  let lastErr = null;
+  for (const q of queries) {
     try {
-      const raw = await fetchText(`https://crt.sh/?q=${encodeURIComponent(domain)}&output=json`, { timeoutMs: 15000 });
+      const raw = await fetchText(q.url, { timeoutMs: 20000 });
       const text = raw.trim();
-      certs = JSON.parse(text.startsWith("[") ? text : `[${text.replace(/}\s*{/g, "},{") }]`);
-    } catch (err) {
-      fetchError = err.message;
-      // Fallback: try with wildcard query
-      try {
-        const raw2 = await fetchText(`https://crt.sh/?q=%.${encodeURIComponent(domain)}&output=json`, { timeoutMs: 15000 });
-        const text2 = raw2.trim();
-        certs = JSON.parse(text2.startsWith("[") ? text2 : `[${text2.replace(/}\s*{/g, "},{") }]`);
-        source = "crt.sh (wildcard fallback)";
-        fetchError = null;
-      } catch (err2) {
-        fetchError = err2.message;
-      }
-    }
+      if (!text || text[0] === "<") continue;
+      const parsed = JSON.parse(text.startsWith("[") ? text : `[${text.replace(/}\s*{/g, "},{") }]`);
+      if (parsed.length) { certs = parsed; source = q.label; break; }
+    } catch (err) { lastErr = err.message; }
+  }
 
-    if (fetchError && !certs.length) {
-      return res.status(502).json({
-        error: "Failed to fetch certificate transparency data.",
-        details: fetchError,
-        hint: "crt.sh may be temporarily unavailable. Try again in a moment."
-      });
-    }
-
-    const now = Date.now();
-    const normalized = certs
-      .map(e => ({
-        issuer: e.issuer_name || null,
-        commonName: e.common_name || null,
-        nameValue: e.name_value || null,
-        notBefore: e.not_before || null,
-        notAfter: e.not_after || null,
-        loggedAt: e.entry_timestamp || null,
-        serialNumber: e.serial_number || null
-      }))
-      .filter(e => e.commonName || e.nameValue)
-      .sort((a, b) => new Date(b.loggedAt || 0) - new Date(a.loggedAt || 0));
-
-    const recentThresholdMs = 7 * 24 * 60 * 60 * 1000;
-    const newCerts = normalized.filter(e => e.notBefore && (now - new Date(e.notBefore).getTime()) < recentThresholdMs);
-    const suspiciousCerts = normalized.filter(e => {
-      const name = (e.commonName || e.nameValue || "").toLowerCase();
-      return name.startsWith("*.") || (!name.endsWith(domain) && name !== domain);
-    }).slice(0, 10);
-
-    res.json({
-      domain,
-      source,
-      checkedAt: new Date().toISOString(),
-      totalCerts: normalized.length,
-      newCerts: newCerts.slice(0, 10),
-      newCertCount: newCerts.length,
-      recentCerts: normalized.slice(0, 10),
-      suspiciousCerts,
-      alert: newCerts.length > 0
-        ? `${newCerts.length} new certificate(s) issued for ${domain} in the last 7 days.`
-        : `No new certificates detected for ${domain} in the last 7 days.`,
-      alertLevel: newCerts.length > 0 ? (suspiciousCerts.length > 0 ? "high" : "medium") : "low"
-    });
-  } catch (error) {
-    res.status(502).json({
-      error: "Failed to fetch certificate transparency data.",
-      details: error.message,
-      hint: "crt.sh may be temporarily unavailable. Try again in a moment."
+  if (!certs.length) {
+    return res.status(502).json({
+      error: `No certificate transparency records found for ${domain}.`,
+      details: lastErr || "crt.sh returned no results.",
+      hint: "crt.sh may be slow or the domain has no CT records yet."
     });
   }
+
+  const now = Date.now();
+  const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+  const normalized = certs.map(e => {
+    const sans = extractSans(e.name_value);
+    const isWildcard = (e.common_name || "").startsWith("*.") || sans.some(s => s.startsWith("*."));
+    const isOwned = (() => {
+      const cn = (e.common_name || "").replace(/^\*\./, "").toLowerCase();
+      return cn === domain || cn.endsWith(`.${domain}`) || sans.some(s => { const sc = s.replace(/^\*\./, "").toLowerCase(); return sc === domain || sc.endsWith(`.${domain}`); });
+    })();
+    const isNew = !!(e.not_before && (now - new Date(e.not_before).getTime()) < sevenDaysMs);
+    const isExpired = !!(e.not_after && new Date(e.not_after).getTime() < now);
+    const brandAbuse = !isOwned ? detectCtBrandAbuse(e.common_name || e.name_value || "", domain) : null;
+    return {
+      issuer: e.issuer_name || null,
+      commonName: e.common_name || null,
+      sans,
+      notBefore: e.not_before || null,
+      notAfter: e.not_after || null,
+      loggedAt: e.entry_timestamp || null,
+      serialNumber: e.serial_number || null,
+      isWildcard,
+      isOwned,
+      isNew,
+      isExpired,
+      brandAbuse
+    };
+  })
+  .filter(e => e.commonName || e.sans.length)
+  .sort((a, b) => new Date(b.loggedAt || 0) - new Date(a.loggedAt || 0));
+
+  // Extract unique subdomains from SANs
+  const subdomains = [...new Set(
+    normalized.flatMap(e => e.sans)
+      .map(s => s.replace(/^\*\./, "").toLowerCase())
+      .filter(s => s.endsWith(`.${domain}`) || s === domain)
+  )].sort();
+
+  const newCerts = normalized.filter(e => e.isNew);
+  const wildcardCerts = normalized.filter(e => e.isWildcard && e.isOwned);
+  const brandAbuseCerts = normalized.filter(e => e.brandAbuse);
+  const suspiciousCerts = normalized.filter(e => !e.isOwned && !e.brandAbuse && !e.isExpired);
+  const issuers = [...new Set(normalized.map(e => e.issuer).filter(Boolean))];
+
+  const alertLevel = brandAbuseCerts.length > 0 ? "high" : newCerts.length > 0 ? "medium" : "low";
+  const alert = brandAbuseCerts.length > 0
+    ? `${brandAbuseCerts.length} certificate(s) show brand abuse targeting ${domain}.`
+    : newCerts.length > 0
+      ? `${newCerts.length} new certificate(s) issued for ${domain} in the last 7 days.`
+      : `No new certificates detected for ${domain} in the last 7 days.`;
+
+  res.json({
+    domain,
+    source,
+    checkedAt: new Date().toISOString(),
+    totalCerts: normalized.length,
+    alert,
+    alertLevel,
+    summary: {
+      total: normalized.length,
+      newCount: newCerts.length,
+      wildcard: wildcardCerts.length,
+      brandAbuse: brandAbuseCerts.length,
+      suspicious: suspiciousCerts.length,
+      uniqueIssuers: issuers.length,
+      subdomainCount: subdomains.length
+    },
+    subdomains: subdomains.slice(0, 30),
+    issuers: issuers.slice(0, 10),
+    newCerts: newCerts.slice(0, 10),
+    wildcardCerts: wildcardCerts.slice(0, 10),
+    brandAbuseCerts: brandAbuseCerts.slice(0, 10),
+    suspiciousCerts: suspiciousCerts.slice(0, 10),
+    recentCerts: normalized.slice(0, 15)
+  });
 });
 
 app.get("/", (req, res) => {
