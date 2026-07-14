@@ -3283,34 +3283,45 @@ app.post("/api/ai/chat", async (req, res) => {
   }
 });
 
-// CT Monitor — fetch crt.sh using Node https directly (avoids fetch proxy overhead on Render)
-const https = require("https");
-
-function fetchCrtShDirect(query, limitRows) {
+// CT Monitor — Certspotter API (free, no auth, reliable)
+// crt.sh is unreachable from Render's IP range (502/socket hang up)
+function fetchCertspotter(domain) {
   return new Promise((resolve, reject) => {
-    const limit = limitRows ? `&limit=${limitRows}` : "";
-    const url = `https://crt.sh/?q=${encodeURIComponent(query)}&output=json&deduplicate=Y${limit}`;
-    let settled = false;
-    const done = (fn) => { if (!settled) { settled = true; clearTimeout(wallClock); fn(); } };
+    // Paginate via after_id to get up to 2000 certs
+    const results = [];
+    let afterId = null;
+    let pages = 0;
+    const MAX_PAGES = 10; // 200 per page * 10 = 2000 max
 
-    // Hard wall-clock timeout — fires regardless of socket activity
-    const wallClock = setTimeout(() => {
-      req.destroy();
-      done(() => reject(new Error("crt.sh request timed out")));
-    }, 28000);
-
-    const req = https.get(url, { headers: { "Accept": "application/json", "User-Agent": "CyberShield/1.0" } }, (res) => {
-      let data = "";
-      res.on("data", chunk => { data += chunk; });
-      res.on("end", () => done(() => {
-        const text = data.trim();
-        if (!text || text[0] === "<") return reject(new Error("crt.sh returned HTML — may be rate-limited"));
-        try {
-          resolve(JSON.parse(text.startsWith("[") ? text : `[${text.replace(/}\s*{/g, "},{") }]`));
-        } catch(e) { reject(new Error("crt.sh JSON parse failed: " + e.message)); }
-      }));
-    });
-    req.on("error", (e) => done(() => reject(e)));
+    function fetchPage() {
+      if (pages >= MAX_PAGES) return resolve(results);
+      pages++;
+      const qs = "domain=" + encodeURIComponent(domain) +
+        "&include_subdomains=true&expand=dns_names&expand=issuer&expand=cert" +
+        (afterId ? "&after=" + encodeURIComponent(afterId) : "");
+      const url = "https://api.certspotter.com/v1/issuances?" + qs;
+      let settled = false;
+      const done = (fn) => { if (!settled) { settled = true; clearTimeout(wc); fn(); } };
+      const wc = setTimeout(() => { req.destroy(); done(() => reject(new Error("Certspotter request timed out"))); }, 20000);
+      const req = https.get(url, { headers: { "User-Agent": "CyberShield/1.0" } }, (res) => {
+        let data = "";
+        res.on("data", c => { data += c; });
+        res.on("end", () => done(() => {
+          if (res.statusCode === 429) return reject(new Error("Certspotter rate limit reached. Try again in a minute."));
+          if (res.statusCode !== 200) return reject(new Error("Certspotter returned HTTP " + res.statusCode));
+          try {
+            const page = JSON.parse(data);
+            if (!Array.isArray(page) || page.length === 0) return resolve(results);
+            results.push(...page);
+            afterId = page[page.length - 1].id;
+            if (page.length < 100) return resolve(results); // last page
+            fetchPage();
+          } catch(e) { reject(new Error("Certspotter JSON parse failed: " + e.message)); }
+        }));
+      });
+      req.on("error", (e) => done(() => reject(e)));
+    }
+    fetchPage();
   });
 }
 
@@ -3342,40 +3353,31 @@ function detectCtBrandAbuse(name, queryDomain) {
   return null;
 }
 
-function extractSans(nameValue) {
-  if (!nameValue) return [];
-  return [...new Set(nameValue.split(/\n|,/).map(s => s.trim()).filter(Boolean))];
-}
-
 app.get("/api/cert-monitor/check", async (req, res) => {
   const domain = String(req.query.domain || "").trim().toLowerCase();
   if (!isLikelyDomain(domain)) return badRequest(res, "A valid domain is required.");
 
   let certs = [];
-  let source = "crt.sh";
-
-  // Try wildcard query first (%25 = * in crt.sh), then exact domain
-  // Limit to 2000 rows — enough for full analysis, prevents timeout on huge domains
-  const queries = [
-    { q: `%25.${domain}`, label: "crt.sh", limit: 2000 },
-    { q: domain, label: "crt.sh (exact)", limit: 2000 }
-  ];
-
+  let source = "certspotter";
   let lastErr = null;
-  for (const q of queries) {
-    try {
-      const parsed = await fetchCrtShDirect(q.q, q.limit);
-      if (parsed.length) { certs = parsed; source = q.label; break; }
-    } catch (err) { lastErr = err.message; }
+
+  try {
+    certs = await fetchCertspotter(domain);
+  } catch (err) {
+    lastErr = err.message;
   }
 
   if (!certs.length) {
     const isTimeout = lastErr && lastErr.includes("timed out");
+    const isRateLimit = lastErr && lastErr.includes("rate limit");
     return res.status(502).json({
       error: isTimeout
-        ? `crt.sh did not respond in time for ${domain}. Wait a few seconds and try again.`
-        : `No CT records found for ${domain}. The domain may not exist or has no certificates logged yet.`,
-      details: lastErr || "crt.sh returned no results."
+        ? "CT lookup timed out. Wait a few seconds and try again."
+        : isRateLimit
+          ? lastErr
+          : lastErr
+            ? lastErr
+            : `No CT records found for ${domain}. The domain may have no certificates logged yet.`
     });
   }
 
@@ -3383,23 +3385,26 @@ app.get("/api/cert-monitor/check", async (req, res) => {
   const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
 
   const normalized = certs.map(e => {
-    const sans = extractSans(e.name_value);
-    const isWildcard = (e.common_name || "").startsWith("*.") || sans.some(s => s.startsWith("*."));
-    const isOwned = (() => {
-      const cn = (e.common_name || "").replace(/^\*\./, "").toLowerCase();
-      return cn === domain || cn.endsWith(`.${domain}`) || sans.some(s => { const sc = s.replace(/^\*\./, "").toLowerCase(); return sc === domain || sc.endsWith(`.${domain}`); });
-    })();
+    const dnsNames = Array.isArray(e.dns_names) ? e.dns_names : [];
+    const isWildcard = dnsNames.some(s => s.startsWith("*."));
+    const isOwned = dnsNames.some(s => {
+      const sc = s.replace(/^\*\./, "").toLowerCase();
+      return sc === domain || sc.endsWith(`.${domain}`);
+    });
     const isNew = !!(e.not_before && (now - new Date(e.not_before).getTime()) < sevenDaysMs);
     const isExpired = !!(e.not_after && new Date(e.not_after).getTime() < now);
-    const brandAbuse = !isOwned ? detectCtBrandAbuse(e.common_name || e.name_value || "", domain) : null;
+    const issuerLabel = e.issuer ? (e.issuer.organization || e.issuer.common_name || null) : null;
+    const commonName = dnsNames[0] || null;
+    const brandAbuse = !isOwned ? detectCtBrandAbuse(commonName || "", domain) : null;
     return {
-      issuer: e.issuer_name || null,
-      commonName: e.common_name || null,
-      sans,
+      issuer: issuerLabel,
+      commonName,
+      sans: dnsNames,
       notBefore: e.not_before || null,
       notAfter: e.not_after || null,
-      loggedAt: e.entry_timestamp || null,
-      serialNumber: e.serial_number || null,
+      loggedAt: e.not_before || null,
+      serialNumber: e.tbs_sha256 || null,
+      revoked: e.revoked || false,
       isWildcard,
       isOwned,
       isNew,
@@ -3410,7 +3415,7 @@ app.get("/api/cert-monitor/check", async (req, res) => {
   .filter(e => e.commonName || e.sans.length)
   .sort((a, b) => new Date(b.loggedAt || 0) - new Date(a.loggedAt || 0));
 
-  // Extract unique subdomains from SANs
+  // Extract unique subdomains from dns_names
   const subdomains = [...new Set(
     normalized.flatMap(e => e.sans)
       .map(s => s.replace(/^\*\./, "").toLowerCase())
@@ -3430,12 +3435,11 @@ app.get("/api/cert-monitor/check", async (req, res) => {
     if (yr && yr > 2000) timelineByYear[yr] = (timelineByYear[yr] || 0) + 1;
   }
 
-  // CA distribution (top 5)
+  // CA distribution (top 5) — issuer is already a clean string from Certspotter
   const caCount = {};
   for (const c of normalized) {
     if (!c.issuer) continue;
-    // Shorten issuer to CA name only
-    const ca = (c.issuer.match(/O=([^,]+)/) || c.issuer.match(/CN=([^,]+)/) || [null, c.issuer])[1].trim();
+    const ca = c.issuer.slice(0, 60);
     caCount[ca] = (caCount[ca] || 0) + 1;
   }
   const caDistribution = Object.entries(caCount)
