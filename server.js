@@ -35,21 +35,27 @@ function readWorkspaceStore() {
     const parsed = JSON.parse(raw || "{}");
     return {
       cases: Array.isArray(parsed.cases) ? parsed.cases : [],
-      watchlists: Array.isArray(parsed.watchlists) ? parsed.watchlists : []
+      watchlists: Array.isArray(parsed.watchlists) ? parsed.watchlists : [],
+      ctMonitor: parsed.ctMonitor && typeof parsed.ctMonitor === "object" ? parsed.ctMonitor : { domains: [], alerts: [] }
     };
   } catch {
-    return { cases: [], watchlists: [] };
+    return { cases: [], watchlists: [], ctMonitor: { domains: [], alerts: [] } };
   }
 }
 
 function writeWorkspaceStore(nextStore) {
   ensureWorkspaceStore();
+  const ctMonitor = nextStore.ctMonitor && typeof nextStore.ctMonitor === "object" ? nextStore.ctMonitor : { domains: [], alerts: [] };
   fs.writeFileSync(
     storePath,
     JSON.stringify(
       {
         cases: Array.isArray(nextStore.cases) ? nextStore.cases : [],
-        watchlists: Array.isArray(nextStore.watchlists) ? nextStore.watchlists : []
+        watchlists: Array.isArray(nextStore.watchlists) ? nextStore.watchlists : [],
+        ctMonitor: {
+          domains: Array.isArray(ctMonitor.domains) ? ctMonitor.domains : [],
+          alerts: Array.isArray(ctMonitor.alerts) ? ctMonitor.alerts : []
+        }
       },
       null,
       2
@@ -142,6 +148,55 @@ function normalizeDomainInput(value) {
     return input.replace(/^https?:\/\//i, "").split(/[/?#]/)[0].replace(/^www\./i, "").toLowerCase();
   }
 }
+
+function parseUserDomainInput(userInput) {
+  const raw = String(userInput ?? "").trim();
+  if (!raw) {
+    return { hostname: "", warnings: ["Empty input"] };
+  }
+
+  let candidate = raw;
+  // Strip surrounding whitespace and accidental trailing punctuation
+  candidate = candidate.replace(/[\s\u0000-\u001F]+$/g, "");
+
+  // If user passed a full URL, use URL parser.
+  if (/^https?:\/\//i.test(candidate)) {
+    try {
+      const parsed = new URL(candidate);
+      const host = parsed.hostname || "";
+      return {
+        hostname: host.replace(/^www\./i, "").toLowerCase(),
+        original: raw,
+        warnings: []
+      };
+    } catch {
+      // fall through to best-effort parsing
+    }
+  }
+
+  // Best-effort parsing:
+  // - remove protocol if present
+  // - cut off path/query/fragment
+  // - handle optional :port
+  candidate = candidate.replace(/^https?:\/\//i, "");
+  candidate = candidate.split(/[/?#]/)[0];
+  candidate = candidate.replace(/\.$/g, "");
+
+  // Remove optional port (example.com:443)
+  candidate = candidate.replace(/:\d{1,5}$/g, "");
+
+  // Normalize www.
+  candidate = candidate.replace(/^www\./i, "").toLowerCase();
+
+  const warnings = [];
+  if (!isLikelyDomain(candidate)) {
+    // still return candidate so caller can show a consistent error
+    warnings.push("Input did not match the expected domain pattern.");
+  }
+
+  return { hostname: candidate, original: raw, warnings };
+}
+
 
 function isLikelyIp(value) {
   return /^(?:\d{1,3}\.){3}\d{1,3}$/.test(value) || /^[0-9a-f:]+$/i.test(value);
@@ -2362,8 +2417,12 @@ async function fetchSecurityHeaders(hostname) {
 }
 
 app.get("/api/security/ssl", async (req, res) => {
-  const domain = String(req.query.domain || "").trim();
-  if (!isLikelyDomain(domain)) return badRequest(res, "A valid domain is required.");
+  const parsed = parseUserDomainInput(req.query.domain);
+  const domain = parsed.hostname;
+
+  if (!domain || !isLikelyDomain(domain)) {
+    return badRequest(res, "A valid domain/hostname is required.");
+  }
 
   try {
     const [tlsData, headers, crtRaw] = await Promise.allSettled([
@@ -2371,6 +2430,7 @@ app.get("/api/security/ssl", async (req, res) => {
       fetchSecurityHeaders(domain),
       fetchText(`https://crt.sh/?q=${encodeURIComponent(domain)}&output=json`, { timeoutMs: 8000 })
     ]);
+
 
     const tls_ = tlsData.status === "fulfilled" ? tlsData.value : { ok: false };
     const hdrs = headers.status === "fulfilled" ? headers.value : {};
@@ -3283,43 +3343,202 @@ app.post("/api/ai/chat", async (req, res) => {
   }
 });
 
+// ─── ASM: Attack Surface Management ────────────────────────────────────────
+
+const ASM_RISK_KEYWORDS = ["vpn","admin","login","mail","owa","remote","internal","dev","staging","test","api","portal","secure","auth","sso","citrix","rdp","ftp","smtp"];
+
+function asmRiskScore(subdomain) {
+  const label = subdomain.split(".")[0].toLowerCase();
+  if (ASM_RISK_KEYWORDS.some(kw => label === kw || label.startsWith(kw + "-") || label.endsWith("-" + kw))) return "high";
+  if (label.startsWith("dev") || label.startsWith("test") || label.startsWith("staging")) return "medium";
+  return "low";
+}
+
+async function runAsmScan(domainEntry) {
+  const domain = domainEntry.domain;
+  const certs = await fetchCertspotter(domain);
+  const now = new Date().toISOString();
+
+  const currentSubdomains = [...new Set(
+    certs.flatMap(e => Array.isArray(e.dns_names) ? e.dns_names : [])
+      .map(s => s.replace(/^\*\./, "").toLowerCase())
+      .filter(s => s === domain || s.endsWith(`.${domain}`))
+  )].sort();
+
+  const previousSubdomains = new Set(domainEntry.subdomains || []);
+  const newSubdomains = currentSubdomains.filter(s => !previousSubdomains.has(s));
+
+  const brandAbuse = certs
+    .flatMap(e => Array.isArray(e.dns_names) ? e.dns_names : [])
+    .map(s => s.replace(/^\*\./, "").toLowerCase())
+    .filter(s => s !== domain && !s.endsWith(`.${domain}`))
+    .map(s => ({ name: s, abuse: detectCtBrandAbuse(s, domain) }))
+    .filter(e => e.abuse !== null)
+    .slice(0, 20);
+
+  const alerts = [];
+
+  for (const sub of newSubdomains) {
+    const risk = asmRiskScore(sub);
+    alerts.push({
+      id: makeId("asm-alert"),
+      type: "NEW_ASSET",
+      domain,
+      asset: sub,
+      risk,
+      firstSeen: now,
+      message: `New subdomain detected: ${sub}`
+    });
+  }
+
+  for (const { name, abuse } of brandAbuse) {
+    alerts.push({
+      id: makeId("asm-alert"),
+      type: "BRAND_ABUSE",
+      domain,
+      asset: name,
+      risk: "critical",
+      firstSeen: now,
+      similarity: abuse.similarity,
+      abuseType: abuse.type,
+      message: `Potential brand abuse: ${name} (${abuse.similarity}% match, ${abuse.type})`
+    });
+  }
+
+  return { currentSubdomains, newSubdomains, alerts, scannedAt: now };
+}
+
+app.get("/api/asm/domains", (req, res) => {
+  const store = readWorkspaceStore();
+  res.json({ domains: store.ctMonitor.domains });
+});
+
+app.post("/api/asm/domains", (req, res) => {
+  const domain = normalizeDomainInput(req.body?.domain);
+  if (!isLikelyDomain(domain)) return badRequest(res, "A valid domain is required.");
+  const store = readWorkspaceStore();
+  if (store.ctMonitor.domains.find(d => d.domain === domain)) {
+    return res.json({ existed: true, domain });
+  }
+  const entry = { id: makeId("asm"), domain, subdomains: [], addedAt: new Date().toISOString(), lastScannedAt: null };
+  store.ctMonitor.domains.unshift(entry);
+  writeWorkspaceStore(store);
+  res.status(201).json({ entry });
+});
+
+app.delete("/api/asm/domains/:id", (req, res) => {
+  const store = readWorkspaceStore();
+  const before = store.ctMonitor.domains.length;
+  store.ctMonitor.domains = store.ctMonitor.domains.filter(d => d.id !== req.params.id);
+  if (store.ctMonitor.domains.length === before) return res.status(404).json({ error: "Domain not found." });
+  writeWorkspaceStore(store);
+  res.json({ ok: true });
+});
+
+app.post("/api/asm/scan", async (req, res) => {
+  const domain = normalizeDomainInput(req.body?.domain);
+  if (!isLikelyDomain(domain)) return badRequest(res, "A valid domain is required.");
+  const store = readWorkspaceStore();
+  const entry = store.ctMonitor.domains.find(d => d.domain === domain);
+  if (!entry) return res.status(404).json({ error: "Domain not monitored. Add it first." });
+  try {
+    const result = await runAsmScan(entry);
+    entry.subdomains = result.currentSubdomains;
+    entry.lastScannedAt = result.scannedAt;
+    // Deduplicate alerts by asset+type before storing
+    const existingKeys = new Set(store.ctMonitor.alerts.map(a => `${a.type}:${a.asset}`));
+    const fresh = result.alerts.filter(a => !existingKeys.has(`${a.type}:${a.asset}`));
+    store.ctMonitor.alerts.unshift(...fresh);
+    store.ctMonitor.alerts = store.ctMonitor.alerts.slice(0, 500);
+    writeWorkspaceStore(store);
+    res.json({ domain, newSubdomains: result.newSubdomains, newAlerts: fresh.length, subdomainCount: result.currentSubdomains.length, scannedAt: result.scannedAt });
+  } catch (err) {
+    res.status(502).json({ error: err.message || "Scan failed." });
+  }
+});
+
+app.post("/api/asm/scan-all", async (req, res) => {
+  const store = readWorkspaceStore();
+  const results = [];
+  for (const entry of store.ctMonitor.domains) {
+    try {
+      const result = await runAsmScan(entry);
+      entry.subdomains = result.currentSubdomains;
+      entry.lastScannedAt = result.scannedAt;
+      const existingKeys = new Set(store.ctMonitor.alerts.map(a => `${a.type}:${a.asset}`));
+      const fresh = result.alerts.filter(a => !existingKeys.has(`${a.type}:${a.asset}`));
+      store.ctMonitor.alerts.unshift(...fresh);
+      results.push({ domain: entry.domain, ok: true, newAlerts: fresh.length });
+    } catch (err) {
+      results.push({ domain: entry.domain, ok: false, error: err.message });
+    }
+  }
+  store.ctMonitor.alerts = store.ctMonitor.alerts.slice(0, 500);
+  writeWorkspaceStore(store);
+  res.json({ results });
+});
+
+app.get("/api/asm/alerts", (req, res) => {
+  const store = readWorkspaceStore();
+  const domain = String(req.query.domain || "").trim().toLowerCase();
+  let alerts = store.ctMonitor.alerts;
+  if (domain) alerts = alerts.filter(a => a.domain === domain);
+  res.json({ total: alerts.length, alerts: alerts.slice(0, 100) });
+});
+
+app.delete("/api/asm/alerts/:id", (req, res) => {
+  const store = readWorkspaceStore();
+  store.ctMonitor.alerts = store.ctMonitor.alerts.filter(a => a.id !== req.params.id);
+  writeWorkspaceStore(store);
+  res.json({ ok: true });
+});
+
+// ─── CT Monitor — Certspotter API (free, no auth, reliable) ─────────────────
 // CT Monitor — Certspotter API (free, no auth, reliable)
-// crt.sh is unreachable from Render's IP range (502/socket hang up)
+const https = require("https");
+
 function fetchCertspotter(domain) {
   return new Promise((resolve, reject) => {
-    // Paginate via after_id to get up to 2000 certs
     const results = [];
     let afterId = null;
     let pages = 0;
-    const MAX_PAGES = 10; // 200 per page * 10 = 2000 max
+    const MAX_PAGES = 10;
 
     function fetchPage() {
       if (pages >= MAX_PAGES) return resolve(results);
       pages++;
+      // Note: no expand=cert — reduces payload size significantly
       const qs = "domain=" + encodeURIComponent(domain) +
-        "&include_subdomains=true&expand=dns_names&expand=issuer&expand=cert" +
+        "&include_subdomains=true&expand=dns_names&expand=issuer" +
         (afterId ? "&after=" + encodeURIComponent(afterId) : "");
       const url = "https://api.certspotter.com/v1/issuances?" + qs;
       let settled = false;
       const done = (fn) => { if (!settled) { settled = true; clearTimeout(wc); fn(); } };
-      const wc = setTimeout(() => { req.destroy(); done(() => reject(new Error("Certspotter request timed out"))); }, 20000);
+      const wc = setTimeout(() => { req.destroy(); done(() => reject(new Error("CT lookup timed out. Try again in a moment."))); }, 20000);
       const req = https.get(url, { headers: { "User-Agent": "CyberShield/1.0" } }, (res) => {
         let data = "";
         res.on("data", c => { data += c; });
         res.on("end", () => done(() => {
-          if (res.statusCode === 429) return reject(new Error("Certspotter rate limit reached. Try again in a minute."));
-          if (res.statusCode !== 200) return reject(new Error("Certspotter returned HTTP " + res.statusCode));
+          // Check status BEFORE attempting JSON parse
+          if (res.statusCode === 429) return reject(new Error("CT source rate limit reached. Wait 60 seconds and try again."));
+          if (res.statusCode === 401 || res.statusCode === 403) return reject(new Error("CT source requires authentication for this domain. Try a smaller or less popular domain."));
+          if (res.statusCode !== 200) return reject(new Error("CT source returned HTTP " + res.statusCode + ". Try again shortly."));
+          // Guard against HTML responses (rate limit pages, error pages)
+          const trimmed = data.trim();
+          if (!trimmed.startsWith("[") && !trimmed.startsWith("{")) {
+            return reject(new Error("CT source returned an unexpected response (not JSON). The service may be temporarily unavailable."));
+          }
           try {
-            const page = JSON.parse(data);
+            const page = JSON.parse(trimmed);
             if (!Array.isArray(page) || page.length === 0) return resolve(results);
             results.push(...page);
             afterId = page[page.length - 1].id;
-            if (page.length < 100) return resolve(results); // last page
+            if (page.length < 100) return resolve(results);
             fetchPage();
-          } catch(e) { reject(new Error("Certspotter JSON parse failed: " + e.message)); }
+          } catch(e) { reject(new Error("CT response parse failed: " + e.message)); }
         }));
       });
-      req.on("error", (e) => done(() => reject(e)));
+      req.on("error", (e) => done(() => reject(new Error("CT lookup failed: " + e.message))));
     }
     fetchPage();
   });
@@ -3538,8 +3757,33 @@ app.use((req, res) => {
   res.status(404).json({ error: "Route not found." });
 });
 
+function startAsmScheduler() {
+  const INTERVAL_MS = 60 * 60 * 1000;
+  setInterval(async () => {
+    const store = readWorkspaceStore();
+    if (!store.ctMonitor.domains.length) return;
+    console.log(`[ASM Scheduler] Running hourly scan for ${store.ctMonitor.domains.length} domain(s)...`);
+    for (const entry of store.ctMonitor.domains) {
+      try {
+        const result = await runAsmScan(entry);
+        entry.subdomains = result.currentSubdomains;
+        entry.lastScannedAt = result.scannedAt;
+        const existingKeys = new Set(store.ctMonitor.alerts.map(a => `${a.type}:${a.asset}`));
+        const fresh = result.alerts.filter(a => !existingKeys.has(`${a.type}:${a.asset}`));
+        store.ctMonitor.alerts.unshift(...fresh);
+        if (fresh.length) console.log(`[ASM Scheduler] ${entry.domain}: ${fresh.length} new alert(s)`);
+      } catch (err) {
+        console.error(`[ASM Scheduler] ${entry.domain} scan failed: ${err.message}`);
+      }
+    }
+    store.ctMonitor.alerts = store.ctMonitor.alerts.slice(0, 500);
+    writeWorkspaceStore(store);
+  }, INTERVAL_MS);
+}
+
 function startServer() {
   ensureWorkspaceStore();
+  startAsmScheduler();
   return app.listen(PORT, () => {
     console.log(`CyberShield backend running at http://localhost:${PORT}`);
   });

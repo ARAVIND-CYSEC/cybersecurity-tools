@@ -63,8 +63,47 @@
       <section class="glass rounded-[1.5rem] p-5">
         <div class="flex items-center justify-between gap-3 flex-wrap">
           <div>
+            <p class="section-label m-0">Attack Surface Management</p>
+            <p class="mt-2 mb-0 text-sm text-slate-500 dark:text-slate-400">Continuously monitor domains via CT logs. Detect new assets and brand abuse automatically every hour.</p>
+          </div>
+          <div class="flex items-center gap-3 flex-wrap">
+            <button id="asmScanAllBtn" class="soft-btn text-sm">Scan All Now</button>
+            <button id="asmRefreshBtn" class="soft-btn text-sm">Refresh</button>
+          </div>
+        </div>
+
+        <!-- Add domain -->
+        <div class="mt-4">
+          <div style="display:flex;align-items:center;border:1px solid rgba(99,102,241,.35);border-radius:1rem;overflow:hidden;background:var(--surface2);">
+            <span style="padding:0 .75rem 0 1rem;color:#94a3b8;display:flex;align-items:center;flex-shrink:0;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            </span>
+            <input id="asmDomainInput" type="text" placeholder="Add domain to monitor e.g. company.com"
+              style="flex:1;padding:.75rem .5rem;background:transparent;border:none;outline:none;font-size:.9rem;color:var(--text);"
+              autocomplete="off" spellcheck="false" />
+            <button id="asmAddBtn"
+              style="padding:.75rem 1.25rem;background:linear-gradient(135deg,#6366f1,#4f46e5);border:none;color:#fff;font-size:.875rem;font-weight:700;cursor:pointer;flex-shrink:0;">
+              + Add
+            </button>
+          </div>
+          <p id="asmAddMsg" style="margin:.4rem 0 0;font-size:.78rem;min-height:1.2em;"></p>
+        </div>
+
+        <!-- Dashboard stats -->
+        <div id="asmStats" class="mt-4" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.75rem;"></div>
+
+        <!-- Monitored domains list -->
+        <div id="asmDomainList" class="mt-4 grid lg:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+
+        <!-- Alerts feed -->
+        <div id="asmAlerts" class="mt-5"></div>
+      </section>
+
+      <section class="glass rounded-[1.5rem] p-5">
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+          <div>
             <p class="section-label m-0">Certificate Transparency Monitor</p>
-            <p class="mt-2 mb-0 text-sm text-slate-500 dark:text-slate-400">Check crt.sh CT logs for new or suspicious certificates issued for a domain.</p>
+            <p class="mt-2 mb-0 text-sm text-slate-500 dark:text-slate-400">Check CT logs for new or suspicious certificates issued for a domain.</p>
           </div>
         </div>
         <div class="mt-4">
@@ -406,6 +445,190 @@
     var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     applyTheme(localStorage.theme ? localStorage.theme === "dark" : prefersDark);
     loadWatchlist();
+
+    // ─── ASM: Attack Surface Management ───────────────────────────────────────
+
+    var asmState = { domains: [], alerts: [] };
+
+    function asmRiskColor(risk) {
+      var r = String(risk || "").toLowerCase();
+      if (r === "critical") return "#ef4444";
+      if (r === "high")     return "#f97316";
+      if (r === "medium")   return "#f59e0b";
+      return "#10b981";
+    }
+    function asmRiskBadge(risk) {
+      var r = String(risk || "").toLowerCase();
+      if (r === "critical" || r === "high") return "danger";
+      if (r === "medium") return "warn";
+      return "safe";
+    }
+
+    function asmStatBox(label, val, color) {
+      return '<div style="padding:.75rem 1rem;border-radius:.85rem;border:1px solid var(--line);background:rgba(99,102,241,.05);text-align:center;">' +
+        '<p style="margin:0;font-size:.68rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#a5b4fc;">' + label + '</p>' +
+        '<p style="margin:.35rem 0 0;font-size:1.6rem;font-weight:800;color:' + (color || "var(--text)") + ';">' + val + '</p>' +
+      '</div>';
+    }
+
+    function renderAsmStats() {
+      var totalSubdomains = asmState.domains.reduce(function(n, d) { return n + (d.subdomains ? d.subdomains.length : 0); }, 0);
+      var newAssets   = asmState.alerts.filter(function(a) { return a.type === "NEW_ASSET"; }).length;
+      var brandAbuse  = asmState.alerts.filter(function(a) { return a.type === "BRAND_ABUSE"; }).length;
+      var highRisk    = asmState.alerts.filter(function(a) { return a.risk === "high" || a.risk === "critical"; }).length;
+      document.getElementById("asmStats").innerHTML =
+        asmStatBox("Monitored", asmState.domains.length) +
+        asmStatBox("Subdomains", totalSubdomains, "#a5b4fc") +
+        asmStatBox("New Assets", newAssets, newAssets > 0 ? "#f59e0b" : "var(--text)") +
+        asmStatBox("Brand Abuse", brandAbuse, brandAbuse > 0 ? "#ef4444" : "#10b981") +
+        asmStatBox("High Risk", highRisk, highRisk > 0 ? "#f97316" : "#10b981");
+    }
+
+    function renderAsmDomains() {
+      var root = document.getElementById("asmDomainList");
+      if (!asmState.domains.length) {
+        root.innerHTML = '<p class="text-sm text-slate-500 dark:text-slate-400">No domains monitored yet. Add one above.</p>';
+        return;
+      }
+      root.innerHTML = asmState.domains.map(function(d) {
+        var subs = (d.subdomains || []).slice(0, 8);
+        var more = (d.subdomains || []).length - subs.length;
+        var domainAlerts = asmState.alerts.filter(function(a) { return a.domain === d.domain; });
+        return '<div class="glass p-4 rounded-[1.2rem]" style="display:grid;gap:.75rem;">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap;">' +
+            '<p style="margin:0;font-size:1rem;font-weight:700;font-family:monospace;">' + escapeHtml(d.domain) + '</p>' +
+            '<span class="badge info">' + (d.subdomains ? d.subdomains.length : 0) + ' subdomains</span>' +
+          '</div>' +
+          '<div style="font-size:.75rem;color:var(--muted);display:grid;gap:.2rem;">' +
+            '<div>Added: ' + escapeHtml(d.addedAt ? d.addedAt.slice(0,10) : "—") + '</div>' +
+            '<div>Last scan: ' + escapeHtml(d.lastScannedAt ? new Date(d.lastScannedAt).toLocaleString() : "Never") + '</div>' +
+            '<div>Alerts: ' + domainAlerts.length + '</div>' +
+          '</div>' +
+          (subs.length ? '<div style="display:flex;flex-wrap:wrap;gap:.3rem;">' +
+            subs.map(function(s) { return '<span style="padding:.2rem .5rem;border-radius:999px;background:rgba(99,102,241,.1);font-size:.7rem;font-family:monospace;">' + escapeHtml(s) + '</span>'; }).join("") +
+            (more > 0 ? '<span style="padding:.2rem .5rem;border-radius:999px;background:rgba(99,102,241,.06);font-size:.7rem;color:#a5b4fc;">+' + more + ' more</span>' : '') +
+          '</div>' : '<p style="margin:0;font-size:.75rem;color:var(--muted);">No subdomains yet. Run a scan.</p>') +
+          '<div style="display:flex;gap:.5rem;flex-wrap:wrap;">' +
+            '<button class="soft-btn text-sm" style="font-size:.78rem;padding:.5rem .85rem;" data-asm-scan="' + escapeHtml(d.domain) + '">Scan Now</button>' +
+            '<button class="soft-btn text-sm" style="font-size:.78rem;padding:.5rem .85rem;color:#ef4444;" data-asm-remove="' + escapeHtml(d.id) + '">Remove</button>' +
+          '</div>' +
+        '</div>';
+      }).join("");
+
+      root.querySelectorAll("[data-asm-scan]").forEach(function(btn) {
+        btn.addEventListener("click", async function() {
+          var domain = btn.dataset.asmScan;
+          var orig = btn.textContent;
+          btn.disabled = true; btn.textContent = "Scanning...";
+          try {
+            var r = await requestJson("/api/asm/scan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ domain: domain }) });
+            document.getElementById("asmAddMsg").style.color = "#10b981";
+            document.getElementById("asmAddMsg").textContent = "Scan complete: " + r.newSubdomains.length + " new subdomain(s), " + r.newAlerts + " new alert(s).";
+            await loadAsmData();
+          } catch(e) {
+            document.getElementById("asmAddMsg").style.color = "#ef4444";
+            document.getElementById("asmAddMsg").textContent = e.message;
+          } finally { btn.disabled = false; btn.textContent = orig; }
+        });
+      });
+
+      root.querySelectorAll("[data-asm-remove]").forEach(function(btn) {
+        btn.addEventListener("click", async function() {
+          if (!confirm("Remove this domain from monitoring?")) return;
+          await requestJson("/api/asm/domains/" + encodeURIComponent(btn.dataset.asmRemove), { method: "DELETE" });
+          await loadAsmData();
+        });
+      });
+    }
+
+    function renderAsmAlerts() {
+      var root = document.getElementById("asmAlerts");
+      if (!asmState.alerts.length) {
+        root.innerHTML = '<p class="text-sm text-slate-500 dark:text-slate-400">No alerts yet. Run a scan to detect new assets and brand abuse.</p>';
+        return;
+      }
+      root.innerHTML =
+        '<p class="section-label" style="margin:0 0 .75rem;">Alert Feed (' + asmState.alerts.length + ')</p>' +
+        '<div style="display:grid;gap:.5rem;">' +
+        asmState.alerts.slice(0, 50).map(function(a) {
+          var isAbuse = a.type === "BRAND_ABUSE";
+          var borderColor = isAbuse ? "rgba(239,68,68,.35)" : "rgba(245,158,11,.25)";
+          var bgColor     = isAbuse ? "rgba(239,68,68,.05)" : "rgba(245,158,11,.04)";
+          var icon        = isAbuse ? "&#9888;" : "&#43;";
+          return '<div style="padding:.85rem 1rem;border-radius:.9rem;border:1px solid ' + borderColor + ';background:' + bgColor + ';display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;flex-wrap:wrap;">' +
+            '<div style="display:grid;gap:.2rem;">' +
+              '<div style="display:flex;align-items:center;gap:.5rem;">' +
+                '<span style="color:' + asmRiskColor(a.risk) + ';font-size:.85rem;">' + icon + '</span>' +
+                '<span style="font-size:.82rem;font-weight:700;font-family:monospace;">' + escapeHtml(a.asset) + '</span>' +
+                '<span class="badge ' + asmRiskBadge(a.risk) + '">' + escapeHtml((a.risk || "low").toUpperCase()) + '</span>' +
+                (isAbuse ? '<span class="badge danger">' + escapeHtml(a.abuseType || "abuse") + ' &bull; ' + (a.similarity || 0) + '%</span>' : '<span class="badge warn">NEW ASSET</span>') +
+              '</div>' +
+              '<div style="font-size:.72rem;color:var(--muted);">' + escapeHtml(a.domain) + ' &bull; ' + escapeHtml(a.firstSeen ? new Date(a.firstSeen).toLocaleString() : "") + '</div>' +
+            '</div>' +
+            '<button style="background:none;border:none;color:#64748b;cursor:pointer;font-size:.75rem;padding:.2rem .4rem;" data-asm-dismiss="' + escapeHtml(a.id) + '">&#10005;</button>' +
+          '</div>';
+        }).join("") +
+        '</div>';
+
+      root.querySelectorAll("[data-asm-dismiss]").forEach(function(btn) {
+        btn.addEventListener("click", async function() {
+          await requestJson("/api/asm/alerts/" + encodeURIComponent(btn.dataset.asmDismiss), { method: "DELETE" });
+          await loadAsmData();
+        });
+      });
+    }
+
+    async function loadAsmData() {
+      try {
+        var [domainsRes, alertsRes] = await Promise.all([
+          requestJson("/api/asm/domains"),
+          requestJson("/api/asm/alerts")
+        ]);
+        asmState.domains = domainsRes.domains || [];
+        asmState.alerts  = alertsRes.alerts  || [];
+        renderAsmStats();
+        renderAsmDomains();
+        renderAsmAlerts();
+      } catch(e) {
+        document.getElementById("asmDomainList").innerHTML = '<p style="color:#ef4444;font-size:.85rem;">' + escapeHtml(e.message) + '</p>';
+      }
+    }
+
+    document.getElementById("asmAddBtn").addEventListener("click", async function() {
+      var domain = document.getElementById("asmDomainInput").value.trim();
+      var msg = document.getElementById("asmAddMsg");
+      if (!domain) { msg.style.color = "#ef4444"; msg.textContent = "Enter a domain first."; return; }
+      try {
+        var r = await requestJson("/api/asm/domains", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ domain: domain }) });
+        document.getElementById("asmDomainInput").value = "";
+        msg.style.color = r.existed ? "#f59e0b" : "#10b981";
+        msg.textContent = r.existed ? domain + " is already monitored." : domain + " added. Run a scan to populate subdomains.";
+        await loadAsmData();
+      } catch(e) { msg.style.color = "#ef4444"; msg.textContent = e.message; }
+    });
+
+    document.getElementById("asmDomainInput").addEventListener("keydown", function(e) {
+      if (e.key === "Enter") document.getElementById("asmAddBtn").click();
+    });
+
+    document.getElementById("asmScanAllBtn").addEventListener("click", async function() {
+      var btn = this;
+      btn.disabled = true; btn.textContent = "Scanning...";
+      try {
+        var r = await requestJson("/api/asm/scan-all", { method: "POST" });
+        var newAlerts = r.results.reduce(function(n, x) { return n + (x.newAlerts || 0); }, 0);
+        document.getElementById("asmAddMsg").style.color = "#10b981";
+        document.getElementById("asmAddMsg").textContent = "Scan-all complete. " + newAlerts + " new alert(s) generated.";
+        await loadAsmData();
+      } catch(e) {
+        document.getElementById("asmAddMsg").style.color = "#ef4444";
+        document.getElementById("asmAddMsg").textContent = e.message;
+      } finally { btn.disabled = false; btn.textContent = "Scan All Now"; }
+    });
+
+    document.getElementById("asmRefreshBtn").addEventListener("click", loadAsmData);
+
+    loadAsmData();
   </script>
   <script src="ai-assistant.js"></script>
   <script src="responsive-nav.js?v=20260429b"></script>
