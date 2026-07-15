@@ -2103,7 +2103,9 @@
       }
     }
 
-    async function runTlsIntelligence() {
+async function runTlsIntelligence() {
+      // Accept raw domains, full URLs, and domains with paths (backend normalizes via parseUserDomainInput)
+
       const domain = document.getElementById("tlsInput").value.trim();
       const result = document.getElementById("tlsResult");
       if (!domain) { result.textContent = "Enter a domain."; return; }

@@ -2416,6 +2416,166 @@ async function fetchSecurityHeaders(hostname) {
   } catch { return {}; }
 }
 
+// Strict TLS intelligence (non-simulated schema). Keep /api/security/ssl unchanged for backward compatibility.
+app.post("/api/security/tls-intel", async (req, res) => {
+  const domainInput = String(req.body?.domain || req.body?.host || "").trim();
+  const parsed = parseUserDomainInput(domainInput);
+  const domain = parsed.hostname;
+
+  if (!domain || !isLikelyDomain(domain)) {
+    return badRequest(res, "A valid domain/hostname is required.");
+  }
+
+  const START = Date.now();
+
+  try {
+const [probe, headers, crtRaw] = await Promise.all([
+      (async () => {
+        const { probeTlsSupport, parseStrictTransportSecurity, parseContentSecurityPolicy } = require("./tls_intel_scanner");
+        const tls = await probeTlsSupport(domain);
+        const supported = tls?.supported;
+        const probes = tls?.probes || {};
+
+        // Choose negotiated details from the first supported probe for stable outputs
+        let negotiatedCipher = null;
+        let negotiatedProtocol = null;
+        let leaf = null;
+        let chain = [];
+
+        if (supported && probes[supported]?.ok) {
+          negotiatedProtocol = probes[supported]?.negotiated?.protocol || null;
+          negotiatedCipher = probes[supported]?.negotiated?.cipher || null;
+          leaf = probes[supported]?.certificate || null;
+          chain = probes[supported]?.chain || [];
+        } else {
+          // fallback: find any supported probe
+          const any = Object.entries(probes).find(([, v]) => v?.supported);
+          const label = any?.[0];
+          if (label && probes[label]?.ok) {
+            negotiatedProtocol = probes[label]?.negotiated?.protocol || null;
+            negotiatedCipher = probes[label]?.negotiated?.cipher || null;
+            leaf = probes[label]?.certificate || null;
+            chain = probes[label]?.chain || [];
+          }
+        }
+
+        return { tls, negotiatedProtocol, negotiatedCipher, leaf, chain, parseStrictTransportSecurity, parseContentSecurityPolicy };
+      })(),
+      (async () => {
+        const controller = new AbortController();
+        const t = setTimeout(() => controller.abort(), 6000);
+        const resp = await fetch(`https://${domain}/`, { method: "HEAD", redirect: "follow", signal: controller.signal });
+        clearTimeout(t);
+        const h = (name) => resp.headers.get(name);
+        return {
+          strictTransportSecurity: h("strict-transport-security"),
+          contentSecurityPolicy: h("content-security-policy"),
+          xContentTypeOptions: h("x-content-type-options"),
+          xFrameOptions: h("x-frame-options"),
+          referrerPolicy: h("referrer-policy"),
+          server: h("server")
+        };
+      })(),
+      (async () => {
+        const crtText = await fetchText(`https://crt.sh/?q=${encodeURIComponent(domain)}&output=json`, { timeoutMs: 8000 }).catch(() => "[]");
+        let crtData = [];
+        try {
+          const raw = String(crtText || "").trim();
+          crtData = JSON.parse(raw.startsWith("[") ? raw : `[${raw.replace(/}\s*{/g, "},{")}]`);
+        } catch {
+          crtData = [];
+        }
+        return crtData;
+      })()
+    ]);
+
+    const { tls, negotiatedProtocol, negotiatedCipher, leaf, chain, parseStrictTransportSecurity, parseContentSecurityPolicy } = probe;
+
+    const hsts = parseStrictTransportSecurity(headers.strictTransportSecurity);
+    const csp = parseContentSecurityPolicy(headers.contentSecurityPolicy);
+
+    const certAuthority = {
+      common_name_cn: leaf?.subject?.CN || null,
+      issuer_o: leaf?.issuer?.O || leaf?.issuer?.CN || null,
+      valid_from: leaf?.validFrom || null,
+      valid_until: leaf?.validTo || null,
+      chain_validated: null,
+      chain: chain
+    };
+
+    const supportedProtocols = Object.entries(tls?.probes || {})
+      .filter(([, v]) => v?.supported)
+      .map(([k]) => k);
+
+    const ctSummary = {
+      live_records_found: Array.isArray(crtRaw) ? crtRaw.length : 0,
+      historical_issuers: [...new Set((crtRaw || []).map(e => e.issuer_name).filter(Boolean))].slice(0, 10),
+      first_seen: null,
+      latest_seen: null
+    };
+
+    const times = (crtRaw || []).map(e => e.entry_timestamp).filter(Boolean);
+    if (times.length) {
+      ctSummary.first_seen = new Date(times.map(t => Date.parse(t)).filter(Number.isFinite)[0]).toISOString();
+      ctSummary.latest_seen = new Date(Math.max(...times.map(t => Date.parse(t)).filter(Number.isFinite))).toISOString();
+    }
+
+    const result = {
+      scan_metadata: {
+        target: domain,
+        input: domainInput,
+        scan_duration_ms: Date.now() - START,
+        confidence_score: 1.0
+      },
+      transport_layer: {
+        supported_protocols: supportedProtocols,
+        deprecated_protocols_observed: [],
+        negotiated_cipher: negotiatedCipher,
+        negotiated_protocol: negotiatedProtocol,
+        perfect_forward_secrecy: null
+      },
+      certificate_authority: {
+        common_name: leaf?.subject?.CN || null,
+        issuer: certAuthority.issuer_o,
+        root_ca: null,
+        valid_from: leaf?.validFrom || null,
+        valid_until: leaf?.validTo || null,
+        chain_validated: certAuthority.chain_validated,
+        sha256_fingerprint: leaf?.fingerprint256 || null,
+        subject_alternative_names: leaf?.san || []
+      },
+      security_headers: {
+        strict_transport_security: {
+          present: hsts.present,
+          value: hsts.value,
+          max_age: hsts.maxAge,
+          includeSubDomains: hsts.includeSubDomains,
+          preload: hsts.preload
+        },
+        content_security_policy: {
+          present: csp.present,
+          value: csp.value,
+          directives: csp.directives
+        },
+        x_content_type_options: headers.xContentTypeOptions || null,
+        referrer_policy: headers.referrerPolicy || null,
+        x_frame_options: headers.xFrameOptions || null,
+        server: headers.server || null
+      },
+      certificate_transparency: {
+        live_records_found: ctSummary.live_records_found,
+        historical_issuers: ctSummary.historical_issuers,
+        first_seen: ctSummary.first_seen,
+        latest_seen: ctSummary.latest_seen
+      }
+    };
+
+    return res.json(result);
+  } catch (error) {
+    return res.status(502).json({ error: "Failed to fetch TLS intelligence.", details: error.message || error.toString() });
+  }
+});
+
 app.get("/api/security/ssl", async (req, res) => {
   const parsed = parseUserDomainInput(req.query.domain);
   const domain = parsed.hostname;
