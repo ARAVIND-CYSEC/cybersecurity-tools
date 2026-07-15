@@ -1245,10 +1245,12 @@
           <div class="space-y-5">
             <input id="hashFileInput" type="file" class="tool-input" />
             <div class="flex flex-wrap gap-3">
-              <button id="hashRun" class="action-btn primary">Generate Hashes</button>
+              <button id="hashRun" class="action-btn primary">Analyze File (Fuzzy)</button>
               <button id="hashExport" class="action-btn">Export</button>
             </div>
-            <div id="hashResult" class="result-card p-5 min-h-[220px] text-sm text-slate-600 dark:text-slate-300">Generate SHA-based hashes for a selected file.</div>
+            <div id="hashResult" class="result-card p-5 min-h-[220px] text-sm text-slate-600 dark:text-slate-300">
+              Upload a file to compute exact hashes, best-effort fuzzy hashes (SSDEEP/TLSH if available), structural stats, and a heuristic risk score.
+            </div>
           </div>
         `;
       }
@@ -1867,25 +1869,140 @@
       const result = document.getElementById("hashResult");
       const file = input.files?.[0];
       if (!file) { result.textContent = "Choose a file first."; return; }
-      result.textContent = "Generating SHA hashes...";
-      const buffer = await file.arrayBuffer();
-      const hashes = {
-        sha1: await digestHex(buffer, "SHA-1"),
-        sha256: await digestHex(buffer, "SHA-256"),
-        sha384: await digestHex(buffer, "SHA-384"),
-        sha512: await digestHex(buffer, "SHA-512")
-      };
-      state.reports.hashing = { tool: "file-hashing", query: file.name, fetchedAt: new Date().toISOString(), report: { fileName: file.name, fileSize: file.size, hashes } };
-      saveLocalReport(state.reports.hashing);
-      result.innerHTML = `
-        <div class="result-card p-4 mb-4">
-          <p class="section-label m-0">Artifact</p>
-          <p class="mt-3 font-semibold">${escapeHtml(file.name)} <span class="text-slate-500">(${file.size} bytes)</span></p>
-        </div>
-        <div class="space-y-3">
-          ${Object.entries(hashes).map(([name, value]) => `<div class="result-card p-4"><p class="section-label m-0">${escapeHtml(name.toUpperCase())}</p><p class="mono text-xs break-all mt-3">${escapeHtml(value)}</p></div>`).join("")}
-        </div>
-      `;
+
+      const btn = document.getElementById("hashRun");
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Analyzing...";
+      }
+
+      try {
+        result.textContent = "Uploading file to fuzzy analyzer (best-effort)...";
+
+        const backendBase = window.CYBERSHIELD_FUZZY_ANALYZER_BASE || "http://127.0.0.1:8011";
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const res = await fetch(`${backendBase}/analyze`, { method: "POST", body: formData });
+        const data = await safeJson(res);
+
+        if (!res.ok) throw new Error(data?.detail || data?.error || "Fuzzy analysis failed.");
+
+        // Persist as a single report object for export/consistency
+        state.reports.hashing = {
+          tool: "file-fuzzy-hashing",
+          query: file.name,
+          fetchedAt: new Date().toISOString(),
+          report: data
+        };
+        saveLocalReport(state.reports.hashing);
+
+        const artifact = data?.artifact || {};
+        const hashes = data?.hashes || {};
+        const structure = data?.structure || {};
+        const scoring = data?.scoring || {};
+        const band = scoring?.band || "low";
+        const tone = band === "high" ? "danger" : band === "medium" ? "warn" : "safe";
+        const entropy = structure?.entropy;
+        const stringsCount = structure?.strings?.count;
+        const magic = structure?.magic;
+
+        const fuzzyLine = [
+          hashes?.ssdeep ? `SSDEEP present` : `SSDEEP not available`,
+          hashes?.tlsh ? `TLSH present` : `TLSH not available`
+        ].join(" · ");
+
+        result.innerHTML = `
+          <div class="intel-grid">
+            <div class="intel-metrics">
+              ${metricCard("Artifact", `${artifact.fileName || file.name}`, "info")}
+              ${metricCard("Size", `${artifact.fileSize || file.size} bytes`, "info")}
+              ${metricCard("Fuzzy Band", band.toUpperCase(), tone)}
+              ${metricCard("Heuristic Score", `${scoring?.score ?? "N/A"}/100`, tone)}
+              ${metricCard("Magic Type", magic || "Unknown", magic ? "info" : "warn")}
+              ${metricCard("Entropy", entropy != null ? `${entropy.toFixed(2)}` : "N/A", entropy != null ? "info" : "warn")}
+              ${metricCard("Strings", stringsCount != null ? `${stringsCount}` : "N/A", stringsCount ? "info" : "warn")}
+            </div>
+
+            <div class="grid lg:grid-cols-2 gap-4">
+              <div class="intel-section">
+                <p class="section-label m-0">Hashes (Exact + Best-effort Fuzzy)</p>
+                <div class="intel-list">
+                  ${detailRows([
+                    ["SHA1", hashes?.sha1],
+                    ["SHA256", hashes?.sha256],
+                    ["SSDEEP", hashes?.ssdeep || "null"],
+                    ["TLSH", hashes?.tlsh || "null"]
+                  ])}
+                </div>
+                <div class="mt-3 text-sm text-slate-500 dark:text-slate-400">${escapeHtml(fuzzyLine)}</div>
+              </div>
+
+              <div class="intel-section">
+                <p class="section-label m-0">Fuzzy/Structural Signals</p>
+                <div class="intel-list">
+                  ${detailRows([
+                    ["Magic", magic || "Unknown"],
+                    ["Entropy", entropy != null ? entropy.toFixed(2) : "N/A"],
+                    ["String count", stringsCount != null ? stringsCount : "N/A"],
+                    ["String sample", (structure?.strings?.sample || []).slice(0, 6).join(", ") || "N/A"]
+                  ])}
+                </div>
+              </div>
+            </div>
+
+            <div class="intel-section">
+              <p class="section-label m-0">Scoring Reasons</p>
+              <div class="intel-list">
+                ${(scoring?.reasons || []).length
+                  ? (scoring.reasons || []).map((r) => `<div class="intel-row"><span class="intel-key">•</span><span class="intel-value">${escapeHtml(r)}</span></div>`).join("")
+                  : `<div class="text-sm text-slate-500 dark:text-slate-400">No scoring reasons provided.</div>`}
+              </div>
+            </div>
+          </div>
+        `;
+      } catch (error) {
+        // Fallback: local SHA hashes so the UI still provides value
+        try {
+          result.textContent = "Backend fuzzy analysis unavailable. Falling back to local SHA hashes...";
+          const buffer = await file.arrayBuffer();
+          const hashes = {
+            sha1: await digestHex(buffer, "SHA-1"),
+            sha256: await digestHex(buffer, "SHA-256"),
+            sha384: await digestHex(buffer, "SHA-384"),
+            sha512: await digestHex(buffer, "SHA-512")
+          };
+          state.reports.hashing = {
+            tool: "file-hashing-local-fallback",
+            query: file.name,
+            fetchedAt: new Date().toISOString(),
+            report: {
+              fileName: file.name,
+              fileSize: file.size,
+              hashes
+            },
+            error: String(error?.message || error)
+          };
+          saveLocalReport(state.reports.hashing);
+          result.innerHTML = `
+            <div class="result-card p-4 mb-4">
+              <p class="section-label m-0">Fallback Mode</p>
+              <p class="mt-3 font-semibold text-amber-500">Exact hashes only (backend failed)</p>
+              <div class="mt-2 text-sm text-slate-500 dark:text-slate-400">${escapeHtml(String(error?.message || error))}</div>
+            </div>
+            <div class="space-y-3">
+              ${Object.entries(hashes).map(([name, value]) => `<div class="result-card p-4"><p class="section-label m-0">${escapeHtml(name.toUpperCase())}</p><p class="mono text-xs break-all mt-3">${escapeHtml(value)}</p></div>`).join("")}
+            </div>
+          `;
+        } catch (fallbackErr) {
+          result.innerHTML = `<p class="text-red-500">${escapeHtml(String(error?.message || error))}</p>`;
+        }
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "Analyze File (Fuzzy)";
+        }
+      }
     }
 
     async function runTls() {
