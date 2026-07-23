@@ -1257,11 +1257,14 @@
       return `
         <div class="space-y-5">
           <div class="flex flex-col md:flex-row gap-3">
-            <input id="tlsInput" class="tool-input mono" placeholder="example.com" />
-            <button id="tlsRun" class="action-btn primary">Analyze TLS</button>
-            <button id="tlsExport" class="action-btn">Export</button>
+            <input id="tlsInput" class="tool-input mono" placeholder="example.com" value="google.com" />
+            <button id="tlsRun" class="action-btn primary">&#9889; Run Enterprise TLS Scan</button>
+            <button id="tlsExport" class="action-btn">Export JSON</button>
           </div>
-          <div id="tlsResult" class="result-card p-5 min-h-[220px] text-sm text-slate-600 dark:text-slate-300">Assess certificate trust, protocol support, cipher quality, CT history, chain validation, SANs, headers, and risk.</div>
+          <div id="moduleRail" class="flex flex-wrap gap-2 mt-2"></div>
+          <div id="tlsResult" class="result-card p-5 min-h-[220px] text-sm text-slate-600 dark:text-slate-300">
+            Enter a domain and click <strong>Run Enterprise TLS Scan</strong> to assess certificate trust, protocol support, cipher quality, CT history, chain validation, DNS intelligence, and more (11 modules total).
+          </div>
         </div>
       `;
     }
@@ -2005,222 +2008,322 @@
       }
     }
 
-    async function runTls() {
-      const domain = document.getElementById("tlsInput").value.trim();
-      const result = document.getElementById("tlsResult");
-      if (!domain) { result.textContent = "Enter a domain."; return; }
-      const btn = document.getElementById("tlsRun");
-      btn.disabled = true;
-      btn.textContent = "Scanning...";
-      let dots = 0;
-      const timer = setInterval(() => {
-        dots = (dots + 1) % 4;
-        result.textContent = `Scanning TLS for ${domain}${".".repeat(dots)}`;
-      }, 800);
+    const tlsV2State = { activeModule: null, result: null };
 
-      async function poll(maxAttempts, intervalMs) {
-        const res = await fetch(`/api/security/ssl?domain=${encodeURIComponent(domain)}`);
-        const d = await safeJson(res);
-        if (!res.ok) throw new Error(d.error || "TLS lookup failed.");
-        return d;
+    function statusIcon(status) {
+      return { success:"&#9989;", partial:"&#9888;&#65039;", failed:"&#10060;", skipped:"&#9234;&#65039;", pending:"&#9203;" }[status] || "&#10067;";
+    }
+
+    function statusTone(status) {
+      return { success:"safe", partial:"warn", failed:"danger", skipped:"info" }[status] || "info";
+    }
+
+    function renderModuleRail() {
+      const rail = document.getElementById("moduleRail");
+      if (!rail) return;
+      if (!tlsV2State.result?.modules) { rail.innerHTML = ""; return; }
+      const modules = Object.entries(tlsV2State.result.modules);
+      rail.innerHTML = modules.map(([name, mod]) =>
+        `<button class="module-tab ${tlsV2State.activeModule === name ? "active" : ""} ${statusTone(mod.status)}" data-module="${name}">
+          ${statusIcon(mod.status)} ${escapeHtml(name)}
+          <span class="text-xs ml-1 opacity-60">${mod.duration_ms}ms</span>
+        </button>`
+      ).join("");
+      rail.querySelectorAll("[data-module]").forEach(btn => {
+        btn.addEventListener("click", () => { tlsV2State.activeModule = btn.dataset.module; renderModuleDetail(); });
+      });
+    }
+
+    function renderModuleDetail() {
+      const result = document.getElementById("tlsResult");
+      if (!tlsV2State.activeModule || !tlsV2State.result?.modules?.[tlsV2State.activeModule]) {
+        renderTlsV2Overview();
+        return;
+      }
+      const mod = tlsV2State.result.modules[tlsV2State.activeModule];
+      const tone = statusTone(mod.status);
+      const findings = mod.findings || {};
+      const warnings = mod.warnings || [];
+      const errors = mod.errors || [];
+
+      let extraHtml = "";
+      for (const [key, value] of Object.entries(findings)) {
+        if (key === "all_supported" && Array.isArray(value)) {
+          extraHtml += `<div class="intel-section mt-4"><p class="section-label m-0">All Supported Ciphers</p><div class="intel-list mt-2">${
+            value.slice(0, 15).map(c =>
+              `<div class="intel-row"><span class="intel-key">${escapeHtml(c.protocol || "")}</span><span class="intel-value mono text-xs">${escapeHtml(c.cipher || c.tested || "")} <span class="badge ${c.forward_secrecy ? "safe" : "warn"} ml-2">${escapeHtml(c.strength || "")}</span></span></div>`
+            ).join("")
+          }${value.length > 15 ? `<div class="text-sm text-slate-500 mt-2">...and ${value.length - 15} more</div>` : ""}</div></div>`;
+        } else if (key === "protocols" && typeof value === "object") {
+          extraHtml += `<div class="intel-section mt-4"><p class="section-label m-0">Protocol Details</p><div class="intel-list mt-2">${
+            Object.entries(value).map(([proto, info]) =>
+              `<div class="intel-row"><span class="intel-key">${escapeHtml(proto)}</span><span class="intel-value"><span class="badge ${info.status === "Supported" ? "safe" : "warn"}">${escapeHtml(info.status)}</span>${info.cipher_suite ? ` <span class="mono text-xs">${escapeHtml(info.cipher_suite)}</span>` : ""}</span></div>`
+            ).join("")
+          }</div></div>`;
+        } else if (key === "features" && typeof value === "object") {
+          extraHtml += `<div class="intel-section mt-4"><p class="section-label m-0">TLS Features</p><div class="intel-list mt-2">${detailRows(Object.entries(value).map(([k, v]) => [k, typeof v === "object" ? JSON.stringify(v) : String(v)]))}</div></div>`;
+        } else if (key === "metrics" && typeof value === "object") {
+          extraHtml += `<div class="intel-section mt-4"><p class="section-label m-0">Performance Metrics</p><div class="intel-list mt-2">${detailRows(Object.entries(value).map(([k, v]) => [k, String(v)]))}</div></div>`;
+        } else if (key === "chain" && Array.isArray(value)) {
+          extraHtml += arraySection("Certificate Chain", value.map(c => `${c.subject_cn} \u2190 ${c.issuer_o}`));
+        } else if (key === "analysis" && typeof value === "object") {
+          extraHtml += `<div class="intel-section mt-4"><p class="section-label m-0">Chain Analysis</p><div class="intel-list mt-2">${detailRows(Object.entries(value).filter(([k]) => k !== "chain").map(([k, v]) => [k, Array.isArray(v) ? v.join("; ") : String(v)]))}</div></div>`;
+        } else if (key === "certificate_transparency" && typeof value === "object") {
+          extraHtml += `<div class="intel-section mt-4"><p class="section-label m-0">Certificate Transparency</p><div class="intel-list mt-2">${detailRows(Object.entries(value).map(([k, v]) => [k, Array.isArray(v) ? JSON.stringify(v) : String(v)]))}</div></div>`;
+        } else if (key === "ocsp" && typeof value === "object") {
+          extraHtml += `<div class="intel-section mt-4"><p class="section-label m-0">OCSP Status</p><div class="intel-list mt-2">${detailRows(Object.entries(value).map(([k, v]) => [k, Array.isArray(v) ? v.join("; ") : String(v)]))}</div></div>`;
+        } else if (key === "extensions" && typeof value === "object") {
+          extraHtml += `<div class="intel-section mt-4"><p class="section-label m-0">Certificate Extensions</p><div class="intel-list mt-2">${detailRows(Object.entries(value).map(([k, v]) => [k, Array.isArray(v) ? v.join("; ") : String(v)]))}</div></div>`;
+        } else if (key === "public_key" && typeof value === "object") {
+          extraHtml += `<div class="intel-section mt-4"><p class="section-label m-0">Public Key</p><div class="intel-list mt-2">${detailRows(Object.entries(value))}</div></div>`;
+        } else if (key === "signature" && typeof value === "object") {
+          extraHtml += `<div class="intel-section mt-4"><p class="section-label m-0">Signature</p><div class="intel-list mt-2">${detailRows(Object.entries(value))}</div></div>`;
+        }
       }
 
-      try {
-        const data = await poll();
-        clearInterval(timer);
-        btn.disabled = false;
-        btn.textContent = "Analyze TLS";
-        state.reports.tls = { tool: "tls", query: domain, fetchedAt: new Date().toISOString(), report: data };
-        saveLocalReport(state.reports.tls);
+      result.innerHTML = `
+        <div class="intel-grid">
+          <div class="intel-metrics">
+            ${metricCard("Module", mod.module, tone)}
+            ${metricCard("Status", mod.status.toUpperCase(), tone)}
+            ${metricCard("Duration", mod.duration_ms + "ms", "info")}
+            ${metricCard("Warnings", warnings.length, warnings.length ? "warn" : "safe")}
+          </div>
+          ${warnings.length ? `<div class="intel-section"><p class="section-label m-0">Warnings</p><div class="intel-list mt-2">${warnings.map(w => `<div class="intel-row"><span class="intel-value text-left">${escapeHtml(w)}</span></div>`).join("")}</div></div>` : ""}
+          ${errors.length ? `<div class="intel-section"><p class="section-label m-0">Errors</p><div class="intel-list mt-2">${errors.map(e => `<div class="intel-row"><span class="intel-value text-left text-red-500">${escapeHtml(e)}</span></div>`).join("")}</div></div>` : ""}
+          <div class="intel-section">
+            <p class="section-label m-0">Findings</p>
+            <div class="intel-list mt-2">${detailRows(Object.entries(findings).filter(([k]) => !["all_supported","protocols","features","metrics","chain","analysis","certificate_transparency","ocsp","extensions","public_key","signature","subject","issuer","extended_key_usage","key_usage","certificate_policies","crl_distribution_points","ocsp_responder_urls","ca_issuer_urls","subject_alternative_names","name_constraints","validation_checks","compliance_checks","available_protocols","available_human_readable"].includes(k)).map(([k, v]) => [k, Array.isArray(v) ? v.join(", ") : typeof v === "object" ? JSON.stringify(v) : String(v)]))}</div>
+          </div>
+          ${extraHtml}
+        </div>
+      `;
+    }
 
-        const labs = data.ssllabs || data;
-        const endpoint = (labs.endpoints || [])[0] || {};
-        const details = endpoint.details || {};
-        const certDetail = details.cert || {};
-        const suites = (details.suites || []).flatMap(s => s.list || []);
-        const protocols = details.protocols || [];
-        const hstsPolicy = details.hstsPolicy || {};
-        const httpTx = details.httpTransactions || [];
-        const headers = httpTx[0]?.responseHeaders || [];
-        const getHeader = (name) => headers.find(h => h.name?.toLowerCase() === name.toLowerCase())?.value || null;
-        const certs = data.recentCertificates || [];
+    function renderTlsV2Overview() {
+      const result = document.getElementById("tlsResult");
+      if (!tlsV2State.result) {
+        result.innerHTML = `<div class="text-sm text-slate-500 dark:text-slate-400">Enter a domain and click <strong>Run Enterprise TLS Scan</strong> to begin.</div>`;
+        return;
+      }
 
-        // Certificate validity
-        const notBefore = certDetail.notBefore ? new Date(certDetail.notBefore * 1000) : null;
-        const notAfter = certDetail.notAfter ? new Date(certDetail.notAfter * 1000) : null;
-        const now = Date.now();
-        const daysRemaining = notAfter ? Math.ceil((notAfter.getTime() - now) / 86400000) : null;
-        const isExpired = daysRemaining !== null && daysRemaining < 0;
-        const isExpiringSoon = daysRemaining !== null && daysRemaining >= 0 && daysRemaining < 30;
-        const certStatus = isExpired ? "Expired" : certDetail.issues > 0 ? "Invalid Chain" : notAfter ? "Valid" : "Unknown";
-        const certStatusColor = certStatus === "Valid" ? "text-emerald-500" : "text-red-500";
+      const modules = tlsV2State.result.modules || {};
+      const summary = tlsV2State.result.summary || {};
+      const target = tlsV2State.result.target || {};
+      const total = summary.total_modules || Object.keys(modules).length;
+      const success = summary.successful || Object.values(modules).filter(m => m.status === "success").length;
+      const failed = summary.failed || Object.values(modules).filter(m => m.status === "failed").length;
+      const partial = summary.partial || Object.values(modules).filter(m => m.status === "partial").length;
 
-        // Grade
-        const grade = endpoint.grade || "";
-        const gradeColor = grade.startsWith("A") ? "text-emerald-500" : grade.startsWith("B") ? "text-amber-500" : grade ? "text-red-500" : "text-slate-400";
-        const riskLevel = grade.startsWith("A") ? "Low" : grade.startsWith("B") ? "Medium" : grade ? "High" : "Unknown";
-        const riskTone = riskLevel === "Low" ? "safe" : riskLevel === "Medium" ? "warn" : "danger";
+      const tlsProtocol = modules.tls_protocol?.findings;
+      const cert = modules.certificate?.findings;
+      const cipher = modules.cipher_suites?.findings;
+      const dnsInfo = modules.dns?.findings;
+      const ctInfo = modules.certificate_transparency?.findings?.certificate_transparency;
+      const perf = modules.performance?.findings?.metrics;
+      const alpn = modules.alpn?.findings;
 
-        // Protocols
-        const INSECURE = ["SSL 2.0","SSL 3.0","TLS 1.0","TLS 1.1"];
-        const protocolRows = protocols.map(p => {
-          const name = p.name ? `${p.name} ${p.version || ""}`.trim() : `Protocol ${p.id}`;
-          const insecure = INSECURE.some(i => name.replace(" ","").includes(i.replace(" ",""))) || p.id <= 769;
-          return `<div class="intel-row"><span class="intel-key">${insecure ? "✗" : "✓"} ${escapeHtml(name)}</span><span class="badge ${insecure ? "danger" : "safe"}">${insecure ? "Insecure" : "Secure"}</span></div>`;
-        }).join("") || `<div class="intel-row"><span class="intel-key">Protocol data unavailable — SSL Labs may still be scanning.</span></div>`;
+      const tls13 = tlsProtocol?.protocols?.["TLS 1.3"]?.status === "Supported";
+      const tls12 = tlsProtocol?.protocols?.["TLS 1.2"]?.status === "Supported";
+      const deprecatedProtocols = tlsProtocol?.deprecated_protocols_observed;
+      const weakCiphers = cipher?.weak_ciphers > 0;
+      const h2Supported = alpn?.http2_supported;
+      const pfs = cipher?.has_forward_secrecy;
+      const certExpired = cert?.is_expired;
+      const daysRemaining = cert?.days_remaining;
+      const certValid = cert?.is_expired === false && cert?.is_not_yet_valid === false;
+      const ctCount = ctInfo?.sct_count || 0;
+      const ctVerified = ctInfo?.verified;
 
-        // Ciphers
-        const WEAK = ["RC4","DES","3DES","NULL","EXPORT","anon","MD5"];
-        const cipherRows = suites.slice(0, 8).map(s => {
-          const name = s.name || "Unknown";
-          const weak = WEAK.some(w => name.toUpperCase().includes(w));
-          const strong = name.includes("AES_256") || name.includes("CHACHA20") || name.includes("AES_128_GCM");
-          const label = weak ? "Weak" : strong ? "Strong" : "Acceptable";
-          const tone = weak ? "danger" : strong ? "safe" : "warn";
-          return `<div class="intel-row"><span class="intel-key mono text-xs">${escapeHtml(name)}</span><span class="badge ${tone}">${label}</span></div>`;
-        }).join("") || `<div class="intel-row"><span class="intel-key">Cipher data unavailable.</span></div>`;
+      let grade = "C";
+      let score = 0;
+      if (tls13 && tls12 && !deprecatedProtocols?.length && !weakCiphers && certValid && pfs && ctVerified) { grade = "A+"; score = 95; }
+      else if (tls13 && tls12 && !deprecatedProtocols?.length && !weakCiphers && certValid) { grade = "A"; score = 88; }
+      else if (tls12 && certValid && !deprecatedProtocols?.length) { grade = "A-"; score = 80; }
+      else if (certValid && tls12) { grade = "B+"; score = 72; }
+      else if (certValid) { grade = "B"; score = 65; }
+      else if (!deprecatedProtocols?.length) { grade = "C+"; score = 55; }
+      else { grade = "D"; score = 35; }
 
-        // SAN
-        const san = certDetail.altNames || [];
+      if (certExpired) { grade = "F"; score = 15; }
+      else if (daysRemaining !== undefined && daysRemaining < 30 && daysRemaining >= 0) { grade = grade.replace(/\+?$/, ""); score -= 15; }
 
-        // Certificate chain
-        const chain = details.chain?.certs || [];
-        const chainHtml = chain.length
-          ? chain.map((c, i) => `<div class="intel-row"><span class="intel-key">${i === 0 ? "Root CA" : i === chain.length - 1 ? "Leaf Certificate" : "Intermediate CA"}</span><span class="intel-value">${escapeHtml(c.subject?.CN || c.subject?.O || "Unknown")} <span class="text-slate-500">← ${escapeHtml(c.issuerLabel || c.issuerSubject?.CN || "Unknown")}</span></span></div>`).join("")
-          : `<div class="intel-row"><span class="intel-key">Chain data unavailable.</span></div>`;
+      const perfAssessment = perf?.total_connect_time_ms < 500 ? "Excellent" : perf?.total_connect_time_ms < 1500 ? "Good" : perf?.total_connect_time_ms < 3000 ? "Moderate" : "Slow";
+      const gradeTone = grade.startsWith("A") ? "safe" : grade.startsWith("B") ? "warn" : grade === "F" ? "danger" : "warn";
 
-        // Security headers
-        const hsts = hstsPolicy.status === "present" || getHeader("strict-transport-security");
-        const headerChecks = [
-          { name: "HSTS", present: !!hsts },
-          { name: "CSP", present: !!getHeader("content-security-policy") },
-          { name: "X-Frame-Options", present: !!getHeader("x-frame-options") },
-          { name: "X-Content-Type-Options", present: !!getHeader("x-content-type-options") },
-          { name: "Referrer-Policy", present: !!getHeader("referrer-policy") }
-        ];
-        const headerRows = headerChecks.map(h => `<div class="intel-row"><span class="intel-key">${h.present ? "✓" : "✗"} ${h.name}</span><span class="badge ${h.present ? "safe" : "danger"}">${h.present ? "Present" : "Missing"}</span></div>`).join("");
+      result.innerHTML = `
+        <div class="intel-grid">
+          <div class="intel-metrics">
+            ${metricCard("Target", target.display_name || target.hostname || "N/A")}
+            ${metricCard("TLS Grade", grade, gradeTone)}
+            ${metricCard("Duration", tlsV2State.result.scan_duration_ms + "ms", "info")}
+            ${metricCard("Overall", summary.overall_status?.toUpperCase() || "N/A", statusTone(summary.overall_status))}
+            ${metricCard("Modules", success + " OK / " + failed + " Fail / " + partial + " Partial", failed ? (success ? "warn" : "danger") : "safe")}
+            ${metricCard("Performance", perfAssessment, perfAssessment === "Excellent" ? "safe" : perfAssessment === "Good" ? "info" : "warn")}
+          </div>
 
-        // CT
-        const ctFirst = data.summary?.firstSeen ? new Date(data.summary.firstSeen).getFullYear() : null;
-        const ctLatest = data.summary?.latestIssued || data.summary?.latestSeen || null;
-        const headerScore = headerChecks.filter(h => h.present).length;
-        const confidence = grade ? Math.min(98, 60 + headerScore * 5 + (grade === "A+" ? 15 : grade === "A" ? 10 : grade === "A-" ? 7 : 0)) : 0;
-
-        // Assessment
-        const assessment = grade.startsWith("A")
-          ? "The target uses a valid certificate issued by a trusted CA. Modern TLS versions are supported, no deprecated protocols were observed, and certificate chain validation completed successfully."
-          : grade.startsWith("B")
-            ? "The target has a valid certificate but some configuration improvements are recommended. Review cipher suites and protocol support to achieve an A rating."
-            : grade
-              ? "The target has significant TLS configuration issues. Immediate remediation is recommended."
-              : "SSL Labs scan is in progress or data is unavailable. Re-run the analysis in a few minutes for full results.";
-
-        result.innerHTML = `
-          <div class="intel-grid">
-            <!-- Summary cards -->
-            <div class="intel-metrics">
-              ${metricCard("TLS Status", "Enabled", "safe")}
-              ${metricCard("Certificate", certStatus, certStatus === "Valid" ? "safe" : "danger")}
-              ${metricCard("Security Rating", grade || "—", grade.startsWith("A") ? "safe" : grade.startsWith("B") ? "warn" : grade ? "danger" : "info")}
-              ${metricCard("Risk Level", riskLevel, riskTone)}
-              ${metricCard("Confidence", confidence ? confidence + "%" : "Awaiting", "info")}
-            </div>
-
-            <!-- Certificate Info + Validity -->
-            <div class="grid lg:grid-cols-2 gap-4">
-              <div class="intel-section">
-                <p class="section-label m-0">Certificate Information</p>
-                <div class="intel-list">${detailRows([
-                  ["Common Name (CN)", certDetail.subject?.CN || certDetail.commonNames?.[0]],
-                  ["Issuer", certDetail.issuerLabel || certDetail.issuerSubject?.CN || certDetail.issuerSubject?.O],
-                  ["Organization", certDetail.subject?.O],
-                  ["Serial Number", certDetail.serialNumber],
-                  ["SHA-256 Fingerprint", certDetail.sha256Hash]
-                ])}</div>
-              </div>
-              <div class="intel-section">
-                <p class="section-label m-0">Certificate Validity</p>
-                <div class="intel-list">
-                  ${detailRows([
-                    ["Valid From", notBefore ? notBefore.toISOString().split("T")[0] : null],
-                    ["Valid Until", notAfter ? notAfter.toISOString().split("T")[0] : null]
-                  ])}
-                  <div class="intel-row">
-                    <span class="intel-key">Days Remaining</span>
-                    <span class="intel-value ${isExpired ? "text-red-500" : isExpiringSoon ? "text-amber-500" : "text-emerald-500"}">
-                      ${daysRemaining !== null ? daysRemaining : "N/A"}
-                      ${isExpired ? " <span class='badge danger'>Expired</span>" : isExpiringSoon ? " <span class='badge warn'>⚠ Expiring Soon</span>" : ""}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- TLS Protocols + Cipher Suites -->
-            <div class="grid lg:grid-cols-2 gap-4">
-              <div class="intel-section">
-                <p class="section-label m-0">Supported Protocols</p>
-                <div class="intel-list mt-2">${protocolRows}</div>
-              </div>
-              <div class="intel-section">
-                <p class="section-label m-0">Cipher Suite Analysis</p>
-                <div class="intel-list mt-2">${cipherRows}</div>
-              </div>
-            </div>
-
-            <!-- CT Records + SAN -->
-            <div class="grid lg:grid-cols-2 gap-4">
-              <div class="intel-section">
-                <p class="section-label m-0">Certificate Transparency</p>
-                <div class="intel-list">${detailRows([
-                  ["CT Records", certs.length],
-                  ["First Seen", ctFirst],
-                  ["Latest Certificate", ctLatest ? ctLatest.split("T")[0] : null],
-                  ["Issuers", (data.summary?.issuers || []).slice(0, 3).join(", ")]
-                ])}</div>
-              </div>
-              <div class="intel-section">
-                <p class="section-label m-0">Subject Alternative Names (SAN)</p>
-                <div class="intel-list mt-2 max-h-40 overflow-y-auto">${san.length
-                  ? san.map(name => `<div class="intel-row"><span class="intel-value mono text-left text-xs">${escapeHtml(name)}</span></div>`).join("")
-                  : `<div class="text-sm text-slate-500 mt-2">No SAN data available.</div>`
-                }</div>
-              </div>
-            </div>
-
-            <!-- Certificate Chain -->
+          <div class="grid lg:grid-cols-3 gap-4">
             <div class="intel-section">
-              <p class="section-label m-0">Certificate Chain</p>
-              <div class="intel-list mt-2">${chainHtml}</div>
+              <p class="section-label m-0">TLS Protocol</p>
+              <div class="intel-list mt-2">${detailRows([
+                ["TLS 1.3", tls13 ? "Supported" : "Disabled"],
+                ["TLS 1.2", tls12 ? "Supported" : "Disabled"],
+                ["Deprecated Protocols", deprecatedProtocols?.join(", ") || "None"],
+              ])}</div>
             </div>
-
-            <!-- Security Headers -->
             <div class="intel-section">
-              <p class="section-label m-0">Security Headers</p>
-              <div class="intel-list mt-2">${headerRows}</div>
+              <p class="section-label m-0">Cipher &amp; ALPN</p>
+              <div class="intel-list mt-2">${detailRows([
+                ["Strong Ciphers", cipher?.strong_ciphers ?? "N/A"],
+                ["PFS Ciphers", cipher?.pfs_ciphers ?? "N/A"],
+                ["Weak Ciphers", weakCiphers ? "Yes" : "None"],
+                ["PFS Enabled", pfs ? "Yes" : "No"],
+                ["HTTP/2 (ALPN)", h2Supported ? "Supported" : "N/A"],
+                ["HTTP/3 (ALPN)", alpn?.http3_supported ? "Supported" : "N/A"],
+              ])}</div>
             </div>
-
-            <!-- Risk Assessment -->
             <div class="intel-section">
-              <p class="section-label m-0">TLS Intelligence Assessment</p>
-              <div class="intel-metrics mt-4">
-                ${metricCard("TLS Security Rating", grade || "—", grade.startsWith("A") ? "safe" : grade.startsWith("B") ? "warn" : grade ? "danger" : "info")}
-                ${metricCard("Risk", riskLevel, riskTone)}
-                ${metricCard("Confidence", confidence ? confidence + "%" : "Awaiting", "info")}
-              </div>
-              <div class="intel-row mt-4"><span class="intel-value text-sm leading-7">${escapeHtml(assessment)}</span></div>
+              <p class="section-label m-0">Certificate</p>
+              <div class="intel-list mt-2">${detailRows([
+                ["Common Name", cert?.common_name ?? "N/A"],
+                ["Issuer", cert?.issuer?.organization ?? cert?.issuer?.common_name ?? "N/A"],
+                ["Days Remaining", daysRemaining ?? "N/A"],
+                ["Expired", certExpired ? "Yes" : "No"],
+                ["Wildcard", cert?.is_wildcard ? "Yes" : "No"],
+                ["CT Records", ctCount],
+              ])}</div>
             </div>
           </div>
-        `;
-      } catch (error) {
-        clearInterval(timer);
+
+          <div class="grid lg:grid-cols-2 gap-4">
+            <div class="intel-section">
+              <p class="section-label m-0">DNS Intelligence</p>
+              <div class="intel-list mt-2">${detailRows([
+                ["A Records", dnsInfo?.a_records?.length ?? "N/A"],
+                ["AAAA Records", dnsInfo?.aaaa_records?.length ?? "N/A"],
+                ["MX Records", dnsInfo?.mx_records?.length ?? "N/A"],
+                ["CNAME", dnsInfo?.cname ?? "None"],
+                ["CDN Provider", dnsInfo?.cdn_provider ?? "Unknown"],
+                ["ASN", dnsInfo?.asn?.asn ?? "N/A"],
+                ["Organisation", dnsInfo?.asn?.organisation ?? "N/A"],
+                ["Country", dnsInfo?.geo?.country ?? "N/A"],
+                ["Reverse DNS", dnsInfo?.reverse_dns ?? "N/A"],
+                ["DNSSEC", dnsInfo?.dnssec ? "Signed" : "Unsigned"],
+              ])}</div>
+            </div>
+            <div class="intel-section">
+              <p class="section-label m-0">Performance &amp; Features</p>
+              <div class="intel-list mt-2">${detailRows([
+                ["DNS Lookup", perf?.dns_lookup_ms != null ? perf.dns_lookup_ms + "ms" : "N/A"],
+                ["TCP Connect", perf?.tcp_connect_ms != null ? perf.tcp_connect_ms + "ms" : "N/A"],
+                ["TLS Handshake", perf?.tls_handshake_ms != null ? perf.tls_handshake_ms + "ms" : "N/A"],
+                ["Total Connect", perf?.total_connect_time_ms != null ? perf.total_connect_time_ms + "ms" : "N/A"],
+                ["PFS", modules.tls_features?.findings?.features?.perfect_forward_secrecy ? "Yes" : "N/A"],
+                ["Session Resumption", modules.tls_features?.findings?.features?.session_resumption?.supported ? "Yes" : "N/A"],
+                ["Session Tickets", modules.tls_features?.findings?.features?.session_tickets?.supported ? "Available" : "N/A"],
+              ])}</div>
+              <div class="intel-section mt-4">
+                <p class="section-label m-0">Available Protocols (ALPN)</p>
+                <div class="intel-list mt-2">${(alpn?.available_human_readable || []).length ? alpn.available_human_readable.map(p => `<div class="intel-row"><span class="intel-value text-left">${escapeHtml(p)}</span></div>`).join("") : `<div class="text-sm text-slate-400">No ALPN data</div>`}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="intel-section">
+            <p class="section-label m-0">TLS v2 Intelligence Assessment</p>
+            <div class="intel-metrics mt-4">
+              ${metricCard("TLS Grade", grade, gradeTone)}
+              ${metricCard("Score", score + "/100", score >= 80 ? "safe" : score >= 60 ? "warn" : "danger")}
+              ${metricCard("Performance", perfAssessment, perfAssessment === "Excellent" ? "safe" : "warn")}
+              ${metricCard("Modules Loaded", total, "info")}
+            </div>
+            <div class="intel-row mt-4">
+              <span class="intel-value text-sm leading-7 text-left">
+                ${grade === "A+" 
+                  ? "Enterprise-grade TLS configuration. All modern protocols supported, strong ciphers with PFS, valid certificate with CT logs, no deprecated protocols, and excellent performance."
+                  : grade === "A"
+                    ? "Strong TLS configuration. Modern protocols and ciphers supported. Minor improvements may be available for A+."
+                    : grade === "F"
+                      ? "Critical TLS issues detected. Certificate may be expired or unreachable. Immediate attention required."
+                      : "TLS configuration has room for improvement. Review deprecated protocols, weak ciphers, certificate validity, and security headers."}
+              </span>
+            </div>
+          </div>
+
+          <details open class="intel-section">
+            <summary class="cursor-pointer font-semibold">All Modules — Raw Findings (' + total + ' total)</summary>
+            <div class="grid md:grid-cols-2 gap-4 mt-4">
+              ${Object.entries(modules).map(([name, mod]) => `
+                <div class="intel-section">
+                  <p class="section-label m-0">${statusIcon(mod.status)} ${escapeHtml(name)} <span class="text-xs opacity-60">${mod.duration_ms}ms</span></p>
+                  <div class="intel-list mt-2">${detailRows(Object.entries(mod.findings || {}).slice(0, 8).map(([k, v]) => [k, Array.isArray(v) ? v.length + " items" : typeof v === "object" ? JSON.stringify(v).slice(0, 80) : String(v)]))}</div>
+                  ${mod.warnings?.length ? `<div class="mt-2 text-amber-500 text-xs">${mod.warnings.map(w => "&#9888; " + escapeHtml(w)).join("<br>")}</div>` : ""}
+                  ${mod.errors?.length ? `<div class="mt-2 text-red-500 text-xs">${mod.errors.map(e => "&#10060; " + escapeHtml(e)).join("<br>")}</div>` : ""}
+                </div>
+              `).join("")}
+            </div>
+          </details>
+
+          <details class="intel-section">
+            <summary class="cursor-pointer font-semibold">Raw API Response</summary>
+            <pre class="mono whitespace-pre-wrap text-xs mt-4 max-h-96 overflow-y-auto">${escapeHtml(JSON.stringify(tlsV2State.result, null, 2))}</pre>
+          </details>
+        </div>
+      `;
+    }
+
+    async function runTlsV2Scan() {
+      const domain = document.getElementById("tlsInput").value.trim();
+      const result = document.getElementById("tlsResult");
+      const btn = document.getElementById("tlsRun");
+
+      if (!domain) { result.textContent = "Enter a domain."; return; }
+
+      btn.disabled = true;
+      btn.textContent = "Scanning...";
+      result.innerHTML = `<div class="text-sm text-slate-500 dark:text-slate-400">Running enterprise TLS v2 scan against <strong>${escapeHtml(domain)}</strong> (11 modules)...</div>`;
+
+      try {
+        const startTime = performance.now();
+        const res = await fetch("/api/tls/v2/scan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ domain, port: 443, timeout: 8 })
+        });
+        const data = await safeJson(res);
+        const elapsed = Math.round(performance.now() - startTime);
+
+        if (!res.ok) throw new Error(data.error || data.details || "Scan failed.");
+
+        tlsV2State.result = data;
+        tlsV2State.activeModule = null;
+        state.reports.tls = { tool: "tls-v2", query: domain, fetchedAt: new Date().toISOString(), report: data };
+        saveLocalReport(state.reports.tls);
+
+        renderModuleRail();
+        renderTlsV2Overview();
+
+        btn.textContent = "Re-scan (" + elapsed + "ms)";
+      } catch (err) {
+        result.innerHTML = `<p class="text-red-500">${escapeHtml(err.message)}</p>`;
+        btn.textContent = "Run Enterprise TLS Scan";
+      } finally {
         btn.disabled = false;
-        btn.textContent = "Analyze TLS";
-        result.innerHTML = `<p class="text-red-500">${escapeHtml(error.message)}</p>`;
       }
     }
 
-async function runTlsIntelligence() {
+    function exportTlsV2Report() {
+      if (!tlsV2State.result) { alert("Run a scan first."); return; }
+      const blob = new Blob([JSON.stringify(tlsV2State.result, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "cybershield-tls-v2-scan-" + (tlsV2State.result.target?.hostname || "unknown") + ".json";
+      anchor.click();
+      URL.revokeObjectURL(url);
+    }
+
+    async function runTlsIntelligence() {
       // Accept raw domains, full URLs, and domains with paths (backend normalizes via parseUserDomainInput)
 
       const domain = document.getElementById("tlsInput").value.trim();
@@ -2496,8 +2599,9 @@ async function runTlsIntelligence() {
         document.getElementById("hashRun")?.addEventListener("click", runHashing);
         document.getElementById("hashExport")?.addEventListener("click", () => state.reports.hashing && exportReport(state.reports.hashing, "cybershield-file-hash-report.json"));
       } else if (state.securitySubtab === "tls") {
-        document.getElementById("tlsRun")?.addEventListener("click", runTlsIntelligence);
-        document.getElementById("tlsExport")?.addEventListener("click", () => state.reports.tls && exportReport(state.reports.tls, "cybershield-tls-report.json"));
+        document.getElementById("tlsRun")?.addEventListener("click", runTlsV2Scan);
+        document.getElementById("tlsInput")?.addEventListener("keydown", e => { if (e.key === "Enter") runTlsV2Scan(); });
+        document.getElementById("tlsExport")?.addEventListener("click", exportTlsV2Report);
       }
     }
 
