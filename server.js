@@ -114,6 +114,7 @@ const THREAT_INTEL_TTL_MS = 60 * 60 * 1000;
 const UPSTREAM_TIMEOUT_MS = Number(process.env.UPSTREAM_TIMEOUT_MS || 8000);
 const WHOIS_TIMEOUT_MS = Number(process.env.WHOIS_TIMEOUT_MS || 7000);
 const DETONATOR_SERVICE_URL = String(process.env.DETONATOR_SERVICE_URL || "http://127.0.0.1:8010").trim().replace(/\/+$/, "");
+const TLS_V2_SERVICE_URL = String(process.env.TLS_V2_SERVICE_URL || "http://127.0.0.1:8060").trim().replace(/\/+$/, "");
 
 app.use("/api", (req, res, next) => {
   const now = Date.now();
@@ -2880,6 +2881,7 @@ app.get("/api/detonator/health", async (req, res) => {
   }
 });
 
+
 app.post("/api/detonator/run", async (req, res) => {
   const url = String(req.body?.url || "").trim();
   const timeout = Number(req.body?.timeout || 15);
@@ -2906,6 +2908,50 @@ app.post("/api/detonator/run", async (req, res) => {
       error: "Detonation request failed.",
       details,
       hint: `The Detonation Lab depends on the standalone microservice at ${DETONATOR_SERVICE_URL}. Make sure it is running before launching a detonation.`
+    });
+  }
+});
+
+// ─── TLS v2 Scanner Proxy (Flask microservice on port 8060) ────────────────
+
+app.post("/api/tls/v2/scan", async (req, res) => {
+  try {
+    const data = await fetchJson(`${TLS_V2_SERVICE_URL}/api/tls/v2/scan`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req.body)
+    });
+    res.json(data);
+  } catch (error) {
+    const details = error.payload || error.message;
+    res.status(error.status || 502).json({
+      error: "TLS v2 scan failed.",
+      details,
+      hint: `TLS v2 scanner service is at ${TLS_V2_SERVICE_URL}. Make sure it is running.`
+    });
+  }
+});
+
+app.get("/api/tls/v2/health", async (req, res) => {
+  try {
+    const data = await fetchJson(`${TLS_V2_SERVICE_URL}/api/tls/v2/health`);
+    res.json({ ok: true, upstream: TLS_V2_SERVICE_URL, service: data });
+  } catch (error) {
+    res.status(502).json({
+      error: "TLS v2 microservice is unavailable.",
+      details: error.payload || error.message
+    });
+  }
+});
+
+app.get("/api/tls/v2/modules", async (req, res) => {
+  try {
+    const data = await fetchJson(`${TLS_V2_SERVICE_URL}/api/tls/v2/modules`);
+    res.json(data);
+  } catch (error) {
+    res.status(502).json({
+      error: "Failed to fetch TLS v2 scanner modules.",
+      details: error.payload || error.message
     });
   }
 });
