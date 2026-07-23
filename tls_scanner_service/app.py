@@ -1,20 +1,32 @@
+"""
+Enterprise TLS v2 Scanner Service (Flask).
+
+Retains backward-compatible /scan endpoint, adds /api/tls/v2/scan for the
+new plugin-based enterprise TLS assessment engine.
+
+Run:
+    python app.py --host 0.0.0.0 --port 8060
+
+Called by server.js via HTTP POST /scan or POST /api/tls/v2/scan.
+"""
+
 import socket
 import ssl
 import json
 import argparse
 import sys
+import os
 from datetime import datetime, timezone
 from cryptography import x509
 from cryptography.x509.oid import NameOID
 from flask import Flask, request, jsonify
 
-# Flask lightweight wrapper; allows Node server.js to call this service via HTTP.
-# Run:
-#   python app.py --host 0.0.0.0 --port 8060
-# Then call:
-#   POST /scan {"domain":"example.com"}
+# Register v2 API blueprint
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from api.v2 import v2_api
 
 app = Flask(__name__)
+app.register_blueprint(v2_api)
 
 DEFAULT_PORT = 443
 TIMEOUT_SEC = 6
@@ -26,19 +38,15 @@ def sanitize_host(user_input: str) -> str:
     raw = str(user_input or "").strip()
     if not raw:
         return ""
-    # strip protocol
     raw = raw.replace("https://", "").replace("http://", "")
-    # cut path/query/fragment
     raw = raw.split("/", 1)[0].split("?", 1)[0].split("#", 1)[0]
-    # strip port
     raw = raw.split(":", 1)[0]
     raw = raw.strip().lower()
-    if raw.startswith("www."):
-        raw = raw[4:]
+    raw = raw.lstrip("www.")
     return raw
 
 
-def tls_handshake(clean_host: str, tls_version: ssl.TLSVersion):
+def tls_handshake_v1(clean_host: str, tls_version: ssl.TLSVersion):
     ctx = ssl.create_default_context()
     ctx.minimum_version = tls_version
     ctx.maximum_version = tls_version
@@ -59,7 +67,6 @@ def count_embedded_scts(cert: x509.Certificate) -> int:
     sct_count = 0
     for ext in cert.extensions:
         if ext.oid.dotted_string == CERT_SCT_EMBEDDED_OID:
-            # extension.value is typically an ASN.1 structure; length is best-effort.
             try:
                 sct_count = len(ext.value)
             except Exception:
@@ -67,7 +74,8 @@ def count_embedded_scts(cert: x509.Certificate) -> int:
     return sct_count
 
 
-def scan(domain_input: str):
+def scan_v1(domain_input: str):
+    """Original v1 scan method — kept for backward compatibility."""
     clean_host = sanitize_host(domain_input)
     result = {
         "target": clean_host,
@@ -90,7 +98,7 @@ def scan(domain_input: str):
 
     for label, v in [("TLSv1.3", ssl.TLSVersion.TLSv1_3), ("TLSv1.2", ssl.TLSVersion.TLSv1_2)]:
         try:
-            hs = tls_handshake(clean_host, v)
+            hs = tls_handshake_v1(clean_host, v)
             result["protocol_support"][label] = "Observed/Supported"
             if primary_der_cert is None or label == "TLSv1.3":
                 primary_der_cert = hs["der_cert"]
@@ -100,31 +108,24 @@ def scan(domain_input: str):
             result["protocol_support"][label] = "Not Observed/Rejected"
 
     if not primary_der_cert:
-        result["reason"] = "Could not establish a verified TLS handshake on port 443 (TLS 1.2/1.3)."
+        result["reason"] = "Could not establish a verified TLS handshake on port 443."
         return result
 
     try:
         cert = x509.load_der_x509_certificate(primary_der_cert)
-
         valid_from = cert.not_valid_before
         valid_until = cert.not_valid_after
-
-        days_remaining = int((valid_until - datetime.now(timezone.utc)).days)
-        days_remaining = max(0, days_remaining)
-
+        days_remaining = max(0, int((valid_until - datetime.now(timezone.utc)).days))
         cn_attrs = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
         common_name = cn_attrs[0].value if cn_attrs else "Unknown"
-
         issuer_attrs = cert.issuer.get_attributes_for_oid(NameOID.ORGANIZATION_NAME)
         issuer_org = issuer_attrs[0].value if issuer_attrs else "Unknown"
-
         san = []
         try:
             ext = cert.extensions.get_extension_for_oid(x509.oid.ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
             san = ext.value.get_values_for_type(x509.DNSName)
         except Exception:
             san = []
-
         sct_count = count_embedded_scts(cert)
 
         result["status"] = "success"
@@ -143,9 +144,7 @@ def scan(domain_input: str):
             "certificate_transparency_records": sct_count,
             "subject_alternative_names": san,
         }
-
         return result
-
     except Exception as e:
         result["status"] = "parsing_error"
         result["reason"] = str(e)
@@ -154,11 +153,26 @@ def scan(domain_input: str):
 
 @app.post("/scan")
 def scan_endpoint():
+    """Backward-compatible v1 scan endpoint."""
     data = request.get_json(silent=True) or {}
     domain = data.get("domain") or data.get("host") or ""
-    res = scan(domain)
+    res = scan_v1(domain)
     code = 200 if res.get("status") == "success" else 400
     return jsonify(res), code
+
+
+@app.get("/health")
+def health_check():
+    """Health check showing both v1 and v2 status."""
+    from scanner.core.registry import registry
+    return jsonify({
+        "ok": True,
+        "service": "tls-scanner",
+        "v1": True,
+        "v2": registry.count() > 0,
+        "v2_modules_loaded": registry.count(),
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
 
 
 if __name__ == "__main__":
@@ -167,6 +181,5 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=8060)
     args = parser.parse_args()
 
-    # Flask dev server (for local usage). Production should use gunicorn.
     app.run(host=args.host, port=args.port, debug=False)
 
